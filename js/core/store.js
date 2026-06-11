@@ -77,6 +77,89 @@ window.CWS = window.CWS || {};
     return out;
   };
 
+
+  // Central department reconciliation.
+  // SSOT rule: every department defined anywhere (Instellingen, legacy departments,
+  // resources, Gantt/Capacity hour sources or imported project hours) must be available
+  // as a project-hours column immediately. This prevents the Projecten screen from
+  // showing only "Engineering" when settings/departments are stored in a newer path.
+  const deptNorm = (value) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  const deptActive = (value) => {
+    if(value === undefined || value === null || value === "") return true;
+    if(value === false) return false;
+    const v = String(value).trim().toLowerCase();
+    return !(v === "false" || v === "nee" || v === "no" || v === "0" || v === "inactive" || v === "uit");
+  };
+  const deptRowName = (row) => String(row?.name ?? row?.afdeling ?? row?.Afdeling ?? row?.Naam ?? row?.dept ?? row?.department ?? row?.id ?? row?.code ?? "").trim();
+  const deptRowCode = (row) => String(row?.code ?? row?.Code ?? row?.afdelingCode ?? row?.departmentCode ?? "").trim();
+  const syncDepartments = (st) => {
+    st.settings = st.settings || {};
+    st.settings.tables = st.settings.tables && typeof st.settings.tables === "object" ? st.settings.tables : {};
+    st.settings.tables.departments = Array.isArray(st.settings.tables.departments) ? st.settings.tables.departments : [];
+    st.settings.tables.afdelingen = Array.isArray(st.settings.tables.afdelingen) ? st.settings.tables.afdelingen : [];
+    st.departments = st.departments || { order:[], byId:{} };
+    st.departments.order = Array.isArray(st.departments.order) ? st.departments.order : [];
+    st.departments.byId = st.departments.byId && typeof st.departments.byId === "object" ? st.departments.byId : {};
+
+    const add = (raw, preferredId=null) => {
+      const name = deptRowName(raw);
+      const code = deptRowCode(raw);
+      if(!name && !code) return null;
+      if(!deptActive(raw?.active ?? raw?.actief ?? raw?.Actief ?? raw?.enabled)) return null;
+      const displayName = name || code;
+      const norm = deptNorm(displayName);
+      let id = null;
+      for(const did of st.departments.order){
+        const d = st.departments.byId?.[did];
+        if(!d) continue;
+        if(deptNorm(d.name || did) === norm || (code && deptNorm(d.code || "") === deptNorm(code))){ id = did; break; }
+      }
+      if(!id){
+        id = String(preferredId || raw?.id || displayName);
+        if(!id.trim()) id = displayName;
+        if(st.departments.byId[id] && deptNorm(st.departments.byId[id].name || id) !== norm){
+          id = displayName;
+        }
+        if(!st.departments.order.includes(id)) st.departments.order.push(id);
+      }
+      st.departments.byId[id] = { ...(st.departments.byId[id] || {}), id, name:displayName, code:code || st.departments.byId[id]?.code || "", active:true };
+      const tableHas = st.settings.tables.departments.some(r => deptNorm(deptRowName(r) || deptRowCode(r)) === norm || (code && deptNorm(deptRowCode(r)) === deptNorm(code)));
+      if(!tableHas){
+        st.settings.tables.departments.push({ name:displayName, code:code || String(displayName).slice(0,4).toUpperCase(), color:raw?.color || raw?.kleur || "#4B5563", active:true, source:raw?.source || "sync" });
+      }
+      return id;
+    };
+
+    // New canonical settings table + legacy Dutch alias.
+    st.settings.tables.departments.forEach(r => add(r));
+    st.settings.tables.afdelingen.forEach(r => add(r));
+
+    // Legacy departments registry.
+    [...new Set(st.departments.order.slice())].forEach(id => add({ id, ...(st.departments.byId[id] || {}), name:(st.departments.byId[id]?.name || id) }, id));
+
+    // Resources/employees often carry the practical department names.
+    (st.resources?.order || []).forEach(id => { const r = st.resources?.byId?.[id]; if(r?.dept) add({ name:r.dept, source:"resource" }); });
+    (Array.isArray(st.settings.tables.employees) ? st.settings.tables.employees : []).forEach(e => { if(e?.dept) add({ name:e.dept, source:"employee" }); });
+
+    // Project-hours rows and generated Gantt/capacity maps can introduce department keys.
+    (Array.isArray(st.projects?.deptHours) ? st.projects.deptHours : []).forEach(r => { if(r?.deptId) add({ name:r.deptId, id:r.deptId, source:"project-hours" }, r.deptId); });
+    Object.values(st.gantt?.hoursByDay || {}).forEach(byDept => Object.keys(byDept || {}).forEach(name => add({ name, source:"gantt-hours" })));
+
+    // Gantt task phases imported from Excel/default models are also department phases.
+    Object.values(st.tasks?.byProject || {}).forEach(model => (model?.phases || []).forEach(ph => { if(ph?.name) add({ name:ph.name, source:"task-phase" }); }));
+
+    // Keep order unique and byId complete.
+    st.departments.order = [...new Set(st.departments.order)].filter(id => st.departments.byId[id]);
+
+    // Ensure every project has a deptHours object with all departments present as 0.
+    (st.projects?.order || []).forEach(pid => {
+      const p = st.projects?.byId?.[pid];
+      if(!p) return;
+      p.deptHours = p.deptHours && typeof p.deptHours === "object" && !Array.isArray(p.deptHours) ? p.deptHours : {};
+      st.departments.order.forEach(did => { if(p.deptHours[did] == null) p.deptHours[did] = 0; });
+    });
+  };
+
   const load = () => {
     const raw = localStorage.getItem(KEY_TENANT) || localStorage.getItem(KEY_GLOBAL);
     if(!raw) return normalizeState(defaultState());
@@ -125,6 +208,7 @@ window.CWS = window.CWS || {};
     st.settings = st.settings || {};
     st.settings.tables = st.settings.tables && typeof st.settings.tables === "object" ? st.settings.tables : {};
     st.settings.datasets = st.settings.datasets && typeof st.settings.datasets === "object" ? st.settings.datasets : {};
+    syncDepartments(st);
     st.allocations = st.allocations || { byWeek:{} };
     st.allocations.byWeek = st.allocations.byWeek && typeof st.allocations.byWeek === "object" ? st.allocations.byWeek : {};
     st.tasks = st.tasks || { byProject:{} };

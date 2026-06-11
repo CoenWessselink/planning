@@ -163,7 +163,19 @@ const UI = (() => {
   const openColumnWizard = ({ tableKey, columns, onApply }) => {
     const st = (typeof CWS !== 'undefined' && CWS.getState) ? CWS.getState() : {};
     const saved = st.ui?.tableColumns?.[tableKey];
-    const cols = (saved && Array.isArray(saved)) ? saved.map(c => ({...c})) : columns.map(c => ({...c}));
+    const defaultCols = (Array.isArray(columns) ? columns : []).map(c => ({...c}));
+    const defaultByKey = new Map(defaultCols.map(c => [String(c.key), c]));
+    const seen = new Set();
+    const cols = [];
+    if(saved && Array.isArray(saved)){
+      saved.forEach(c => {
+        const k = String(c.key);
+        const base = defaultByKey.get(k) || {};
+        cols.push({ ...base, ...c, locked: base.locked || c.locked });
+        seen.add(k);
+      });
+    }
+    defaultCols.forEach(c => { if(!seen.has(String(c.key))) cols.push({ ...c }); });
 
     const wrap = document.createElement('div');
     wrap.innerHTML = `
@@ -284,7 +296,14 @@ const UI = (() => {
 
     const st0 = (typeof CWS !== 'undefined' && CWS.getState) ? CWS.getState() : {};
     const savedCols = st0.ui?.tableColumns?.[tableKey];
-    let cols = (savedCols && Array.isArray(savedCols)) ? savedCols.map(c=>({...c})) : columns.map(c=>({...c}));
+    const defaultCols = (Array.isArray(columns) ? columns : []).map(c=>({...c}));
+    const defaultByKey = new Map(defaultCols.map(c => [String(c.key), c]));
+    const seenCols = new Set();
+    let cols = [];
+    if(savedCols && Array.isArray(savedCols)){
+      savedCols.forEach(c => { const k=String(c.key); const base=defaultByKey.get(k)||{}; cols.push({...base, ...c, locked:base.locked||c.locked}); seenCols.add(k); });
+    }
+    defaultCols.forEach(c => { if(!seenCols.has(String(c.key))) cols.push({...c}); });
     cols.forEach(c => { if (c.visible == null) c.visible = true; });
 
     const wrap = document.createElement('div');

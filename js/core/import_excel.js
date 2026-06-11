@@ -380,11 +380,16 @@ window.CWS_ExcelImport = (() => {
     st.departments = st.departments || { order:[], byId:{} };
     st.departments.order = Array.isArray(st.departments.order) ? st.departments.order : [];
     st.departments.byId = st.departments.byId && typeof st.departments.byId === "object" ? st.departments.byId : {};
+    st.settings = st.settings || {};
+    st.settings.tables = st.settings.tables && typeof st.settings.tables === "object" ? st.settings.tables : {};
+    st.settings.tables.departments = Array.isArray(st.settings.tables.departments) ? st.settings.tables.departments : [];
     const existing = st.departments.order.find(id => norm(st.departments.byId[id]?.name || id) === norm(deptName));
-    if(existing) return existing;
-    const id = deptName;
-    st.departments.byId[id] = { id, name:deptName, source:"excel-import" };
+    const id = existing || deptName;
+    st.departments.byId[id] = { ...(st.departments.byId[id]||{}), id, name:deptName, source:st.departments.byId[id]?.source || "excel-import" };
     if(!st.departments.order.includes(id)) st.departments.order.push(id);
+    if(!st.settings.tables.departments.some(r => norm(r.name || r.afdeling || r.id || r.code) === norm(deptName))){
+      st.settings.tables.departments.push({ name:deptName, code:deptName.slice(0,4).toUpperCase(), color:"#4B5563", active:true, source:"excel-import" });
+    }
     return id;
   }
 

@@ -217,7 +217,7 @@
 
       const st=CWS.getState();
       const projOpts=(st.projects?.order||[]).map(id=>({id, label:(st.projects.byId[id]?.nr||id)+" — "+(st.projects.byId[id]?.name||'')}));
-      const deptOpts=(st.departments?.order||[]).map(id=>({id, label:st.departments.byId[id]?.name||id}));
+      const deptOpts=getDeptList(st).map(d=>({id:d.id, label:d.name||d.id}));
       UI.openTableManager({
         title:'Projecturen per afdeling',
         subtitle:'Benodigde uren (bron voor Gantt/Capaciteit)',
@@ -229,7 +229,7 @@
           { key:'hours', label:'Benodigde uren', visible:true },
           { key:'note', label:'Notitie', visible:true },
         ],
-        defaultRow:()=>({ projectId:(st.projects?.order||[])[0]||'', deptId:(st.departments?.order||[])[0]||'', hours:0, note:'' }),
+        defaultRow:()=>({ projectId:(st.projects?.order||[])[0]||'', deptId:(getDeptList(CWS.getState())[0]?.id)||'', hours:0, note:'' }),
         onChange:()=>{ recalcNeedHoursFromDeptRows(); }
       });
       // One-time recalc after open to keep projects in sync
@@ -264,18 +264,89 @@
     }
   }
 
-  // Afdelingen komen uit Instellingen → Afdelingen (tabel). Fallback: legacy departments.
+  // Afdelingen komen uit Instellingen → Afdelingen en worden samengevoegd met legacy/import/Gantt bronnen.
+  // Belangrijk: nieuwe afdeling = direct nieuwe projecturen-kolom + veld in Project wijzigen.
   function getDeptList(st){
-    const rows = Array.isArray(st?.settings?.tables?.afdelingen) ? st.settings.tables.afdelingen : [];
-    const mapped = rows.map(r=>{
-      const name = (r.afdeling ?? r.name ?? r.Naam ?? r.Afdeling ?? r.id ?? r.code ?? '').toString().trim();
-      const code = (r.code ?? r.Code ?? '').toString().trim();
-      const active = (r.actief ?? r.active ?? r.Actief);
-      return { id: name || code, name: name || code, code, active: (active===false?false:true) };
-    }).filter(d=>d.id && d.active);
-    if(mapped.length) return mapped;
-    const legacyOrder = st?.departments?.order || [];
-    return legacyOrder.map(id=>({ id:String(id), name:(st.departments?.byId?.[id]?.name||id), code:'' }));
+    const out=[];
+    const seen=new Set();
+    const norm=(v)=>String(v??'').trim().toLowerCase().replace(/\s+/g,' ');
+    const active=(v)=>{
+      if(v===undefined || v===null || v==='') return true;
+      if(v===false) return false;
+      const s=String(v).trim().toLowerCase();
+      return !(s==='false'||s==='nee'||s==='no'||s==='0'||s==='uit'||s==='inactive');
+    };
+    const add=(raw, preferredId)=>{
+      if(!raw) return;
+      if(!active(raw.active ?? raw.actief ?? raw.Actief ?? raw.enabled)) return;
+      const name=(raw.name ?? raw.afdeling ?? raw.Naam ?? raw.Afdeling ?? raw.dept ?? raw.department ?? raw.id ?? raw.code ?? '').toString().trim();
+      const code=(raw.code ?? raw.Code ?? '').toString().trim();
+      const display=name || code;
+      if(!display) return;
+      const key=norm(display);
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push({ id:String(preferredId || raw.id || display), name:display, code, active:true });
+    };
+
+    (Array.isArray(st?.settings?.tables?.departments) ? st.settings.tables.departments : []).forEach(r=>add(r));
+    (Array.isArray(st?.settings?.tables?.afdelingen) ? st.settings.tables.afdelingen : []).forEach(r=>add(r));
+    (st?.departments?.order||[]).forEach(id=>add({ id, ...(st.departments?.byId?.[id]||{}), name:(st.departments?.byId?.[id]?.name||id) }, id));
+    (st?.resources?.order||[]).forEach(id=>{ const r=st.resources?.byId?.[id]; if(r?.dept) add({name:r.dept}); });
+    (Array.isArray(st?.settings?.tables?.employees) ? st.settings.tables.employees : []).forEach(e=>{ if(e?.dept) add({name:e.dept}); });
+    (Array.isArray(st?.projects?.deptHours) ? st.projects.deptHours : []).forEach(r=>{ if(r?.deptId) add({id:r.deptId,name:r.deptId}, r.deptId); });
+    Object.values(st?.gantt?.hoursByDay||{}).forEach(byDept=>Object.keys(byDept||{}).forEach(name=>add({name})));
+    Object.values(st?.tasks?.byProject||{}).forEach(model=>(model?.phases||[]).forEach(ph=>{ if(ph?.name) add({name:ph.name}); }));
+
+    return out;
+  }
+
+  function projectTableColumns(st, depts){
+    return [
+      { key:'nr', label:'Projectnummer', visible:true, locked:true },
+      { key:'name', label:'Projectnaam', visible:true },
+      { key:'client', label:'Opdrachtgever', visible:true },
+      { key:'status', label:'Status', visible:true },
+      { key:'needHours', label:'Uren benodigd', visible:true },
+      ...(depts||[]).map(d=>({ key:`dept:${d.id}`, label:`${d.name} (u)`, visible:true })),
+      { key:'start', label:'Startdatum', visible:true }
+    ];
+  }
+
+  function mergedProjectColumns(st, depts){
+    const defaults=projectTableColumns(st,depts);
+    const saved=st?.ui?.tableColumns?.['projects.table'];
+    if(!Array.isArray(saved)) return defaults;
+    const defByKey=new Map(defaults.map(c=>[String(c.key), c]));
+    const seen=new Set();
+    const cols=[];
+    saved.forEach(c=>{
+      const k=String(c.key);
+      const base=defByKey.get(k)||{};
+      cols.push({...base, ...c, locked:base.locked||c.locked});
+      seen.add(k);
+    });
+    defaults.forEach(c=>{ if(!seen.has(String(c.key))) cols.push({...c}); });
+    return cols;
+  }
+
+  function applyProjectColumnSettings(st, depts){
+    const table=document.querySelector('table');
+    if(!table) return;
+    const cols=mergedProjectColumns(st,depts);
+    const vis=Object.fromEntries(cols.map(c=>[String(c.key), c.visible!==false]));
+    const labels=Object.fromEntries(cols.map(c=>[String(c.key), c.label||c.key]));
+    const headers=[...table.querySelectorAll('thead th')];
+    headers.forEach((th,idx)=>{
+      const k=th.dataset.key;
+      if(!k) return;
+      if(labels[k]) th.textContent=labels[k];
+      th.style.display = (vis[k]===false) ? 'none' : '';
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        const td=tr.children[idx];
+        if(td) td.style.display = (vis[k]===false) ? 'none' : '';
+      });
+    });
   }
 
   function sumWeekFromRow(row){
@@ -515,6 +586,8 @@ function bindNP(){
     depts.forEach(d=>{
       const th=document.createElement('th');
       th.dataset.deptcol='1';
+      th.dataset.deptId=String(d.id);
+      th.dataset.key=`dept:${d.id}`;
       th.style.cursor='default';
       th.textContent = `${d.name} (u)`;
       tr.insertBefore(th, ref);
@@ -602,7 +675,7 @@ function bindNP(){
               const rows=Array.isArray(st2.projects?.deptHours)?st2.projects.deptHours:[];
               const has=rows.some(r=>String(r.projectId||r.project||'').trim()===id);
               if(!has){
-                CWS.setState(s=>{ s.projects.deptHours = Array.isArray(s.projects.deptHours)?s.projects.deptHours:[]; s.projects.deptHours.push({projectId:id, deptId:(s.departments?.order||[])[0]||'', hours:0, note:''}); return s; });
+                CWS.setState(s=>{ s.projects.deptHours = Array.isArray(s.projects.deptHours)?s.projects.deptHours:[]; s.projects.deptHours.push({projectId:id, deptId:(getDeptList(CWS.getState())[0]?.id)||'', hours:0, note:''}); return s; });
                 recalcNeedHoursFromDeptRows();
               }
             }catch(_){ }
@@ -621,7 +694,7 @@ function bindNP(){
       // Dept columns (hours per afdeling) — handmatig invulbaar
       const deptTds = depts.map(d=>{
         const cur = Number(p.deptHours?.[d.id] ?? 0);
-        return hourInputCell(cur, (newVal)=>{
+        const td = hourInputCell(cur, (newVal)=>{
           if(!Permissions.can(CWS.getState().ui.role,"edit_project")){ UI.toast("Geen rechten"); return; }
           CWS.setState(s=>{
             const proj = s.projects.byId[id];
@@ -633,11 +706,15 @@ function bindNP(){
           syncDeptHoursRowsForProject(id, CWS.getState().projects.byId[id].deptHours || {});
           render();
         });
+        td.dataset.key = `dept:${d.id}`;
+        return td;
       });
 
       [tdNr,tdName,tdClient,tdStatus,tdNeed, ...deptTds, tdStart].forEach(td=>tr.appendChild(td));
       tbody.appendChild(tr);
     });
+
+    applyProjectColumnSettings(st, depts);
 
     document.getElementById("count").textContent = `${idsAll.length} projecten • Pagina ${page} van ${pages}`;
     document.getElementById("prev").disabled = (page<=1);
@@ -675,10 +752,12 @@ function bindNP(){
     const active = st.ui.lastTab || "Alle";
     const q = document.getElementById("search").value;
     const idsAll = filteredIds(st, active, q);
-    const rows = [["Tab", active], ["Filter", q], [], ["Projectnummer","Projectnaam","Opdrachtgever","Status","Uren benodigd","Startdatum"]];
+    const depts = getDeptList(st);
+    const headers = ["Projectnummer","Projectnaam","Opdrachtgever","Status","Uren benodigd", ...depts.map(d=>`${d.name} (u)`), "Startdatum"];
+    const rows = [["Tab", active], ["Filter", q], [], headers];
     idsAll.forEach(id=>{
       const p = st.projects.byId[id] || {};
-      rows.push([p.nr||id, p.name||"", p.client||"", p.status||"", p.needHours??"", p.start||""]);
+      rows.push([p.nr||id, p.name||"", p.client||"", p.status||"", p.needHours??"", ...depts.map(d=>p.deptHours?.[d.id] ?? 0), p.start||""]);
     });
     UI.downloadCSV(`projecten_${active.replace(/\s+/g,'_').toLowerCase()}.csv`, rows);
     CWS.audit("project_created");
@@ -747,13 +826,7 @@ bindNP();
     cb.addEventListener("click", ()=>{
       UI.openColumnWizard({
         tableKey: "projects.table",
-        columns: [
-          { key:"nr", label:"Projectnummer", visible:true, locked:true },
-          { key:"name", label:"Projectnaam", visible:true },
-          { key:"client", label:"Opdrachtgever", visible:true },
-          { key:"status", label:"Status", visible:true },
-          { key:"start", label:"Startdatum", visible:true }
-        ],
+        columns: projectTableColumns(CWS.getState(), getDeptList(CWS.getState())),
         onApply: (cols)=>{
           const vis = Object.fromEntries(cols.map(c=>[c.key, c.visible!==false]));
           const labels = Object.fromEntries(cols.map(c=>[c.key, c.label||c.key]));
