@@ -121,6 +121,36 @@
     .bar[data-openable="1"]{cursor:pointer;}
     .bar[data-openable="1"]:active{cursor:grabbing;}
 
+
+    /* V20 — printtabel, robuuste taakpopup, echte kleurkeuzes en niet-werkbare dagen */
+    .gantt-table .color-pick{display:grid!important;grid-template-columns:20px minmax(92px,1fr);align-items:center;gap:7px;width:100%;min-width:118px;}
+    .gantt-table .color-pick .color-swatch{width:18px!important;height:18px!important;border-radius:5px;border:1px solid rgba(15,23,42,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.55);}
+    .gantt-table .color-pick .color-select{height:30px!important;border:1px solid #d7dee8!important;border-radius:8px!important;background:#fff!important;padding:0 6px!important;font-weight:700;color:#0f172a;}
+    .field .color-pick{display:grid!important;grid-template-columns:24px minmax(160px,1fr);align-items:center;gap:8px;width:100%;}
+    .field .color-pick .color-swatch{width:22px!important;height:22px!important;border-radius:6px;}
+    .bar.selected{outline:2px solid #0b5cac;outline-offset:2px;}
+    .lane{overflow:hidden;}
+    .nonwork-shade{position:absolute;top:0;bottom:0;background:rgba(148,163,184,.20);border-left:1px solid rgba(100,116,139,.24);border-right:1px solid rgba(100,116,139,.10);pointer-events:none;z-index:1;}
+    .tl-cell.day.nonwork{background:rgba(148,163,184,.18)!important;color:#64748b!important;}
+    .lane .baseline{z-index:4}.lane .bar{z-index:8}.lane .bar.summary{z-index:7}
+    .print-task-table{display:none;background:#fff;color:#111827;}
+    .print-task-table table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;}
+    .print-task-table th,.print-task-table td{border:1px solid #111827;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:22px;}
+    .print-task-table th{font-weight:900;text-align:left;background:#f3f4f6;}
+    .print-task-table .summary-row td{font-weight:900;background:#f8fafc;}
+    @media print{
+      .printing .board,.printing .board.diagram-only,.printing .board.table-only{display:grid!important;grid-template-columns:190px minmax(0,1fr)!important;gap:0!important;align-items:start!important;min-width:0!important;width:100%!important;}
+      .printing .print-task-table{display:block!important;width:190px!important;min-width:190px!important;max-width:190px!important;border-right:1px solid #111827!important;}
+      .printing .table-pane{display:none!important;}
+      .printing .chart-pane{grid-column:2!important;min-width:0!important;width:100%!important;}
+      .printing .print-task-table table{font-size:6px!important;}
+      .printing .print-task-table th,.printing .print-task-table td{height:22px!important;padding:1px 2px!important;border:1px solid #111827!important;}
+      .printing .print-task-table thead th{height:48px!important;vertical-align:bottom!important;}
+      .printing .nonwork-shade{background:rgba(148,163,184,.26)!important;border-left:.6px solid rgba(75,85,99,.45)!important;border-right:0!important;}
+      .printing .tl-cell.day.nonwork{background:rgba(148,163,184,.22)!important;}
+    }
+
+
   </style>
 </head>
 <body>
@@ -139,7 +169,7 @@
     </div>
     <div class="notice hidden" id="notice"></div>
     <div class="meta-line" id="metaLine">—</div>
-    <div class="board-wrap" id="boardWrap"><div class="board" id="board"><div class="table-pane"><table class="gantt-table" id="ganttTable"><thead><tr id="ganttHead"></tr></thead><tbody id="tableRows"></tbody></table></div><div class="chart-pane" id="chartPane"><div class="timeline" id="timeline"></div><div id="lanes"></div><svg class="dep-svg" id="depSvg"></svg><div class="today-line" id="todayLine" aria-hidden="true"></div></div></div></div><div class="print-legend" id="printLegend"></div>
+    <div class="board-wrap" id="boardWrap"><div class="board" id="board"><div class="table-pane"><table class="gantt-table" id="ganttTable"><thead><tr id="ganttHead"></tr></thead><tbody id="tableRows"></tbody></table></div><div class="print-task-table" id="printTaskTable" aria-hidden="true"></div><div class="chart-pane" id="chartPane"><div class="timeline" id="timeline"></div><div id="lanes"></div><svg class="dep-svg" id="depSvg"></svg><div class="today-line" id="todayLine" aria-hidden="true"></div></div></div></div><div class="print-legend" id="printLegend"></div>
     <div class="context"><div class="context-head">Context / WHY</div><div class="context-body" id="contextBody">Selecteer een taak of balk om details te zien.</div></div>
   </div>
   <div class="modalback" id="modalBack"><div class="modal"><div class="modal-head"><b id="modalTitle">Taak bewerken</b><button class="btn" id="modalClose">Sluiten</button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot"><button class="btn primary" id="modalSave">Opslaan</button></div></div></div>
@@ -180,7 +210,7 @@
       if(sw) sw.style.background = colorHex(selectEl.value);
     }
     const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false };
-    const COL_KEY = "cws.gantt.visibleColumns.v17";
+    const COL_KEY = "cws.gantt.visibleColumns.v20";
     const ALL_COLUMNS = [
       {id:"id",label:"ID",min:72,control:"text"},
       {id:"name",label:"Taak",min:118,control:"task"},
@@ -191,7 +221,7 @@
       {id:"predecessor",label:"Voorganger",min:82,control:"input"},
       {id:"department",label:"Afdeling",min:78,control:"select"},
       {id:"resource",label:"Resource",min:70,control:"select"},
-      {id:"color",label:"Kleur",min:62,control:"select"},
+      {id:"color",label:"Kleur",min:126,control:"select"},
       {id:"locked",label:"Lock",min:46,control:"checkbox"}
     ];
     const DEFAULT_COLS = ["id","name","start","end","duration","progress","predecessor","department","resource","color","locked"];
@@ -239,7 +269,8 @@
     }
     function columnPadding(col){
       if(col.control==="task") return 64;       // celpadding + twisty + inspringruimte
-      if(col.control==="select") return 42;     // celpadding + dropdownpijl
+      if(col.id==="color") return 74;       // swatch + kleurdropdown
+      if(col.control==="select") return 52;     // celpadding + dropdownpijl
       if(col.control==="checkbox") return 24;
       if(col.control==="number") return 34;
       if(col.control==="input" || col.control==="date") return 30;
@@ -317,6 +348,20 @@
     function startOfWeek(iso){ const d=parseDate(iso)||new Date(); const dow=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()-dow+1); return toIso(d); }
     function isoWeek(d0){ const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate())); const day=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-day); const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1)); return { year:d.getUTCFullYear(), week:Math.ceil((((d-ys)/86400000)+1)/7) }; }
     function duration(s,e){ if(!s||!e) return 0; return Math.max(1, dayDiff(s,e)+1); }
+    function isNonWorkingIso(st, iso){
+      const d=parseDate(iso);
+      if(!d) return false;
+      const wd=d.getUTCDay()===0 ? 7 : d.getUTCDay();
+      const cal=st?.settings?.calendar || {};
+      const ov=cal.overrides?.[iso];
+      // In de store betekent override=true: niet werkbaar; override=false: werkbaar.
+      if(typeof ov === "boolean") return ov;
+      if(cal.workweek && cal.workweek[wd] === false) return true;
+      const legacy=Array.isArray(st?.settings?.tables?.calendar) ? st.settings.tables.calendar : [];
+      const hit=legacy.find(r=>String(r?.date||"").slice(0,10)===String(iso));
+      if(hit && hit.isWorking === false) return true;
+      return false;
+    }
     function state(){ return CWS?.getState?.() || { projects:{order:[],byId:{},deptHours:[]}, resources:{order:[],byId:{}}, departments:{order:[],byId:{}}, tasks:{byProject:{}}, ganttV2:{byProject:{},ui:{}}, gantt:{hoursByDay:{},sourcesByDay:{}} }; }
     function projects(st=state()){ return (st.projects?.order||[]).map(id=>st.projects.byId[id]).filter(Boolean); }
     function departments(st=state()){ const byId=st.departments?.byId||{}; const order=st.departments?.order||Object.keys(byId); const out=order.map(id=>byId[id]).filter(Boolean); if(out.length) return out; const names=[...new Set((st.resources?.order||[]).map(id=>st.resources.byId[id]?.dept).filter(Boolean))]; return names.map(n=>({id:n,name:n})); }
@@ -430,11 +475,12 @@
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
     function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const sorted=dates.slice().sort(); const min=sorted[0]; const max=sorted.at(-1); const start=startOfWeek(addDays(min,-7)); if(UI.printMode){ const endPad=startOfWeek(addDays(max,7)); return {start,days:Math.max(14,dayDiff(start,endPad)+7)}; } let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
     function pxPerDay(){ if(UI.printMode) return Number(UI.printDayW||12); return UI.zoom==="day"?34:UI.zoom==="week"?22:10; }
-    function targetPrintWidth(){ return Math.max(1120, Math.min(1460, (window.innerWidth||1360)-120)); }
+    function targetPrintWidth(){ return UI.printMode ? 1240 : Math.max(1120, Math.min(1460, (window.innerWidth||1360)-120)); }
     function setPrintDayWidth(range){ const target=targetPrintWidth(); UI.printDayW=Math.max(4.8, Math.min(18, Math.floor((target-6)/Math.max(1,range.days)))); document.documentElement.style.setProperty("--dayW", UI.printDayW+"px"); }
     function extendRangeForViewport(range,leftW){ if(UI.printMode||UI.view==="table") return range; const wrap=$("#boardWrap"); const w=pxPerDay(); const visible=Math.max(0,(wrap?.clientWidth||0)-(UI.view==="both"?leftW:0)-2); const minDays=Math.ceil(visible/w); return minDays>range.days ? {...range, days:minDays} : range; }
     function buildTimeline(range){ const w=pxPerDay(); document.documentElement.style.setProperty("--dayW",w+"px"); const days=[]; for(let i=0;i<range.days;i++) days.push(addDays(range.start,i)); const totalW=days.length*w; const groups=(kind)=>{ const out=[]; days.forEach((iso,i)=>{ const d=parseDate(iso); const key=kind==="month"?`${d.getUTCFullYear()}-${d.getUTCMonth()}`:`${isoWeek(d).year}-W${isoWeek(d).week}`; const label=kind==="month"?d.toLocaleDateString("nl-NL",{month:"short",year:"numeric",timeZone:"UTC"}):`W${String(isoWeek(d).week).padStart(2,"0")}`; let g=out[out.length-1]; if(!g||g.key!==key) out.push({key,label,count:1}); else g.count++; }); return out; };
-      const months=groups("month").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const weeks=groups("week").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const today=toIso(new Date()); const dayHtml=days.map(iso=>{ const d=parseDate(iso), wknd=[0,6].includes(d.getUTCDay()); const wd=d.toLocaleDateString("nl-NL",{weekday:"short",timeZone:"UTC"}); const dom=pad(d.getUTCDate()); return `<div class="tl-cell day ${wknd?"weekend":""} ${iso===today?"today":""}">${UI.printMode?`<span>${wd}</span><span>${dom}</span>`:`${wd} ${dom}`}</div>`; }).join(""); const tl=$("#timeline"); tl.style.width=totalW+"px"; tl.innerHTML=`<div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${months}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${weeks}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${dayHtml}</div>`; return days; }
+      const stForDays=state();
+      const months=groups("month").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const weeks=groups("week").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const today=toIso(new Date()); const dayHtml=days.map(iso=>{ const d=parseDate(iso), wknd=[0,6].includes(d.getUTCDay()), nonwork=isNonWorkingIso(stForDays,iso); const wd=d.toLocaleDateString("nl-NL",{weekday:"short",timeZone:"UTC"}); const dom=pad(d.getUTCDate()); return `<div class="tl-cell day ${wknd?"weekend":""} ${nonwork?"nonwork":""} ${iso===today?"today":""}">${UI.printMode?`<span>${wd}</span><span>${dom}</span>`:`${wd} ${dom}`}</div>`; }).join(""); const tl=$("#timeline"); tl.style.width=totalW+"px"; tl.innerHTML=`<div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${months}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${weeks}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${dayHtml}</div>`; return days; }
     function xFor(iso, range){ return Math.max(0,dayDiff(range.start,iso)*pxPerDay()); }
     function criticalIds(model){ const ids=new Set(); model.rows.forEach(r=>{ if(r.type==="task"&&parsePred(r.predecessor).length) ids.add(r.id); }); const maxEnd=Object.values(model.sched||{}).map(s=>s.end).filter(Boolean).sort().at(-1); model.rows.forEach(r=>{ if(model.sched[r.id]?.end===maxEnd) ids.add(r.id); }); return ids; }
     function renderFilters(){ const st=state(); const pid=currentProjectId(); const projectSel=$("#projectSel"); projectSel.innerHTML=projects(st).filter(p=>p.status!=="Gereed").map(p=>`<option value="${esc(p.id)}">${esc(projectLabel(p))}</option>`).join(""); if(pid) projectSel.value=pid; $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+departments(st).map(d=>`<option value="${esc(d.id||d.name)}">${esc(d.name||d.id)}</option>`).join(""); $("#deptSel").value=UI.dept||""; $("#resourceSel").innerHTML='<option value="">Alle resources</option>'+resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)} (${esc(r.dept||"")})</option>`).join(""); $("#resourceSel").value=UI.resource||""; const status=CWS?.storageStatus; $("#storageBadge").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale browserdata"; $("#storageBadge").className="badge "+(status?.mode==="api"?"ok":"warn"); }
@@ -456,6 +502,7 @@
       if(UI.printMode) setPrintDayWidth(range); else { UI.printDayW=null; range=extendRangeForViewport(range,leftW); }
       UI.originStart=range.start;
       const days=buildTimeline(range);
+      const nonWorkShadeHtml=days.map((iso,i)=>isNonWorkingIso(st,iso)?`<span class="nonwork-shade" style="left:${i*pxPerDay()}px;width:${pxPerDay()}px"></span>`:"").join("");
       $("#ganttHead").innerHTML=cols.map((c,i)=>`<th data-col="${c.id}" style="width:${widths[i]}px">${esc(c.label)}</th>`).join("");
       $("#tableRows").innerHTML=rows.map(({row,index,sc})=>{
         const indent=Math.max(0,Number(row.level||0))*18;
@@ -471,7 +518,7 @@
         const left=xFor(sc.start||range.start,range), width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay());
         const isCritical=cids.has(row.id);
         const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),duration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:"";
-        return `<div class="lane" data-id="${esc(row.id)}">${base}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span><span class="bar-label" title="${esc(row.name)}">${esc(row.name)}</span><span class="handle right"></span></div></div>`;
+        return `<div class="lane" data-id="${esc(row.id)}">${nonWorkShadeHtml}${base}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span><span class="bar-label" title="${esc(row.name)}">${esc(row.name)}</span><span class="handle right"></span></div></div>`;
       }).join("");
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");
@@ -479,6 +526,7 @@
       $("#board").className="board "+(UI.view==="table"?"table-only":UI.view==="diagram"?"diagram-only":"");
       $("#metaLine").textContent=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | dagen: ${days.length}`;
       renderLegend(rows);
+      renderPrintTaskTable(rows);
       wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range); renderContext(model);
       setNotice(CWS.storageStatus?.mode==="api"?"":"Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.","warn");
       updateButtons();
@@ -488,18 +536,38 @@
       rows.forEach(({row})=>{ const key=(row.colorKey||"c1")+"|"+(row.name||""); if(!seen.has(key)){ seen.add(key); items.push({name:row.name||row.id,color:colorHex(row.colorKey)}); } });
       $("#printLegend").innerHTML=`<div class="legend-title">Legenda</div><div class="legend-items">${items.slice(0,24).map(it=>`<div class="legend-item"><span class="legend-swatch" style="background:${esc(it.color)}"></span><span class="legend-text">${esc(it.name)}</span></div>`).join("")}<div class="legend-item"><span class="legend-diamond"></span><span class="legend-text">Mijlpaal</span></div></div>`;
     }
+    function renderPrintTaskTable(rows){
+      const host=$("#printTaskTable");
+      if(!host) return;
+      const body=rows.map(({row,sc})=>{
+        const res = textForCol({id:"resource"}, row, sc) || "—";
+        const days = duration(sc.start, sc.end);
+        return `<tr class="${row.type==="summary"?"summary-row":""}"><td title="${esc(row.name)}">${esc(row.name)}</td><td title="${esc(res)}">${esc(res)}</td><td>${esc(days)} d</td></tr>`;
+      }).join("");
+      host.innerHTML=`<table><thead><tr><th>Taaknaam</th><th>Resource</th><th>Dagen</th></tr></thead><tbody>${body}</tbody></table>`;
+    }
     function updateButtons(){ $$('[data-zoom]').forEach(b=>b.classList.toggle('active',b.dataset.zoom===UI.zoom)); $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===UI.view)); $('#depsBtn').classList.toggle('active',UI.showDeps); $('#criticalBtn').classList.toggle('active',UI.showCritical); $('#baselineBtn').classList.toggle('active',UI.showBaseline); $('#undoBtn').disabled=!(CWS?.canUndo?.()); $('#redoBtn').disabled=!(CWS?.canRedo?.()); }
     function updateRow(model,rowId,patch){ const row=model.rows.find(r=>r.id===rowId); if(!row) return; Object.assign(row,patch); saveModel(currentProjectId(),model); render(); }
+    function selectRow(model,rowId){
+      UI.selected=rowId;
+      $$("#tableRows tr").forEach(tr=>tr.classList.toggle("selected", tr.dataset.id===rowId));
+      $$(".bar").forEach(b=>b.classList.toggle("selected", b.dataset.id===rowId));
+      renderContext(model);
+    }
     function wireRows(model,pid){
       $$("#tableRows tr").forEach(tr=>{
         const rowId=tr.dataset.id;
-        tr.addEventListener("click",()=>{UI.selected=rowId; render();});
-        tr.addEventListener("dblclick",()=>openEdit(rowId));
+        tr.addEventListener("click",()=>{selectRow(model,rowId);});
+        tr.addEventListener("dblclick",(e)=>{
+          if(e.target && ["SELECT","OPTION"].includes(e.target.tagName)) return;
+          openEdit(rowId);
+        });
         tr.querySelectorAll("select.color-select").forEach(sel=>{
           setColorPickerPreview(sel);
           sel.addEventListener("input",()=>setColorPickerPreview(sel));
         });
         tr.querySelectorAll("input,select").forEach(el=>{
+          el.addEventListener("click",()=>selectRow(model,rowId));
           el.addEventListener("change",()=>{
             const row=model.rows.find(r=>r.id===rowId);
             if(!row) return;
@@ -534,9 +602,15 @@
         const row=model.rows.find(r=>r.id===id);
         if(!row) return;
         bar.dataset.openable="1";
-        bar.addEventListener("dblclick",e=>{ e.preventDefault(); e.stopPropagation(); UI.selected=id; openEdit(id); });
+        bar.addEventListener("click",e=>{
+          e.stopPropagation();
+          selectRow(model,id);
+          if(e.detail>=2){ e.preventDefault(); openEdit(id); }
+        });
+        bar.addEventListener("dblclick",e=>{ e.preventDefault(); e.stopPropagation(); selectRow(model,id); openEdit(id); });
         if(row.type==="summary"||row.locked) return;
         bar.addEventListener("pointerdown",e=>{
+          if(e.detail>=2){ e.preventDefault(); return; }
           const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move";
           UI.drag={id,handle,startX:e.clientX,orig:{...(model.sched[id]||{})}};
           bar.setPointerCapture(e.pointerId);
@@ -614,7 +688,7 @@
         URL.revokeObjectURL(a.href);
       }
     }
-    function printA3(){ const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW; UI.printMode=true; UI.view="diagram"; UI.zoom="print"; document.body.classList.add("printing"); render(); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(UI.printMode) restore(); },8000); }
+    function printA3(){ const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW; UI.printMode=true; UI.view="both"; UI.zoom="print"; document.body.classList.add("printing"); render(); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(UI.printMode) restore(); },8000); }
     function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen uit standaardtemplate gegenereerd"); toast("Fasen uit standaardtemplate gegenereerd"); render();}; $("#recalcBtn").onclick=applyPredecessors; $("#hoursBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Uren herberekend voor Capaciteit"); render(); }; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; window.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modalBack").classList.remove("show"); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
     bind(); render();
   })();
