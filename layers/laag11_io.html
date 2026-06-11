@@ -1,0 +1,325 @@
+<!doctype html><html lang="nl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="../css/theme.css"/></head>
+<body style="background:transparent">
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-tools">
+      <button class="btn" onclick="UI.openAppsMenuSafe()">Apps Menu</button>
+      <span class="smallmuted">Import / Export</span>
+    </div>
+    <div class="panel-tools">
+      <button class="btn" id="demoBtn">Demo data vullen</button>
+      <button class="btn" id="clearBtn">Data leeg maken</button>
+    </div>
+  </div>
+
+  <div style="padding:12px;">
+    <div class="panel" style="margin-bottom:12px;">
+      <div class="panel-head">
+        <div class="panel-tools">
+          <strong>Templates</strong>
+          <span class="smallmuted">Download CSV templates om snel te starten.</span>
+        </div>
+        <div class="panel-tools">
+          <button class="btn" id="tplProjects">Template Projecten</button>
+          <button class="btn" id="tplResources">Template Resources</button>
+          <button class="btn" id="tplAlloc">Template Toewijzingen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:12px;">
+      <div class="panel-head">
+        <div class="panel-tools">
+          <strong>Import CSV</strong>
+          <span class="smallmuted">Sleep een CSV in het veld of kies bestand. XLSX is bewust uitgeschakeld in deze build totdat de browser-import volledig is gevalideerd.</span>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; padding:12px;">
+        <div class="card">
+          <h3>Projecten</h3>
+          <div class="sub">Kolommen: Projectnummer, Projectnaam, Opdrachtgever, Status, Startdatum (optioneel)</div>
+          <input type="file" class="input" id="impProjects" accept=".csv,text/csv"/>
+        </div>
+        <div class="card">
+          <h3>Resources</h3>
+          <div class="sub">Kolommen: Naam, Afdeling, UrenPerDag</div>
+          <input type="file" class="input" id="impResources" accept=".csv,text/csv"/>
+        </div>
+        <div class="card">
+          <h3>Toewijzingen</h3>
+          <div class="sub">Kolommen: Week (YYYY-Www), Projectnummer, ResourceNaam, Dag(1-5), Uren</div>
+          <input type="file" class="input" id="impAlloc" accept=".csv,text/csv"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-tools">
+          <strong>Export snapshots</strong>
+          <span class="smallmuted">Exporteer volledige state (JSON) als backup.</span>
+        </div>
+        <div class="panel-tools">
+          <button class="btn" id="expJson">Export JSON</button>
+        </div>
+      </div>
+      <div style="padding:12px;" class="smallmuted" id="stats"></div>
+    </div>
+  </div>
+
+  <div class="footerbar">
+    <div class="smallmuted">CSV-import is actief. XLSX-import volgt later als lokale vendored importmodule; geen CLI-workaround meer. Import werkt op basis van Projectnummer en ResourceNaam.</div>
+    <div class="smallmuted">v9 Cloudflare D1</div>
+  </div>
+</div>
+
+<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script src="../js/core/permissions.js"></script>
+<script src="../js/core/ui.js"></script>
+<script>
+  function parseCSV(text){
+    // Supports comma or semicolon. Handles quotes.
+    const lines = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.trim().length);
+    if(!lines.length) return { headers:[], rows:[] };
+    const delim = (lines[0].includes(";") && !lines[0].includes(",")) ? ";" : ",";
+    const parseLine = (line)=>{
+      const out=[]; let cur=""; let q=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='"'){
+          if(q && line[i+1]==='"'){ cur += '"'; i++; }
+          else q=!q;
+        } else if(ch===delim && !q){
+          out.push(cur); cur="";
+        } else {
+          cur += ch;
+        }
+      }
+      out.push(cur);
+      return out.map(s=>s.trim());
+    };
+    const headers = parseLine(lines[0]).map(h=>h.replace(/^﻿/,''));
+    const rows = lines.slice(1).map(parseLine);
+    return { headers, rows, delim };
+  }
+
+  function mapRow(headers, row){
+    const o={};
+    headers.forEach((h,i)=> o[h]= row[i] ?? "");
+    return o;
+  }
+
+  function upsertProject(rec){
+    const nr = (rec["Projectnummer"]||"").trim();
+    const name = (rec["Projectnaam"]||"").trim();
+    const client = (rec["Opdrachtgever"]||"").trim();
+    const status = (rec["Status"]||"Te plannen").trim() || "Te plannen";
+    const start = (rec["Startdatum"]||"").trim();
+
+    if(!nr) return null;
+
+    const st = CWS.getState();
+    // try find existing by nr
+    let id = st.projects.order.find(pid => (st.projects.byId[pid]?.nr||"")===nr);
+    if(!id) id = "P" + Math.random().toString(16).slice(2,8).toUpperCase();
+
+    CWS.setState(s=>{
+      if(!s.projects.byId[id]){
+        s.projects.order.unshift(id);
+        s.projects.byId[id] = { id, nr, name, client, status, start };
+      } else {
+        const p=s.projects.byId[id];
+        p.nr = nr;
+        if(name) p.name = name;
+        if(client) p.client = client;
+        if(status) p.status = status;
+        if(start) p.start = start;
+      }
+      return s;
+    });
+    return id;
+  }
+
+  function upsertResource(rec){
+    const name = (rec["Naam"]||"").trim();
+    const dept = (rec["Afdeling"]||"").trim();
+    const daily = Number((rec["UrenPerDag"]||"").toString().replace(",",".")) || 0;
+    if(!name) return null;
+
+    const st = CWS.getState();
+    let id = st.resources.order.find(rid => (st.resources.byId[rid]?.name||"")===name);
+    if(!id) id = "R" + Math.random().toString(16).slice(2,8).toUpperCase();
+
+    CWS.setState(s=>{
+      if(!s.resources.byId[id]){
+        s.resources.order.push(id);
+        s.resources.byId[id] = { id, name, dept, daily: daily || 8 };
+      } else {
+        const r=s.resources.byId[id];
+        r.name = name;
+        if(dept) r.dept = dept;
+        if(daily) r.daily = daily;
+      }
+      return s;
+    });
+    return id;
+  }
+
+  function importProjects(file){
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const t=String(rd.result||"");
+      const {headers, rows} = parseCSV(t);
+      const need = ["Projectnummer","Projectnaam","Opdrachtgever","Status"];
+      const miss = need.filter(h=>!headers.includes(h));
+      if(miss.length){ UI.toast("Projecten import mislukt: ontbrekende kolommen: "+miss.join(", ")); return; }
+
+      let n=0;
+      rows.forEach(r=>{
+        const rec=mapRow(headers,r);
+        const id = upsertProject(rec);
+        if(id) n++;
+      });
+      UI.toast(`Projecten geïmporteerd: ${n}`);
+      renderStats();
+    };
+    rd.readAsText(file);
+  }
+
+  function importResources(file){
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const t=String(rd.result||"");
+      const {headers, rows} = parseCSV(t);
+      const need = ["Naam","Afdeling","UrenPerDag"];
+      const miss = need.filter(h=>!headers.includes(h));
+      if(miss.length){ UI.toast("Resources import mislukt: ontbrekende kolommen: "+miss.join(", ")); return; }
+
+      let n=0;
+      rows.forEach(r=>{
+        const rec=mapRow(headers,r);
+        const id = upsertResource(rec);
+        if(id) n++;
+      });
+      UI.toast(`Resources geïmporteerd: ${n}`);
+      renderStats();
+    };
+    rd.readAsText(file);
+  }
+
+  function importAlloc(file){
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const t=String(rd.result||"");
+      const {headers, rows} = parseCSV(t);
+      const need = ["Week","Projectnummer","ResourceNaam","Dag","Uren"];
+      const miss = need.filter(h=>!headers.includes(h));
+      if(miss.length){ UI.toast("Toewijzingen import mislukt: ontbrekende kolommen: "+miss.join(", ")); return; }
+
+      // map week/projectnr/resourcename to ids
+      const st=CWS.getState();
+      const byProjNr = {};
+      st.projects.order.forEach(id=> byProjNr[st.projects.byId[id]?.nr] = id);
+      const byResName = {};
+      st.resources.order.forEach(id=> byResName[st.resources.byId[id]?.name] = id);
+
+      let n=0;
+      CWS.setState(s=>{
+        if(!s.allocations) s.allocations = { byWeek:{} };
+        rows.forEach(r=>{
+          const rec=mapRow(headers,r);
+          const wk=(rec["Week"]||"").trim();
+          const pnr=(rec["Projectnummer"]||"").trim();
+          const rnm=(rec["ResourceNaam"]||"").trim();
+          const day=Math.max(1, Math.min(5, Number(rec["Dag"]||1)));
+          const hours=Math.max(0, Math.min(8, Number((rec["Uren"]||0).toString().replace(",","."))||0));
+          if(!wk || !pnr || !rnm) return;
+          const pid = byProjNr[pnr] || null;
+          const rid = byResName[rnm] || null;
+          if(!pid || !rid) return;
+          if(!s.allocations.byWeek[wk]) s.allocations.byWeek[wk]=[];
+          s.allocations.byWeek[wk].push({ id:"A"+Math.random().toString(16).slice(2,8).toUpperCase(), projectId:pid, resId:rid, day, hours });
+          n++;
+        });
+        return s;
+      });
+
+      UI.toast(`Toewijzingen geïmporteerd: ${n}`);
+      renderStats();
+    };
+    rd.readAsText(file);
+  }
+
+  function tplProjects(){
+    UI.downloadCSV("projecten_template.csv", [
+      ["Projectnummer","Projectnaam","Opdrachtgever","Status","Startdatum"],
+      ["P-1001","Voorbeeld project","ACME","Te plannen","2026-04-01"]
+    ]);
+  }
+  function tplResources(){
+    UI.downloadCSV("resources_template.csv", [
+      ["Naam","Afdeling","UrenPerDag"],
+      ["Jan","Montage","8"],
+      ["Piet","Werkvoorbereiding","8"]
+    ]);
+  }
+  function tplAlloc(){
+    UI.downloadCSV("toewijzingen_template.csv", [
+      ["Week","Projectnummer","ResourceNaam","Dag","Uren"],
+      ["2026-W15","P-1001","Jan","1","4"]
+    ]);
+  }
+
+  function renderStats(){
+    const st=CWS.getState();
+    const weeks = Object.keys(st.allocations?.byWeek||{}).length;
+    document.getElementById("stats").textContent = 
+      `${st.projects.order.length} projecten • ${st.resources.order.length} resources • ${weeks} weken toewijzingen (allocations)`;
+  }
+
+  const __tplProjects = document.getElementById("tplProjects");
+  if(__tplProjects) __tplProjects.addEventListener("click", tplProjects);
+
+  const __tplResources = document.getElementById("tplResources");
+  if(__tplResources) __tplResources.addEventListener("click", tplResources);
+
+// Bindings (fixed)
+  const __tplAlloc = document.getElementById("tplAlloc");
+  if(__tplAlloc) __tplAlloc.addEventListener("click", tplAlloc);
+
+  const __impProjects = document.getElementById("impProjects");
+  if(__impProjects) __impProjects.addEventListener("change", (e)=>{ const f=e.target.files?.[0]; if(f) importProjects(f); });
+
+  const __impResources = document.getElementById("impResources");
+  if(__impResources) __impResources.addEventListener("change", (e)=>{ const f=e.target.files?.[0]; if(f) importResources(f); });
+
+  const __impAlloc = document.getElementById("impAlloc");
+  if(__impAlloc) __impAlloc.addEventListener("change", (e)=>{ const f=e.target.files?.[0]; if(f) importAlloc(f); });
+
+  const __expJson = document.getElementById("expJson");
+  if(__expJson) __expJson.addEventListener("click", ()=>{
+    const st=CWS.getState();
+    UI.downloadText("cws_state_snapshot.json", JSON.stringify(st,null,2), "application/json;charset=utf-8");
+    UI.toast("JSON geëxporteerd");
+  });
+
+  const __demoBtn = document.getElementById("demoBtn");
+  if(__demoBtn) __demoBtn.addEventListener("click", ()=>{
+    CWS.resetDemo?.();
+    UI.toast("Demo data gevuld");
+    renderStats();
+  });
+
+  const __clearBtn = document.getElementById("clearBtn");
+  if(__clearBtn) __clearBtn.addEventListener("click", ()=>{
+    if(!confirm("Weet je zeker dat je alle data wilt wissen?")) return;
+    CWS.clearAll?.();
+    UI.toast("Data geleegd");
+    renderStats();
+  });
+
+  renderStats();
+</script>
+</body></html>

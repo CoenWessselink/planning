@@ -1,0 +1,645 @@
+<!doctype html><html lang="nl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="../css/theme.css"/></head>
+<body style="background:transparent">
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-tools">
+      <button class="btn" onclick="UI.openAppsMenuSafe()">Apps Menu</button>
+      <span class="smallmuted">Week</span>
+      <span class="pill" id="wkPill">Week 15 - 2026</span>
+      <span class="smallmuted" id="rangePill">April 6 - 10</span>
+      <select class="input" id="viewSel" style="min-width:180px;">
+        <option value="week">Planbord week</option>
+        <option value="overview">Planbord overzicht</option>
+      </select>
+      <button class="btn" id="addRowBtn" style="display:none;">+ Rij</button>
+      <button class="btn" id="addColBtn" style="display:none;">+ Kolom</button>
+    </div>
+    <div class="panel-tools">
+      <button class="btn" id="undoBtn">Undo</button>
+      <button class="btn" id="redoBtn">Redo</button>
+    </div>
+  </div>
+
+  <div class="pb-filters" id="weekFilters">
+    <select class="input" id="deptFilter" style="min-width:220px;"></select>
+    <select class="input" id="statusFilter" style="min-width:220px;">
+      <option value="Alle">Alle statussen</option>
+      <option value="Te plannen">Te plannen</option>
+      <option value="Ingepland">Ingepland</option>
+      <option value="In uitvoering">In uitvoering</option>
+      <option value="Gereed">Gereed</option>
+    </select>
+    <input class="input" id="search" placeholder="Zoeken (resource, project)…" style="min-width:260px;"/>
+    <span class="smallmuted">Tip: dubbelklik op een cel om een blok toe te voegen.</span>
+  </div>
+
+  <div class="card" id="overviewWrap" style="display:none; margin:12px;">
+    <div class="cardhead" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+      <div>
+        <strong>Planbord overzicht</strong>
+        <div class="sub">Excel-achtig: rijen/kolommen vrij, bewerkbaar, opgeslagen per afdeling + week in SSOT.</div>
+      </div>
+      <div class="smallmuted">Tip: dubbelklik om te editten • Sleep kolomheaders om te ordenen</div>
+    </div>
+    <div class="table-wrap" style="max-height:70vh;">
+      <table id="ovTable">
+        <thead><tr id="ovHead"></tr></thead>
+        <tbody id="ovBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pb-wrap" id="weekWrap">
+    <div class="pb-left" id="left">
+      <div class="gantt-head">
+        <div class="row" style="grid-template-columns: 40px 1fr 54px;">
+          <strong> </strong>
+          <strong>Resource</strong>
+          <strong style="text-align:right;">h/d</strong>
+        </div>
+      </div>
+      <div id="resources"></div>
+    </div>
+
+    <div class="pb-right" id="right">
+      <div class="pb-timeline">
+        <div class="pb-head">
+          <div class="days" id="days"></div>
+        </div>
+        <div id="grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footerbar">
+    <div class="smallmuted">Drag & drop blokken tussen dagen en resources. Wijzigt Capaciteit realtime (zelfde week).</div>
+    <div class="smallmuted">v9 Cloudflare D1</div>
+  </div>
+</div>
+
+<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script>
+(function(){
+  const q=document.getElementById('fuzzyQ');
+  const c=document.getElementById('clearQ');
+  const tbl=document.querySelector('table');
+  if(!q||!c||!tbl) return;
+  function applyFuzzy(){
+    const v=(q.value||'').toLowerCase().trim();
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      const txt=tr.textContent.toLowerCase();
+      tr.style.display = (!v || txt.includes(v)) ? '' : 'none';
+    });
+  }
+  q.addEventListener('input', applyFuzzy);
+  c.addEventListener('click', ()=>{ q.value=''; applyFuzzy(); });
+})();
+</script>
+<script src="../js/core/permissions.js"></script>
+<script src="../js/core/ui.js"></script>
+<script>
+  let __scrollBoundPB = false;
+  function isoWeekStart(year, week){
+    const simple = new Date(Date.UTC(year,0,1 + (week-1)*7));
+    const dow = simple.getUTCDay();
+    const ISOweekStart = new Date(simple);
+    const diff = (dow<=4 ? 1-dow : 8-dow);
+    ISOweekStart.setUTCDate(simple.getUTCDate() + diff);
+    return ISOweekStart;
+  }
+  function fmtRange(d0, d4){
+    const months = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
+    return `${months[d0.getUTCMonth()]} ${d0.getUTCDate()} - ${d4.getUTCDate()}`;
+  }
+  function norm(s){ return (s||"").toString().toLowerCase().trim(); }
+
+  // ---- Undo/Redo ----
+  // Geen lokale undo-stack meer: alle echte state-wijzigingen lopen via CWS.setState/CWS.mutate
+  // en worden centraal door js/core/store.js op de globale tenantState undo/redo-stack gezet.
+  function pushHistory(){ /* centraal geregeld door CWS */ }
+  function planKey(){
+    const st=CWS.getState();
+    const wk=UI.weekKey(st.ui.week);
+    const dept=(document.getElementById('deptFilter')?.value)||'Alle afdelingen';
+    return `${dept}|${wk}`;
+  }
+  function snap(){ return ""; }
+  function applySnap(){ render(); }
+
+  function resList(){
+    const st = CWS.getState();
+    return st.resources.order.map(id=> st.resources.byId[id]).filter(Boolean);
+  }
+  function projById(){
+    return CWS.getState().projects.byId || {};
+  }
+
+  function initials(name){
+    const parts = (name||"").split(" ").filter(Boolean);
+    const a = (parts[0]||"R")[0];
+    const b = (parts[1]||"")[0] || "";
+    return (a+b).toUpperCase();
+  }
+
+  function buildHeader(){
+    const st = CWS.getState();
+    const wk = st.ui.week;
+    document.getElementById("wkPill").textContent = `Week ${wk.week} - ${wk.year}`;
+    const start = isoWeekStart(wk.year, wk.week);
+    const days = [0,1,2,3,4].map(i=> new Date(start.getTime()+i*86400000));
+    document.getElementById("rangePill").textContent = fmtRange(days[0], days[4]);
+
+    const names = ["Ma","Di","Wo","Do","Vr"];
+    const daysEl = document.getElementById("days");
+    daysEl.innerHTML="";
+    days.forEach((d,i)=>{
+      const el=document.createElement("div");
+      el.className="pb-dayhead";
+      el.textContent = `${names[i]} ${d.getUTCDate()}`;
+      daysEl.appendChild(el);
+    });
+  }
+
+  function populateFilters(){
+    const depts = Array.from(new Set(resList().map(r=> r.dept).filter(Boolean))).sort();
+    const sel = document.getElementById("deptFilter");
+    const cur = sel.value || "Alle afdelingen";
+    sel.innerHTML="";
+    const opt0=document.createElement("option");
+    opt0.value="Alle afdelingen"; opt0.textContent="Alle afdelingen";
+    sel.appendChild(opt0);
+    depts.forEach(d=>{
+      const o=document.createElement("option");
+      o.value=d; o.textContent=d;
+      sel.appendChild(o);
+    });
+    sel.value = depts.includes(cur) ? cur : "Alle afdelingen";
+  }
+
+  function filteredResources(){
+    const q = norm(document.getElementById("search").value);
+    const dept = document.getElementById("deptFilter").value;
+    let rows = resList();
+
+    if(dept && dept!=="Alle afdelingen") rows = rows.filter(r=> r.dept===dept);
+    if(q){
+      rows = rows.filter(r=>{
+        const hay = norm(r.name) + " | " + norm(r.dept);
+        return hay.includes(q);
+      });
+    }
+    return rows;
+  }
+
+  function dayCols(model){
+    const map = { Ma:'d1', Di:'d2', Wo:'d3', Do:'d4', Vr:'d5' };
+    // Prefer known ids, fallback to name match
+    const byId = id=> model.cols.find(c=>c.id===id);
+    const byName = nm=> model.cols.find(c=> (c.name||'').trim().toLowerCase().startsWith(nm.toLowerCase()));
+    return [
+      byId('d1')||byName('ma'),
+      byId('d2')||byName('di'),
+      byId('d3')||byName('wo'),
+      byId('d4')||byName('do'),
+      byId('d5')||byName('vr'),
+    ].filter(Boolean);
+  }
+
+  function filteredPlanRows(model){
+    const q = norm(document.getElementById("search").value);
+    const dept = document.getElementById("deptFilter").value;
+    let rows = (model.rows||[]).map(r=>({
+      ...r,
+      name: (r.label || r.cells?.res || r.name || '').toString(),
+      dept: (r.dept || '').toString()
+    }));
+    if(dept && dept!=="Alle afdelingen") rows = rows.filter(r=> r.dept===dept);
+    if(q) rows = rows.filter(r=> norm(r.name+" | "+r.dept).includes(q));
+    return rows;
+  }
+
+  function renderResources(rows){
+    const root = document.getElementById("resources");
+    root.innerHTML="";
+    rows.forEach(r=>{
+      const row=document.createElement("div");
+      row.className="res-row";
+      row.dataset.rowId = r.id;
+
+      const av=document.createElement("div");
+      av.className="avatar";
+      av.textContent = initials(r.name);
+
+      const mid=document.createElement("div");
+      const nm=document.createElement("div");
+      nm.className="res-name";
+      nm.textContent = r.name || '—';
+      const sub=document.createElement("div");
+      sub.className="res-sub";
+      sub.textContent = r.dept || "—";
+      mid.append(nm, sub);
+
+      const hrs=document.createElement("div");
+      hrs.className="res-hours";
+      hrs.textContent = (Number(r.daily||0)||0) + "h";
+
+      row.append(av, mid, hrs);
+      root.appendChild(row);
+    });
+  }
+
+  function renderGrid(rows){
+    const { key, model } = ensurePlanModel();
+    const grid = document.getElementById("grid");
+    grid.innerHTML="";
+    const dcols = dayCols(model);
+    const canEdit = Permissions.can(CWS.getState().ui.role,"drag_planbord");
+
+    rows.forEach(r=>{
+      const row=document.createElement("div");
+      row.className="pb-gridrow";
+      row.dataset.rowId = r.id;
+
+      dcols.forEach((c, di)=>{
+        const cell=document.createElement("div");
+        cell.className="pb-cell";
+        cell.dataset.rowId = r.id;
+        cell.dataset.colId = c.id;
+
+        const v = (model.rows.find(x=>x.id===r.id)?.cells||{})[c.id] || '';
+        cell.textContent = v;
+        cell.contentEditable = canEdit ? 'true' : 'false';
+
+        cell.addEventListener('focus', ()=>{ __pbLastCell = { key, rowId:r.id, colId:c.id }; });
+        cell.addEventListener('blur', ()=>{
+          if(!canEdit) return;
+          const nv = cell.textContent;
+          CWS.setState(s=>{ const m=s.planbord.byDeptWeek[key]; const rr=m.rows.find(x=>x.id===r.id); rr.cells=rr.cells||{}; rr.cells[c.id]=nv; return s; });
+        });
+
+        // Drag/drop: move cell content between days/resources
+        cell.draggable = canEdit;
+        cell.addEventListener('dragstart',(e)=>{
+          if(!canEdit) return;
+          e.dataTransfer.setData('text/pbCell', JSON.stringify({ rowId:r.id, colId:c.id, value: cell.textContent||'' }));
+          e.dataTransfer.effectAllowed='move';
+        });
+        cell.addEventListener('dragover',(e)=>{ if(!canEdit) return; e.preventDefault(); cell.classList.add('drop-hint'); });
+        cell.addEventListener('dragleave',()=> cell.classList.remove('drop-hint'));
+        cell.addEventListener('drop',(e)=>{
+          if(!canEdit) return;
+          e.preventDefault();
+          cell.classList.remove('drop-hint');
+          const raw = e.dataTransfer.getData('text/pbCell');
+          if(!raw) return;
+          const data = JSON.parse(raw);
+          pushHistory(snap());
+          CWS.setState(s=>{
+            const m=s.planbord.byDeptWeek[key];
+            const fromR=m.rows.find(x=>x.id===data.rowId);
+            const toR=m.rows.find(x=>x.id===r.id);
+            if(!fromR||!toR) return s;
+            fromR.cells=fromR.cells||{}; toR.cells=toR.cells||{};
+            const moved = (data.value||'');
+            // move
+            fromR.cells[data.colId] = '';
+            toR.cells[c.id] = moved;
+            return s;
+          });
+          UI.toast('Verplaatst');
+          render();
+        });
+
+        row.appendChild(cell);
+      });
+      grid.appendChild(row);
+    });
+  }
+
+  function bindScrollSync(){
+    const left = document.getElementById("left");
+    const right = document.getElementById("right");
+    let lock=false;
+    left.addEventListener("scroll", ()=>{ if(lock) return; lock=true; right.scrollTop = left.scrollTop; lock=false; }, {passive:true});
+    right.addEventListener("scroll", ()=>{ if(lock) return; lock=true; left.scrollTop = right.scrollTop; lock=false; }, {passive:true});
+  }
+
+  // ------------------------------
+  // Planbord OVERZICHT (Excel-achtig)
+  // SSOT: state.planbord.byDeptWeek[key] = { cols:[], rows:[] }
+  // key = `${dept}|${UI.weekKey(ui.week)}`
+  // ------------------------------
+  function ensurePlanModel(){
+    const st = CWS.getState();
+    st.planbord = st.planbord || { byDeptWeek: {} };
+    const wk = UI.weekKey(st.ui.week);
+    const dept = (document.getElementById('deptFilter')?.value) || 'Alle afdelingen';
+    const k = `${dept}|${wk}`;
+
+    // Seed model if missing
+    if(!st.planbord.byDeptWeek[k]){
+      // Default model matches prompt: ma-vr + resource, fully dynamic
+      // Always include an actions column (icon only)
+      const cols = [
+        { id:'act', name:'', w:52, fixed:true },
+        { id:'res', name:'Resource', w:240 },
+        { id:'d1', name:'Ma', w:220 },
+        { id:'d2', name:'Di', w:220 },
+        { id:'d3', name:'Wo', w:220 },
+        { id:'d4', name:'Do', w:220 },
+        { id:'d5', name:'Vr', w:220 },
+      ];
+
+      // Rows: seed from resources in department (not filtered by search)
+      const all = resList();
+      const deptRows = (dept && dept!=="Alle afdelingen") ? all.filter(r=> r.dept===dept) : all;
+      const rows = (deptRows.length ? deptRows : Array.from({length:12}).map((_,i)=>({ id:`R${i+1}`, name:`Resource ${i+1}`, dept:dept==='Alle afdelingen'?'':dept })))
+        .map(r=>({
+          id: r.id || r.id===0 ? String(r.id) : String(r.id||r.id),
+          resId: r.id ? String(r.id) : undefined,
+          label: r.name || r.name===0 ? String(r.name) : (r.name || r.id || 'Resource'),
+          dept: r.dept || '',
+          cells: { res: r.name || r.name===0 ? String(r.name) : (r.name||'') }
+        }));
+
+      CWS.setState(s=>{ s.planbord = s.planbord || { byDeptWeek:{} }; s.planbord.byDeptWeek[k] = { cols, rows, meta:{ createdAt: Date.now() } }; return s; });
+    }
+    return { key:k, model: CWS.getState().planbord.byDeptWeek[k] };
+  }
+
+  let __pbLastCell = null; // {key,rowId,colId}
+
+  function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+  function autoSizeColumns(tableEl, model){
+    try{
+      if(!tableEl) return;
+      const headCells = tableEl.querySelectorAll('thead th');
+      model.cols.forEach((c, idx)=>{
+        const th = headCells[idx];
+        if(!th) return;
+        if(c.fixed) { th.style.minWidth = (c.w||52)+'px'; th.style.width=(c.w||52)+'px'; return; }
+        // estimate width from visible text
+        let maxLen = (c.name||'').length;
+        tableEl.querySelectorAll(`tbody td[data-col-id="${c.id}"]`).forEach(td=>{ maxLen = Math.max(maxLen, (td.textContent||'').length); });
+        const px = clamp(60 + maxLen*7, 80, 360);
+        th.style.minWidth = px + 'px';
+        th.style.width = px + 'px';
+      });
+    }catch(e){ /* no-op */ }
+  }
+
+  function renderOverview(){
+    const { key, model } = ensurePlanModel();
+    const head = document.getElementById('ovHead');
+    const body = document.getElementById('ovBody');
+    if(!head || !body) return;
+
+    // HEAD
+    head.innerHTML = '';
+    model.cols.forEach((c, idx)=>{
+      const th = document.createElement('th');
+      th.draggable = !c.fixed;
+      th.dataset.colId = c.id;
+      th.style.minWidth = (c.w||160) + 'px';
+      th.innerHTML = c.fixed
+        ? `<span class="smallmuted" style="display:inline-block; width:100%; text-align:center;">⋯</span>`
+        : `<div style="display:flex; align-items:center; gap:8px;">
+             <span contenteditable="true" data-colname="${c.id}" style="outline:none; flex:1;">${c.name}</span>
+             <button class="btn" data-col-del="${c.id}" title="Kolom verwijderen" style="padding:2px 6px;">✕</button>
+           </div>`;
+      th.addEventListener('dragstart', (e)=>{ if(c.fixed) return; e.dataTransfer.setData('text/plain', String(idx)); });
+      th.addEventListener('dragover', (e)=> e.preventDefault());
+      th.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        const from = Number(e.dataTransfer.getData('text/plain'));
+        const to = idx;
+        if(Number.isNaN(from) || from===to) return;
+        pushHistory(snap());
+        CWS.setState(s=>{
+          const m = s.planbord.byDeptWeek[key];
+          const col = m.cols.splice(from,1)[0];
+          m.cols.splice(to,0,col);
+          return s;
+        });
+        UI.toast('Kolom verplaatst');
+        renderOverview();
+      });
+      head.appendChild(th);
+    });
+
+    // BODY
+    body.innerHTML = '';
+    model.rows.forEach((r, rIdx)=>{
+      const tr = document.createElement('tr');
+      tr.draggable = true;
+      tr.dataset.rowId = r.id;
+      tr.addEventListener('dragstart',(e)=>{
+        e.dataTransfer.setData('text/rowFrom', String(rIdx));
+        e.dataTransfer.effectAllowed='move';
+      });
+      tr.addEventListener('dragover',(e)=> e.preventDefault());
+      tr.addEventListener('drop',(e)=>{
+        e.preventDefault();
+        const from = Number(e.dataTransfer.getData('text/rowFrom'));
+        const to = rIdx;
+        if(Number.isNaN(from) || from===to) return;
+        pushHistory(snap());
+        CWS.setState(s=>{
+          const m=s.planbord.byDeptWeek[key];
+          const rr=m.rows.splice(from,1)[0];
+          m.rows.splice(to,0,rr);
+          return s;
+        });
+        UI.toast('Rij verplaatst');
+        renderOverview();
+      });
+
+      model.cols.forEach(c=>{
+        const td = document.createElement('td');
+        td.dataset.colId = c.id;
+        td.dataset.colIdAttr = c.id;
+        td.setAttribute('data-col-id', c.id);
+        td.dataset.rowId = r.id;
+
+        if(c.id==='act'){
+          td.contentEditable = 'false';
+          td.style.whiteSpace='nowrap';
+          td.innerHTML = `
+            <button class="btn" data-act="copy" title="Kopieer cel (📋)" style="padding:2px 6px;">📋</button>
+            <button class="btn" data-act="dup" title="Dupliceer rij (⧉)" style="padding:2px 6px;">⧉</button>
+            <button class="btn" data-act="del" title="Verwijder rij (🗑)" style="padding:2px 6px;">🗑</button>
+          `;
+          td.querySelectorAll('button').forEach(btn=>{
+            btn.addEventListener('click', ()=>{
+              const a = btn.getAttribute('data-act');
+              if(a==='copy'){
+                const cur = __pbLastCell;
+                const v = cur && cur.key===key ? (model.rows.find(x=>x.id===cur.rowId)?.cells?.[cur.colId] || '') : '';
+                navigator.clipboard?.writeText(String(v||''));
+                UI.toast('Gekopieerd');
+              }
+              if(a==='dup'){
+                pushHistory(snap());
+                CWS.setState(s=>{
+                  const m=s.planbord.byDeptWeek[key];
+                  const idx = m.rows.findIndex(x=>x.id===r.id);
+                  const base = m.rows[idx];
+                  const copy = { ...base, id: 'r'+Date.now()+Math.random().toString(16).slice(2,6), cells: { ...(base.cells||{}) } };
+                  m.rows.splice(idx+1,0,copy);
+                  return s;
+                });
+                UI.toast('Rij gedupliceerd');
+                renderOverview();
+              }
+              if(a==='del'){
+                pushHistory(snap());
+                CWS.setState(s=>{
+                  const m=s.planbord.byDeptWeek[key];
+                  m.rows = (m.rows||[]).filter(x=>x.id!==r.id);
+                  if(!m.rows.length) m.rows.push({ id:'r'+Date.now(), label:'Resource', cells:{ res:'Resource' } });
+                  return s;
+                });
+                UI.toast('Rij verwijderd');
+                renderOverview();
+              }
+            });
+          });
+        } else {
+          td.contentEditable = 'true';
+          td.dataset.colId = c.id;
+          td.textContent = (r.cells||{})[c.id] || '';
+          td.addEventListener('focus', ()=>{ __pbLastCell = { key, rowId:r.id, colId:c.id }; });
+          td.addEventListener('blur', ()=>{
+            const v = td.textContent;
+            CWS.setState(s=>{
+              const m=s.planbord.byDeptWeek[key];
+              const rr=m.rows.find(x=>x.id===r.id);
+              rr.cells = rr.cells || {};
+              rr.cells[c.id]=v;
+              // keep resource label in sync
+              if(c.id==='res') rr.label = v;
+              return s;
+            });
+            autoSizeColumns(document.getElementById('ovTable'), model);
+          });
+        }
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+
+    // bind header rename
+    head.querySelectorAll('[data-colname]').forEach(el=>{
+      el.addEventListener('blur', ()=>{
+        const id = el.getAttribute('data-colname');
+        const name = (el.textContent||'').trim() || 'Kolom';
+        CWS.setState(s=>{ const m=s.planbord.byDeptWeek[key]; const cc=m.cols.find(x=>x.id===id); if(cc) cc.name=name; return s; });
+        autoSizeColumns(document.getElementById('ovTable'), model);
+      });
+    });
+
+    // bind column delete
+    head.querySelectorAll('[data-col-del]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.getAttribute('data-col-del');
+        if(!id) return;
+        pushHistory(snap());
+        CWS.setState(s=>{
+          const m=s.planbord.byDeptWeek[key];
+          m.cols = (m.cols||[]).filter(c=> c.id!==id);
+          (m.rows||[]).forEach(r=>{ if(r.cells) delete r.cells[id]; });
+          return s;
+        });
+        UI.toast('Kolom verwijderd');
+        renderOverview();
+      });
+    });
+
+    autoSizeColumns(document.getElementById('ovTable'), model);
+  }
+
+  function addOverviewRow(){
+    const { key } = ensurePlanModel();
+    pushHistory(snap());
+    CWS.setState(s=>{
+      const m=s.planbord.byDeptWeek[key];
+      const n = (m.rows?.length||0) + 1;
+      m.rows.push({ id:`r${Date.now()}`, label:`Rij ${n}`, cells:{ res:`Rij ${n}` } });
+      return s;
+    });
+    UI.toast('Rij toegevoegd');
+    renderOverview();
+  }
+  function addOverviewCol(){
+    const { key } = ensurePlanModel();
+    pushHistory(snap());
+    CWS.setState(s=>{
+      const m=s.planbord.byDeptWeek[key];
+      const n = (m.cols?.length||0) + 1;
+      m.cols.push({ id:`c${Date.now()}`, name:`Kolom ${n}`, w:180 });
+      return s;
+    });
+    UI.toast('Kolom toegevoegd');
+    renderOverview();
+  }
+
+  function render(){
+    const view = document.getElementById('viewSel')?.value || (CWS.getState().ui.planView||'week');
+    // persist view in SSOT
+    CWS.setState(s=>{ s.ui.planView = view; return s; });
+    buildHeader();
+    populateFilters();
+
+    const isOverview = view === 'overview';
+    document.getElementById('overviewWrap').style.display = isOverview ? '' : 'none';
+    document.getElementById('weekWrap').style.display = isOverview ? 'none' : '';
+    document.getElementById('weekFilters').style.display = isOverview ? 'none' : '';
+    document.getElementById('addRowBtn').style.display = isOverview ? '' : 'none';
+    document.getElementById('addColBtn').style.display = isOverview ? '' : 'none';
+
+    if(isOverview){
+      renderOverview();
+      return;
+    }
+
+    const { model } = ensurePlanModel();
+    const rows = filteredPlanRows(model);
+    renderResources(rows);
+    renderGrid(rows);
+    if(!__scrollBoundPB){ bindScrollSync(); __scrollBoundPB=true; }
+  }
+
+  document.getElementById("deptFilter").addEventListener("change", render);
+  document.getElementById("statusFilter").addEventListener("change", render);
+  document.getElementById("search").addEventListener("input", render);
+
+  document.getElementById('viewSel').addEventListener('change', render);
+  document.getElementById('addRowBtn').addEventListener('click', addOverviewRow);
+  document.getElementById('addColBtn').addEventListener('click', addOverviewCol);
+
+  document.getElementById("undoBtn").addEventListener("click", ()=>{
+    if(!CWS.canUndo?.()) return UI.toast("Niets om undo te doen");
+    CWS.undo?.();
+    UI.toast("Undo");
+    render();
+  });
+  document.getElementById("redoBtn").addEventListener("click", ()=>{
+    if(!CWS.canRedo?.()) return UI.toast("Niets om redo te doen");
+    CWS.redo?.();
+    UI.toast("Redo");
+    render();
+  });
+
+  // init view selection from SSOT
+  try{
+    const pv = CWS.getState().ui.planView || 'week';
+    const vs = document.getElementById('viewSel');
+    if(vs) vs.value = pv;
+  }catch(e){}
+
+  render();
+</script>
+</body></html>

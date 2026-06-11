@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Preflight</title><link rel="stylesheet" href="../css/theme.css"><style>body{padding:14px}.content{padding:14px}.ok{color:#166534}.fail{color:#991b1b}.warn{color:#92400e}li{padding:7px}.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}</style></head>
+<body><div class="panel"><div class="panel-head"><div><strong>Self-test / Preflight</strong><div class="smallmuted">Live controle van Cloudflare D1, Access, state en hoofdmodules</div></div><button class="btn" id="run">Opnieuw uitvoeren</button></div><div class="content"><h3 id="summary"></h3><ul id="results"></ul><pre class="mono" id="details"></pre></div></div>
+<script>const CWS = window.parent?.CWS || window.CWS;</script><script src="../js/core/ui.js"></script><script>
+async function fetchJson(url, options){try{const r=await fetch(url,{headers:{Accept:'application/json'},...(options||{})});const d=await r.json().catch(()=>({}));return {ok:r.ok,status:r.status,data:d};}catch(error){return {ok:false,status:0,data:{error:error.message}};}}
+function li(name,ok,detail,warn=false){return `<li class="${ok?'ok':warn?'warn':'fail'}"><strong>${ok?'OK':warn?'WAARSCHUWING':'FOUT'}</strong> - ${name}${detail?`: ${detail}`:''}</li>`;}
+async function run(){
+  const out=[]; const details=[];
+  const st=CWS.getState(); const v=CWS.validateState();
+  const health=await fetchJson('/api/health');
+  out.push(['API health bereikbaar',health.ok,health.data?.error||health.data?.schemaErrors?.join(' | ')||'',false]);
+  out.push(['D1 schema actief',!!health.data?.schemaOk || CWS.storageStatus.mode!=='api',health.data?.schemaErrors?.join(' | ')||'',CWS.storageStatus.mode!=='api']);
+  out.push(['Opslagstatus bekend',!!CWS.storageStatus?.mode,CWS.storageStatus.label||'',CWS.storageStatus.mode!=='api']);
+  out.push(['Remote version bekend',CWS.storageStatus.mode!=='api'||Number(CWS.getRemoteVersion?.()||0)>=0,String(CWS.getRemoteVersion?.()||0),false]);
+  out.push(['State valide',v.valid,v.errors.join(' | '),false]);
+  out.push(['Gebruiker bekend',!!CWS.getCurrentUser?.().email,CWS.getCurrentUser?.().email||'',false]);
+  out.push(['Rol bekend',!!st.user?.role,st.user?.role||'',false]);
+  out.push(['Projecten aanwezig',(st.projects.order||[]).length>0,`${(st.projects.order||[]).length} projecten`,(st.projects.order||[]).length===0]);
+  out.push(['Projecturen aanwezig',Array.isArray(st.projects?.deptHours),`${st.projects?.deptHours?.length||0} regels`,(st.projects?.deptHours?.length||0)===0]);
+  out.push(['Afdelingen aanwezig',(st.departments?.order||[]).length>0,`${st.departments?.order?.length||0} afdelingen`,(st.departments?.order||[]).length===0]);
+  out.push(['Gantt hoursByDay aanwezig',!!st.gantt?.hoursByDay,`${Object.keys(st.gantt?.hoursByDay||{}).length} dagen`,Object.keys(st.gantt?.hoursByDay||{}).length===0]);
+  out.push(['Capaciteit kan berekenen',!!CWS.capacity?.computeDeptCapacityForWeek,JSON.stringify(CWS.capacity?.computeDeptCapacityForWeek?.('2026-W15')||{}),false]);
+  out.push(['Projectoverzicht state',!!st.projectOverview,'',false]);
+  out.push(['Projectplanning state',!!st.projectPlanning,'',false]);
+  out.push(['Planbord state',!!st.planbord,'',false]);
+  out.push(['Transport state',!!st.transport,'',false]);
+  out.push(['Audit lokaal actief',Array.isArray(st.auditLog),`${st.auditLog?.length||0} regels`,false]);
+  if(CWS.hasPermission?.('audit_view')){const audit=await fetchJson('/api/audit');out.push(['Audit endpoint bereikbaar',audit.ok,audit.data?.error||'',!audit.ok&&CWS.storageStatus.mode!=='api']);}
+  const failed=out.filter(x=>!x[1]&&!x[3]).length;
+  const warned=out.filter(x=>!x[1]&&x[3]).length;
+  document.querySelector('#results').innerHTML=out.map(x=>li(x[0],x[1],x[2],x[3])).join('');
+  document.querySelector('#summary').textContent=failed?`${failed} fouten, ${warned} waarschuwingen`:`Alle kritieke controles geslaagd (${warned} waarschuwingen)`;
+  document.querySelector('#summary').className=failed?'fail':warned?'warn':'ok';
+  details.push('Health: '+JSON.stringify(health.data,null,2));
+  details.push('Storage: '+JSON.stringify(CWS.storageStatus,null,2));
+  document.querySelector('#details').textContent=details.join('\n\n');
+}
+document.querySelector('#run').addEventListener('click',run);run();
+</script></body></html>

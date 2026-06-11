@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CWS Planning - Interne testversie</title>
+  <link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+  <div class="headerbar">
+    <div class="left">
+      <button class="btn" id="openApps">Apps Menu</button>
+      <span class="pill">Rol: <span id="rolePill">Admin</span></span>
+      <span class="pill">Afdeling: <span id="deptPill">Alle</span></span>
+      <button class="btn" id="deptToggle">Wissel afdeling</button>
+      <button class="btn" id="roleToggle">Wissel rol</button>
+    </div>
+    <div id="moduleTitle" style="font-size:24px">CWS Planning - Interne testversie</div>
+    <div class="right">
+      <span class="pill" id="storagePill">Opslag detecteren...</span>
+      <span class="pill">Gebruiker: <span id="userPill">local-dev@cws.test</span></span>
+      <button class="btn" id="resetDemo">Demo data</button>
+      <button class="btn" id="clearData">Data leegmaken</button>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <div class="storage-warning" id="storageWarning" hidden>
+      Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.
+    </div>
+    <div class="panel">
+      <iframe id="appFrame" title="CWS Planning module" style="width:100%;height:calc(100vh - 140px);border:0;display:block"></iframe>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="appsBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        APPS MENU
+        <button class="close" id="closeApps" aria-label="Sluiten">X</button>
+      </div>
+      <div class="modal-body"><div class="apps-grid" id="appsGrid"></div></div>
+      <div class="footerbar" id="appsFooter">0 projecten | Pagina 1 van 1</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/core/store.js"></script>
+  <script src="js/core/permissions.js"></script>
+  <script src="js/core/ui.js"></script>
+  <script src="js/core/router.js"></script>
+  <script src="js/core/apps_menu.js"></script>
+  <script src="js/core/export.js"></script>
+  <script>
+    (async()=>{
+      try{
+        await CWS.init();
+
+        const refreshStatus = () => {
+          const state = CWS.getState();
+          document.getElementById("rolePill").textContent = state.ui.role;
+          document.getElementById("deptPill").textContent = state.user?.dept || "Alle";
+          document.getElementById("storagePill").textContent = "Opslag: " + CWS.storageStatus.label + (CWS.getRemoteVersion?.() ? ` v${CWS.getRemoteVersion()}` : "");
+          document.getElementById("userPill").textContent = CWS.getCurrentUser().email;
+          document.getElementById("storageWarning").hidden = CWS.storageStatus.mode === "api" && !CWS.storageStatus.unsynced;
+          if(CWS.storageStatus.unsynced){
+            document.getElementById("storageWarning").textContent = "Let op: wijzigingen zijn nog niet gesynchroniseerd met D1. " + (CWS.storageStatus.lastError || "");
+          }else{
+            document.getElementById("storageWarning").textContent = "Let op: je werkt nu met lokale browserdata. Collega\'s zien deze wijzigingen niet.";
+          }
+          document.getElementById("roleToggle").hidden = CWS.storageStatus.mode === "api";
+        };
+
+        refreshStatus();
+        CWS.subscribe(refreshStatus);
+        AppsMenu.render();
+        AppsMenu.bind();
+        Router.boot();
+        document.body.dataset.cwsReady = "true";
+
+        window.addEventListener("message", event => {
+          if(event?.data?.type === "cws_apps_menu") AppsMenu.show();
+        });
+
+        document.getElementById("resetDemo").addEventListener("click", () => {
+          if(!Permissions.can(CWS.getState().ui.role, "edit_planning")) return UI.toast("Geen rechten");
+          CWS.resetDemo();
+          UI.toast("Demo data geladen.");
+          Router.loadApp("projecten");
+        });
+
+        document.getElementById("clearData").addEventListener("click", () => {
+          if(!CWS.hasPermission("admin_settings")) return UI.toast("Geen rechten");
+          if(!confirm("Alle CWS Planning-data verwijderen? Deze actie kan niet ongedaan worden gemaakt.")) return;
+          CWS.clearAll();
+          UI.toast("Data geleegd.");
+          Router.loadApp("projecten");
+        });
+      }catch(error){
+        console.error("Boot failed", error);
+        document.querySelector(".app-shell").innerHTML = `<div class="panel" style="padding:20px"><h2>CWS Planning kon niet starten</h2><p>${String(error.message || error)}</p></div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

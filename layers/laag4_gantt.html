@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gantt</title><link rel="stylesheet" href="../css/theme.css">
+  <style>
+    body{padding:14px}.toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.content{padding:12px}
+    .split{display:grid;grid-template-columns:minmax(620px,48%) 1fr;gap:0;border:1px solid var(--border);border-radius:8px;overflow:auto}
+    .split.table-only{grid-template-columns:1fr}.split.table-only .diagram{display:none}.split.diagram-only{grid-template-columns:1fr}.split.diagram-only .tablepane{display:none}
+    table{width:100%;border-collapse:collapse}th,td{height:48px;padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+    th{position:sticky;top:0;background:#f8fafc;z-index:3}.diagram{border-left:1px solid var(--border);min-width:700px}
+    .timeline-head{height:48px;display:grid;grid-template-columns:repeat(20,44px);position:sticky;top:0;background:#f8fafc;z-index:2}
+    .timeline-head span{padding:7px 4px;border-right:1px solid var(--border);font-size:11px}.lane{height:48px;position:relative;border-bottom:1px solid var(--border);background-image:linear-gradient(to right,#e5e7eb 1px,transparent 1px);background-size:44px 100%}
+    .taskbar{position:absolute;top:2px;height:44px;border-radius:6px;background:#2f6fbd;color:white;padding:12px 8px;font-size:12px;overflow:hidden;cursor:grab}
+    .taskbar.summary{background:#1f2937;height:18px;top:15px;padding:1px 8px}.selected{background:#eff6ff}.indent{display:inline-block}.error{color:#991b1b}
+    .toggle.active{background:#dbeafe}.today{box-shadow:inset 2px 0 #ef4444}.smallselect{max-width:180px}
+  </style>
+</head>
+<body>
+  <div class="panel gantt-root" data-testid="gantt-root">
+    <div class="panel-head"><div><strong>Laag 4 - Gantt Planning</strong><div class="smallmuted">Planning, hiërarchie, afhankelijkheden en urenverdeling</div></div></div>
+    <div class="content">
+      <div class="toolbar" data-testid="gantt-toolbar">
+        <select class="input smallselect" id="project"></select>
+        <select class="input smallselect" id="department"><option value="">Alle afdelingen</option></select>
+        <select class="input smallselect" id="resource"><option value="">Alle resources</option></select>
+        <button class="btn" id="today">Vandaag</button>
+        <button class="btn" data-zoom="day">Dag</button><button class="btn" data-zoom="week">Week</button><button class="btn" data-zoom="month">Maand</button>
+        <button class="btn" id="generate">Genereer fasen</button><button class="btn" id="recalc">Herbereken planning</button><button class="btn" id="hours">Herbereken uren</button>
+        <button class="btn toggle" id="deps">Afhankelijkheden</button><button class="btn toggle" id="critical">Kritiek pad</button><button class="btn toggle" id="baseline">Baseline</button>
+        <button class="btn" id="indent">Inspringen</button><button class="btn" id="outdent">Uitspringen</button>
+        <button class="btn" id="undo">Undo</button><button class="btn" id="redo">Redo</button>
+        <button class="btn" data-view="table">Tabel</button><button class="btn" data-view="both">Beide</button><button class="btn" data-view="diagram">Diagram</button>
+        <button class="btn" id="print">Print A3</button><button class="btn" id="export">Export</button>
+      </div>
+      <div class="smallmuted" id="message" style="margin:9px 0"></div>
+      <div class="split" id="split"><div class="tablepane"><table><thead><tr><th>ID</th><th>Taak</th><th>Start</th><th>Einde</th><th>Duur</th><th>Voortgang</th><th>Voorganger</th><th>Lock</th></tr></thead><tbody id="rows"></tbody></table></div><div class="diagram"><div class="timeline-head" id="timeline"></div><div id="lanes"></div></div></div>
+    </div>
+  </div>
+  <script>const CWS = window.parent?.CWS || window.CWS;</script><script src="../js/core/ui.js"></script>
+  <script>
+    const $=s=>document.querySelector(s), esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    let selected=null;
+    const isoToNL=iso=>iso?iso.slice(8,10)+"-"+iso.slice(5,7)+"-"+iso.slice(0,4):"";
+    const nlToIso=nl=>{const m=String(nl||"").match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`:"";};
+    const addDays=(iso,n)=>{const d=new Date(iso+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+    function ensureModel(st,pid){
+      st.ganttV2=st.ganttV2||{byProject:{},ui:{}};
+      st.ganttV2.ui=st.ganttV2.ui||{};
+      if(!st.ganttV2.byProject[pid]) st.ganttV2.byProject[pid]={rows:[],sched:{}};
+      const model=st.ganttV2.byProject[pid];model.rows=Array.isArray(model.rows)?model.rows:[];model.sched=model.sched||{};return model;
+    }
+    function projectId(){return $("#project").value;}
+    function seedRows(st,pid){
+      const model=ensureModel(st,pid);if(model.rows.length)return model;
+      const p=st.projects.byId[pid],base=nlToIso(p.start)||new Date().toISOString().slice(0,10);
+      const pack=st.tasks.byProject[pid];const phases=pack?.phases?.length?pack.phases:[{id:"PH-1",name:"Engineering",tasks:[{id:"T-1",name:"Voorbereiding"},{id:"T-2",name:"Uitvoering"}]}];
+      let day=0;
+      phases.forEach((ph,pi)=>{
+        const summaryId=`${pid}-${ph.id}`;model.rows.push({id:summaryId,name:ph.name,type:"summary",level:0,department:ph.name,progress:0,predecessor:"",locked:false});
+        (ph.tasks||[]).forEach((t,ti)=>{const id=`${pid}-${t.id}`;const start=addDays(base,day);const end=addDays(start,4);model.rows.push({id,name:t.name,type:"task",level:1,department:ph.name,progress:ti?0:25,predecessor:ti?`${pid}-${ph.tasks[ti-1].id}FS`:"",locked:false});model.sched[id]={start,end};day+=5;});
+      });return model;
+    }
+    function summarySchedule(model,index){
+      const row=model.rows[index],children=[];for(let i=index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(row.level);i++)children.push(model.sched[model.rows[i].id]);
+      const valid=children.filter(Boolean);return valid.length?{start:valid.map(x=>x.start).sort()[0],end:valid.map(x=>x.end).sort().at(-1)}:{};
+    }
+    function duration(s){if(!s?.start||!s?.end)return 0;return Math.max(1,Math.round((new Date(s.end)-new Date(s.start))/86400000)+1);}
+    function render(){
+      const st=CWS.getState(),pid=projectId()||st.projects.order[0];if(!pid)return;
+      const model=ensureModel(st,pid),zoom=st.ganttV2.ui.zoom||"day",unit=zoom==="day"?44:zoom==="week"?22:11;
+      $("#timeline").style.gridTemplateColumns=`repeat(20,${unit}px)`;$("#timeline").innerHTML=Array.from({length:20},(_,i)=>`<span>${i+1}</span>`).join("");
+      $("#rows").innerHTML=model.rows.map((r,i)=>{const sc=r.type==="summary"?summarySchedule(model,i):model.sched[r.id]||{};return `<tr data-id="${esc(r.id)}" class="${selected===r.id?"selected":""}"><td>${esc(r.id)}</td><td><span class="indent" style="width:${Number(r.level||0)*18}px"></span><strong>${r.type==="summary"?"▾ ":""}</strong><span contenteditable="${!r.locked}" data-key="name">${esc(r.name)}</span></td><td contenteditable="${!r.locked&&r.type!=="summary"}" data-key="start">${esc(isoToNL(sc.start))}</td><td contenteditable="${!r.locked&&r.type!=="summary"}" data-key="end">${esc(isoToNL(sc.end))}</td><td>${duration(sc)} d</td><td contenteditable="${!r.locked}" data-key="progress">${Number(r.progress||0)}%</td><td contenteditable="${!r.locked}" data-key="predecessor">${esc(r.predecessor)}</td><td><input type="checkbox" data-lock ${r.locked?"checked":""}></td></tr>`}).join("");
+      $("#lanes").innerHTML=model.rows.map((r,i)=>{const sc=r.type==="summary"?summarySchedule(model,i):model.sched[r.id]||{};const start=sc.start?Math.max(0,Math.round((new Date(sc.start)-new Date((st.projects.byId[pid].start&&nlToIso(st.projects.byId[pid].start))||sc.start))/86400000)):0;const width=Math.max(unit,duration(sc)*unit);return `<div class="lane"><div class="taskbar ${r.type==="summary"?"summary":""}" data-testid="gantt-bar-${esc(r.id)}" style="left:${start*unit}px;width:${width}px">${esc(r.name)}</div></div>`}).join("");
+      $("#message").textContent=`${model.rows.length} regels | zoom ${zoom} | urenbron: Projecturen per afdeling`;
+      $("#rows").querySelectorAll("tr").forEach(tr=>tr.addEventListener("click",()=>{selected=tr.dataset.id;render();}));
+      $("#rows").querySelectorAll("[contenteditable=true]").forEach(td=>td.addEventListener("blur",e=>saveCell(e.target)));
+      $("#rows").querySelectorAll("[data-lock]").forEach(cb=>cb.addEventListener("change",e=>{const id=e.target.closest("tr").dataset.id;CWS.mutate("gantt_lock",{projectId:pid,rowId:id},s=>{ensureModel(s,pid).rows.find(r=>r.id===id).locked=e.target.checked;});render();}));
+    }
+    function saveCell(td){const pid=projectId(),id=td.closest("tr").dataset.id,key=td.dataset.key,value=td.textContent.trim();CWS.mutate("gantt_edit",{projectId:pid,rowId:id,key},s=>{const m=ensureModel(s,pid),r=m.rows.find(x=>x.id===id);if(key==="start"||key==="end"){const iso=nlToIso(value);if(!iso)throw new Error("Ongeldige datum");m.sched[id]=m.sched[id]||{};m.sched[id][key]=iso;}else if(key==="progress")r.progress=Math.max(0,Math.min(100,Number(value.replace("%",""))||0));else if(key==="predecessor"){if(value&&value.startsWith(id))throw new Error("Circulaire afhankelijkheid");r.predecessor=value;}else r[key]=value;});render();}
+    function fillFilters(){const st=CWS.getState();$("#project").innerHTML=st.projects.order.map(id=>`<option value="${id}">${esc(st.projects.byId[id]?.nr)} - ${esc(st.projects.byId[id]?.name)}</option>`).join("");const deps=st.departments?.order||[];$("#department").innerHTML='<option value="">Alle afdelingen</option>'+deps.map(id=>`<option>${esc(st.departments.byId[id]?.name||id)}</option>`).join("");$("#resource").innerHTML='<option value="">Alle resources</option>'+st.resources.order.map(id=>`<option value="${id}">${esc(st.resources.byId[id]?.name)}</option>`).join("");}
+    fillFilters();const first=CWS.getState().projects.order[0];if(first)CWS.setState(s=>{seedRows(s,first);return s;});$("#project").addEventListener("change",()=>{CWS.setState(s=>{seedRows(s,projectId());return s;});render();});
+    $("#generate").addEventListener("click",()=>{CWS.gantt.generatePhases(projectId());render();});
+    $("#recalc").addEventListener("click",()=>{const check=CWS.gantt.validateDependencies(projectId());if(!check.valid)return UI.toast(check.errors[0]);render();UI.toast("Planning herberekend");});$("#hours").addEventListener("click",()=>{CWS.gantt.recalculateHours();UI.toast("Urenverdeling herberekend");});
+    ["deps","critical","baseline"].forEach(id=>$("#"+id).addEventListener("click",e=>{e.target.classList.toggle("active");UI.toast(e.target.textContent+" bijgewerkt");}));
+    document.querySelectorAll("[data-zoom]").forEach(b=>b.addEventListener("click",()=>{CWS.setState(s=>{s.ganttV2.ui.zoom=b.dataset.zoom;return s;});render();}));
+    document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>{const v=b.dataset.view;$("#split").className="split"+(v==="table"?" table-only":v==="diagram"?" diagram-only":"");CWS.setState(s=>{s.ganttV2.ui.view=v;return s;});}));
+    $("#indent").addEventListener("click",()=>{if(!selected)return;const pid=projectId();CWS.mutate("gantt_indent",{projectId:pid,rowId:selected},s=>{const m=ensureModel(s,pid),i=m.rows.findIndex(r=>r.id===selected);if(i>0)m.rows[i].level=Math.min(Number(m.rows[i-1].level)+1,Number(m.rows[i].level)+1);});render();});
+    $("#outdent").addEventListener("click",()=>{if(!selected)return;const pid=projectId();CWS.mutate("gantt_outdent",{projectId:pid,rowId:selected},s=>{const r=ensureModel(s,pid).rows.find(x=>x.id===selected);r.level=Math.max(0,Number(r.level)-1);});render();});
+    $("#undo").addEventListener("click",()=>{CWS.undo();render();});$("#redo").addEventListener("click",()=>{CWS.redo();render();});$("#today").addEventListener("click",()=>UI.toast("Vandaag: "+new Date().toLocaleDateString("nl-NL")));
+    $("#export").addEventListener("click",()=>{const st=CWS.getState(),m=ensureModel(st,projectId());UI.downloadCSV("gantt.csv",[["ID","Taak","Level","Start","Einde","Voortgang","Voorganger"],...m.rows.map(r=>[r.id,r.name,r.level,m.sched[r.id]?.start,m.sched[r.id]?.end,r.progress,r.predecessor])]);});
+    $("#print").addEventListener("click",()=>UI.printA3("Gantt Planning",CWS.getState().projects.byId[projectId()]?.name||"",$("#split").outerHTML));
+    render();
+  </script>
+</body>
+</html>

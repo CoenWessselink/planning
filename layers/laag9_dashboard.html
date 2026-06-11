@@ -1,0 +1,382 @@
+<!doctype html><html lang="nl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="../css/theme.css"/></head>
+<body style="background:transparent">
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-tools">
+      <button class="btn" onclick="UI.openAppsMenuSafe()">Apps Menu</button>
+      <span class="smallmuted">Dashboard</span>
+      <span class="pill" id="wkPill">Week 15 - 2026</span>
+    </div>
+    <div class="panel-tools">
+      <button class="btn" id="refreshBtn">Ververs</button>
+    
+      <button class="btn" id="exportBtn">Export</button>
+      <button class="btn" id="printBtn">Print A3</button>
+      <select class="input" id="scenarioSel" style="min-width:180px;"><option value="">Scenario: Live</option><option value="A">Scenario A</option><option value="B">Scenario B</option></select>
+</div>
+  </div>
+
+  <div class="dash">
+    <div class="dash-grid">
+      <div class="card">
+        <h3>Overzicht (week)</h3>
+        <div class="sub">KPI's gebaseerd op huidige week (allocations) + projecten.</div>
+
+        <div class="kpi2" id="kpis"></div>
+
+        <div style="margin-top:14px; display:grid; grid-template-columns: 1.2fr .8fr; gap:12px; align-items:start;">
+          <div class="card" style="box-shadow:none; border-radius:14px;">
+            <h3>Top projecten (uren)</h3>
+            <div class="sub">Meest ingeplande uren in geselecteerde week.</div>
+            <div id="topProjects"></div>
+          </div>
+          <div class="card" style="box-shadow:none; border-radius:14px;">
+            <h3>Status verdeling</h3>
+            <div class="sub">Aantallen projecten per status.</div>
+            <div class="pie" id="pie"></div>
+            <div class="legend" id="legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Resource belasting (week)</h3>
+        <div class="sub">Ingepland vs beschikbaar (5 dagen).</div>
+        <div id="resLoad" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="footerbar" style="margin:0 12px 12px;">
+      <div class="smallmuted">Dashboard is live: wijzigingen in Planbord/Toewijzingen updaten de KPI's na ververs.</div>
+      <div class="smallmuted">v6 build-26</div>
+    </div>
+  </div>
+</div>
+
+<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script>
+(function(){
+  const q=document.getElementById('fuzzyQ');
+  const c=document.getElementById('clearQ');
+  const tbl=document.querySelector('table');
+  if(!q||!c||!tbl) return;
+  function applyFuzzy(){
+    const v=(q.value||'').toLowerCase().trim();
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      const txt=tr.textContent.toLowerCase();
+      tr.style.display = (!v || txt.includes(v)) ? '' : 'none';
+    });
+  }
+  q.addEventListener('input', applyFuzzy);
+  c.addEventListener('click', ()=>{ q.value=''; applyFuzzy(); });
+})();
+</script>
+<script src="../js/core/permissions.js"></script>
+<script src="../js/core/ui.js"></script>
+<script>
+  function weekKey(){ return UI.weekKey(CWS.getState().ui.week); }
+  function weekLabel(){
+    const wk = CWS.getState().ui.week;
+    return `Week ${wk.week} - ${wk.year}`;
+  }
+  function allocs(){
+    const st=CWS.getState();
+    const wk0=weekKey();
+    const sc=(document.getElementById('scenarioSel')?.value)||'';
+    const wk = sc ? (wk0+'@'+sc) : wk0;
+    return (st.allocations?.byWeek?.[wk] || []);
+  }
+  function aggByProject(){
+    const out={};
+    allocs().forEach(a=>{
+      out[a.projectId]=(out[a.projectId]||0) + Number(a.hours||0);
+    });
+    return out;
+  }
+  function aggByRes(){
+    const out={};
+    allocs().forEach(a=>{
+      out[a.resId]=(out[a.resId]||0) + Number(a.hours||0);
+    });
+    return out;
+  }
+
+  function aggByDept(){
+    const st=CWS.getState();
+    const out={};
+    allocs().forEach(a=>{
+      const res = st.resources?.byId?.[a.resId] || {};
+      const dept = res.dept || "—";
+      out[dept] = out[dept] || { planned:0, cap:0 };
+      out[dept].planned += Number(a.hours||0);
+    });
+    // capacity: sum daily*5 per resource in dept
+    (st.resources?.order||[]).forEach(rid=>{
+      const r = st.resources.byId[rid] || {};
+      const dept = r.dept || "—";
+      out[dept] = out[dept] || { planned:0, cap:0 };
+      out[dept].cap += (Number(r.daily||0)*5);
+    });
+    return out;
+  }
+
+  function kpi(label, value, sub){
+    const d=document.createElement("div");
+    d.className="k";
+    d.innerHTML = `<div class="v">${value}</div><div class="l">${label}</div>${sub?`<div class="smallmuted" style="margin-top:2px;">${sub}</div>`:""}`;
+    return d;
+  }
+
+  function renderTrends(){
+    const st=CWS.getState();
+    // collect live weeks only (exclude scenarios)
+    const keys = Object.keys(st.allocations?.byWeek||{}).filter(k=>!k.includes("@")).sort();
+    const last = keys.slice(-8);
+    const pts = last.map(k=>{
+      const hrs = (st.allocations.byWeek[k]||[]).reduce((s,a)=>s+Number(a.hours||0),0);
+      return { k, hrs };
+    });
+    // build svg sparkline
+    const w=360, h=70, pad=8;
+    const max = Math.max(1, ...pts.map(p=>p.hrs));
+    const xs = pts.map((p,i)=> pad + (i*(w-2*pad))/Math.max(1, pts.length-1));
+    const ys = pts.map((p,i)=> h-pad - (p.hrs*(h-2*pad))/max);
+    const d = pts.map((p,i)=> `${xs[i]},${ys[i]}`).join(" ");
+    const rows = pts.map(p=>`<tr><td>${p.k}</td><td>${p.hrs.toFixed(1)}</td></tr>`).join("");
+    return `
+      <div class="card" style="grid-column: span 2;">
+        <div class="cardhead"><strong>Trend (laatste 8 weken)</strong><span class="smallmuted">uren ingepland (live)</span></div>
+        <div style="display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;">
+          <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border:1px solid var(--border); border-radius:12px; background:#fff;">
+            <polyline fill="none" stroke="rgba(47,111,189,.85)" stroke-width="3" points="${d}"></polyline>
+          </svg>
+          <div class="table-toolbar"><input class="input search" id="fuzzyQ" placeholder="Zoek..."/><button class="smallbtn" id="clearQ">Leeg</button></div>
+<div class="table-wrap" style="max-height:120px; width:260px;">
+            <table>
+              <thead><tr><th>Week</th><th>Uren</th></tr></thead>
+              <tbody>${rows || `<tr><td colspan="2" class="smallmuted">Geen data</td></tr>`}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function render(){
+    const st=CWS.getState();
+    document.getElementById("wkPill").textContent = weekLabel();
+
+    const proj=st.projects.byId;
+    const order=st.projects.order;
+    const ap=aggByProject();
+    const ar=aggByRes();
+
+    const hoursTotal = Object.values(ap).reduce((s,v)=>s+v,0);
+
+    // Previous live week total (nearest earlier key)
+    let prevTotal = 0;
+    try{
+      const wkNow = UI.weekKey(st.ui.week);
+      const keys = Object.keys(st.allocations?.byWeek||{}).filter(k=>!k.includes('@')).sort();
+      const idx = keys.indexOf(wkNow);
+      const prevKey = idx>0 ? keys[idx-1] : (keys.length>1 ? keys[keys.length-2] : null);
+      if(prevKey){ prevTotal = (st.allocations.byWeek[prevKey]||[]).reduce((s,a)=>s+Number(a.hours||0),0); }
+    }catch(e){}
+    const deltaH = Math.round((hoursTotal - prevTotal)*10)/10;
+    const projectsPlanned = Object.keys(ap).length;
+
+    const counts = { "Te plannen":0, "Ingepland":0, "In uitvoering":0, "Gereed":0 };
+    order.forEach(id=>{
+      const s=(proj[id]?.status||"Te plannen");
+      counts[s]=(counts[s]||0)+1;
+    });
+
+    const available = st.resources.order.reduce((sum,id)=> sum + (Number(st.resources.byId[id]?.daily||0)*5), 0);
+    const pct = available ? Math.round((hoursTotal/available)*100) : 0;
+
+    const kpis=document.getElementById("kpis");
+    kpis.innerHTML="";
+    let confN=0;
+    try{
+      const sc=(document.getElementById('scenarioSel')?.value)||'';
+      const wk0=UI.weekKey(CWS.getState().ui.week);
+      const c = CWS.detectConflicts(wk0, sc||null);
+      confN = (c.over?.length||0)+(c.dept?.length||0)+(c.missing?.length||0);
+    }catch(e){}
+
+    kpis.append(
+      kpi("Uren ingepland", hoursTotal, (deltaH===0? "—" : (deltaH>0? "+"+deltaH+" vs vorige week" : deltaH+" vs vorige week"))),
+      kpi("Capaciteit benut", pct + "%"),
+      kpi("Projecten met planning", projectsPlanned),
+      kpi("Conflicten", confN)
+    );
+
+    // Top projects
+    const topEl=document.getElementById("topProjects");
+    topEl.innerHTML="";
+    const top = Object.entries(ap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    if(!top.length){
+      topEl.innerHTML = "<div class='smallmuted'>Nog geen toewijzingen in deze week.</div>";
+    } else {
+      top.forEach(([pid,h])=>{
+        const p = proj[pid] || {};
+        const row=document.createElement("div");
+        row.className="minirow";
+        row.innerHTML = `<div style="min-width:0;">
+            <div style="font-weight:900;">${p.nr||pid}</div>
+            <div class="smallmuted" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name||""}</div>
+          </div>
+          <div style="font-weight:900;">${h}h</div>`;
+        topEl.appendChild(row);
+      });
+    }
+
+    // Pie/legend - dynamic conic gradient
+    const total = Object.values(counts).reduce((s,v)=>s+v,0) || 1;
+    const seg = [
+      ["Te plannen", counts["Te plannen"], "var(--st-teplannen)"],
+      ["Ingepland", counts["Ingepland"], "#2f6fbd"],
+      ["In uitvoering", counts["In uitvoering"], "var(--st-uitvoering)"],
+      ["Gereed", counts["Gereed"], "#2f7d32"],
+    ];
+    let cur=0;
+    const parts=[];
+    seg.forEach(([name,val,color])=>{
+      const deg = (val/total)*360;
+      parts.push(`${color} ${cur}deg ${cur+deg}deg`);
+      cur += deg;
+    });
+    document.getElementById("pie").style.background = "conic-gradient(" + parts.join(",") + ")";
+
+    const leg=document.getElementById("legend");
+    leg.innerHTML="";
+    seg.forEach(([name,val,color])=>{
+      const li=document.createElement("div");
+      li.className="leg";
+      li.innerHTML = `<span class="sw" style="background:${color}"></span> ${name}: ${val}`;
+      leg.appendChild(li);
+    });
+
+    // Resource load
+    // Dept load
+    const resEl=document.getElementById("resLoad");
+    resEl.innerHTML="";
+    st.resources.order.forEach(rid=>{
+      const r = st.resources.byId[rid];
+      const planned = ar[rid] || 0;
+      const cap = Number(r.daily||0)*5;
+      const p = cap ? Math.min(100, Math.round((planned/cap)*100)) : 0;
+
+      const card=document.createElement("div");
+      card.className="minirow";
+      card.style.flexDirection="column";
+      card.style.alignItems="stretch";
+      card.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px;">
+          <div style="font-weight:900;">${r.name}</div>
+          <div style="font-weight:900;">${planned} / ${cap}h</div>
+        </div>
+        <div class="barline"><div style="width:${p}%"></div></div>
+        <div class="smallmuted">${r.dept||"—"} • ${p}%</div>`;
+      resEl.appendChild(card);
+    });
+
+
+    // Dept load
+    const deptEl = document.getElementById("deptLoad");
+    if (deptEl){
+      deptEl.innerHTML = "";
+      const byDept = aggByDept();
+      const rows = Object.entries(byDept).sort((a,b)=> (b[1].planned/b[1].cap||0) - (a[1].planned/a[1].cap||0));
+      rows.forEach(([dept, v])=>{
+        const cap = v.cap || 0;
+        const planned = v.planned || 0;
+        const pct = cap ? Math.min(100, Math.round((planned/cap)*100)) : 0;
+        const row=document.createElement("div");
+        row.className="minirow";
+        row.style.flexDirection="column";
+        row.style.alignItems="stretch";
+        row.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px;">
+            <div style="font-weight:900;">${dept}</div>
+            <div style="font-weight:900;">${planned.toFixed(1)} / ${cap.toFixed(1)}h</div>
+          </div>
+          <div class="barline"><div style="width:${pct}%"></div></div>
+          <div class="smallmuted">${pct}% benut</div>`;
+        deptEl.appendChild(row);
+      });
+      if(!rows.length) deptEl.innerHTML = "<div class='smallmuted'>Geen afdeling-data.</div>";
+    }
+
+    // Project progress (planned this week vs needed)
+    const ppEl = document.getElementById("projProgress");
+    if (ppEl){
+      ppEl.innerHTML = "";
+      const model = (st.ganttV2?.byProject)||{};
+      const top = Object.entries(ap).sort((a,b)=>b[1]-a[1]).slice(0,12);
+      const list = top.length ? top : order.slice(0,12).map(pid=>[pid, ap[pid]||0]);
+      list.forEach(([pid, plannedWeek])=>{
+        const p = proj[pid] || {};
+        // estimate needed: sum task.hoursNeeded if present else p.hoursNeeded else plannedWeek
+        let needed = Number(p.hoursNeeded||0);
+        const pm = model[pid];
+        if (pm){
+          const ids = pm.rows || [];
+          let sum=0;
+          ids.forEach(id=>{
+            const r = pm.byId?.[id];
+            if (r && r.type==="task") sum += Number(r.hoursNeeded||r.hours||0);
+          });
+          if (sum>0) needed = sum;
+        }
+        if (!needed) needed = Math.max(plannedWeek, 1);
+        const pct = Math.min(100, Math.round((plannedWeek/needed)*100));
+        const row=document.createElement("div");
+        row.className="minirow";
+        row.style.flexDirection="column";
+        row.style.alignItems="stretch";
+        row.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px;">
+            <div style="min-width:0;">
+              <div style="font-weight:900;">${p.nr||pid} — ${p.name||""}</div>
+              <div class="smallmuted">${p.status||"Te plannen"} • nodig ${needed.toFixed(1)}h</div>
+            </div>
+            <div style="font-weight:900;">${plannedWeek.toFixed(1)}h</div>
+          </div>
+          <div class="barline"><div style="width:${pct}%"></div></div>`;
+        ppEl.appendChild(row);
+      });
+      if(!list.length) ppEl.innerHTML = "<div class='smallmuted'>Geen projecten.</div>";
+    }
+  }
+
+  document.getElementById("refreshBtn").addEventListener("click", ()=>{ render(); UI.toast("Verversd"); });
+  document.getElementById("scenarioSel").addEventListener("change", ()=>{ render(); });
+
+  document.getElementById("exportBtn").addEventListener("click", ()=>{
+    const st=CWS.getState();
+    const wk = UI.weekKey(st.ui.week);
+    const proj=st.projects.byId;
+    const ap = (function(){
+      const out={}; 
+      (st.allocations?.byWeek?.[wk]||[]).forEach(a=>{ out[a.projectId]=(out[a.projectId]||0)+Number(a.hours||0); });
+      return out;
+    })();
+    const rows = [["Week", wk], [], ["Project","Status","Uren ingepland"]];
+    Object.entries(ap).sort((a,b)=>b[1]-a[1]).forEach(([pid,h])=>{
+      const p=proj[pid]||{};
+      rows.push([p.nr||pid, p.status||"", h]);
+    });
+    UI.downloadCSV(`dashboard_week_${wk}.csv`, rows);
+    UI.toast("CSV geëxporteerd");
+  });
+
+  document.getElementById("printBtn").addEventListener("click", ()=>{
+    const wk = UI.weekKey(CWS.getState().ui.week);
+    const title = "Dashboard — " + wk;
+    const subtitle = "Overzicht KPI's + top projecten + resource belasting";
+    const html = document.querySelector(".dash")?.outerHTML || "";
+    UI.printA3(title, subtitle, html);
+  });
+
+  render();
+</script>
+</body></html>

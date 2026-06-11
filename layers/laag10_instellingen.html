@@ -1,0 +1,1884 @@
+<!doctype html><html lang="nl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="../css/theme.css"/></head>
+<body style="background:transparent">
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-tools">
+      <button class="btn" onclick="openAppsMenuSafe()">Apps Menu</button>
+      <span class="smallmuted">Instellingen</span>
+    </div>
+    <div class="panel-tools">
+      <button class="btn" id="resetBtn">Reset demo</button>
+      <button class="btn" id="genDemo">Genereer demo</button>
+    </div>
+  </div>
+
+  <div class="settings-wrap">
+    <div class="side" id="side"></div>
+
+    <div class="tiles">
+      <div class="panel" style="margin-bottom:12px;">
+        <div class="panel-head" style="border-bottom:0;">
+          <div class="panel-tools">
+            <div style="font-size:18px; font-weight:900;" id="sectionTitle">Accountinformatie</div>
+            <span class="smallmuted" id="sectionHint">Beheer profiel en beveiliging.</span>
+          </div>
+          <div class="panel-tools">
+            <button class="btn" id="addBtn">Nieuw item</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tilegrid" id="tilegrid"></div>
+    </div>
+  </div>
+
+  <div class="footerbar">
+    <div class="smallmuted">Alles bewerkbaar via popup modals (CRUD). Navigatie links blijft altijd zichtbaar.</div>
+    <div class="smallmuted">v6 build-26</div>
+  </div>
+</div>
+
+<!-- CRUD modal -->
+<div class="modal-backdrop" id="crudBackdrop" aria-hidden="true">
+  <div class="modal modal-sm" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <span id="crudTitle">Item</span>
+      <button class="close" id="crudClose" aria-label="Sluiten">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="formrow"><div class="label">Titel</div><input class="input" id="fTitle" placeholder="Titel"/></div>
+      <div class="formrow"><div class="label">Beschrijving</div><input class="input" id="fDesc" placeholder="Korte uitleg"/></div>
+      <div class="formrow"><div class="label">Icon</div><input class="input" id="fIcon" placeholder="👤 / 🔒 / ⚙️"/></div>
+      <div style="display:flex; justify-content:space-between; gap:10px; margin-top:14px;">
+        <button class="btn" id="deleteBtn">Verwijderen</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" id="cancelBtn">Annuleren</button>
+          <button class="btn" id="saveBtn">Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Template manager modal (Phase 14) -->
+<div class="modal-backdrop" id="tplBackdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" style="width:min(1100px, 96vw);">
+    <div class="modal-head">
+      Templates – Taken & Fasen
+      <button class="close" id="tplClose" aria-label="Sluiten">✕</button>
+    </div>
+    <div class="modal-body" style="display:grid; grid-template-columns: 320px 1fr; gap:12px;">
+      <div style="border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff;">
+        <div class="listhead">Templates</div>
+        <div style="padding:10px 12px; border-bottom:1px solid var(--border); display:flex; gap:10px;">
+          <button class="btn" id="tplNew">Nieuw template</button>
+        </div>
+        <div id="tplList"></div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff;">
+        <div class="listhead" id="tplTitle">Template</div>
+        <div style="padding:12px; border-bottom:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input class="input" id="tplName" placeholder="Template naam" style="min-width:260px;"/>
+          <button class="btn" id="tplSaveName">Opslaan naam</button>
+          <button class="btn" id="tplApply">Toepassen op projecten</button>
+          <button class="btn" id="tplDelete">Verwijder template</button>
+        </div>
+
+        <div style="padding:12px; display:flex; justify-content:space-between; align-items:center;">
+          <strong>Fasen & taken</strong>
+          <div style="display:flex; gap:10px;">
+            <button class="btn" id="phAdd">Fase toevoegen</button>
+            <button class="btn" id="taskAdd">Taak toevoegen</button>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="max-height: 420px;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:160px;">Fase</th>
+                <th>Taak</th>
+                <th style="width:130px;">Voorgangers</th>
+                <th style="width:140px;">Afdeling</th>
+                <th style="width:140px;">Resource</th>
+                <th style="width:120px;">Start</th>
+                <th style="width:120px;">Einde</th>
+                <th style="width:90px;">Dagen</th>
+                <th style="width:110px;">Uren</th>
+                <th style="width:90px;">Kleur</th>
+                <th style="width:130px; text-align:right;">Acties</th>
+</tr>
+            </thead>
+            <tbody id="tplRows"></tbody>
+          </table>
+        </div>
+
+        <div class="footerbar">
+          <div class="smallmuted">Wijzigingen worden direct opgeslagen in templates.taskSets.</div>
+          <div class="smallmuted">Phase 14</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script src="../js/core/permissions.js"></script>
+<script src="../js/core/ui.js"></script>
+<script>
+  function openAppsMenuSafe(){
+    try{ UI.openAppsMenuSafe(); }
+    catch(e){ try{ parent.postMessage({type:'cws_apps_menu'}, '*'); }catch(_){} }
+  }
+
+  // settings state in store (future: separate schema + permissions)
+  function ensureSettings(){
+    const st = CWS.getState();
+    const hasSections = !!(st.settings && Array.isArray(st.settings.sections) && st.settings.sections.length);
+    if(hasSections) return;
+    const seed = {
+      activeSection: "Accountinformatie",
+      sections: [
+        { name:"Accountinformatie", hint:"Beheer profiel en beveiliging.", items:[
+          { id:"profiel", title:"Profiel", desc:"Naam, contactgegevens, handtekening.", icon:"👤" },
+          { id:"beveiliging", title:"Beveiliging", desc:"Wachtwoord, 2FA, sessies.", icon:"🔒" },
+        ]},
+        { name:"Voorkeuren", hint:"Taal, tijdzone, thema.", items:[
+          { id:"algemeen", title:"Algemeen", desc:"Taal, tijdzone, datumformat.", icon:"⚙️" },
+          { id:"weergave", title:"Weergave", desc:"Thema, dichtheid, raster.", icon:"🎛️" },
+        ]},
+        { name:"Organisatie", hint:"Bedrijfsdata en teams.", items:[
+          { id:"bedrijf", title:"Bedrijf", desc:"Naam, adres, KVK, BTW.", icon:"🏢" },
+          { id:"afdelingen", title:"Afdelingen", desc:"Afdelingen, kleuren, capaciteit.", icon:"🏷️" },
+          { id:"rollen", title:"Rollen & rechten", desc:"Admin/Planner/Viewer rechten.", icon:"🧩" },
+        ]},
+        { name:"Resources & Capaciteit", hint:"Werknemers, werkweken en kalenders.", items:[
+          { id:"werknemers", title:"Werknemers", desc:"Medewerkers, skills, werkweek.", icon:"👷" },
+          { id:"kalender", title:"Niet-werkbare dagen", desc:"Werkdag/Niet-werkdag per weekdag.", icon:"🗓️" },
+          { id:"capaciteit", title:"Capaciteit", desc:"Uurtypen, targets, overuren.", icon:"⏱️" },
+        ]},
+        { name:"Planning & Projectdefinities", hint:"Projectfasen, statussen, kolommen.", items:[
+          { id:"fasen", title:"Fasen & taken", desc:"Standaard fasen/taken, templates.", icon:"🧱" },
+          { id:"statussen", title:"Status & voortgang", desc:"Labels, kleuren, workflow.", icon:"🚦" },
+          { id:"kolommen", title:"Kolommenbeheer", desc:"Zichtbaarheid per module.", icon:"📐" },
+        ]},
+        { name:"Systeem & Data", hint:"Import/Export, audit en integraties.", items:[
+          { id:"io", title:"Import/Export", desc:"Excel/CSV, mapping, validatie.", icon:"📥" },
+          { id:"audit", title:"Auditlog", desc:"Wijzigingen, gebruikers, tijd.", icon:"🧾" },
+          { id:"integraties", title:"Integraties", desc:"API, webhooks, koppelingen.", icon:"🔌" },
+          { id:"portaal", title:"Klantportaal", desc:"Toegang voor klanten per module.", icon:"🌐" },
+        ]},
+      ]
+    };
+    CWS.setState(s=>{
+      const prev = s.settings || {};
+      const merged = Object.assign({}, seed, prev);
+      if(!Array.isArray(prev.sections) || prev.sections.length===0) merged.sections = seed.sections;
+      if(!prev.activeSection) merged.activeSection = seed.activeSection;
+      s.settings = merged;
+      return s;
+    });
+  }
+
+  function sideModel(){
+    const st = CWS.getState();
+    // Harden against partial/older snapshots (never assume nested objects exist)
+    if(!st.settings || !Array.isArray(st.settings.sections)){
+      try{ ensureSettings(); }catch(e){}
+    }
+    const st2 = CWS.getState();
+    return (st2.settings && Array.isArray(st2.settings.sections)) ? st2.settings.sections : [];
+  }
+
+  function setActive(name){
+    CWS.setState(s=>{ s.settings.activeSection = name; return s; });
+    render();
+  }
+
+  function activeSection(){
+    const st = CWS.getState();
+    const secs = (st.settings && Array.isArray(st.settings.sections)) ? st.settings.sections : [];
+    if(!secs.length){
+      try{ ensureSettings(); }catch(e){}
+      const st2 = CWS.getState();
+      const secs2 = (st2.settings && Array.isArray(st2.settings.sections)) ? st2.settings.sections : [];
+      return secs2[0] || { name:"Instellingen", hint:"", items:[] };
+    }
+    return secs.find(x=> x.name===st.settings.activeSection) || secs[0];
+  }
+
+  function openCrud(open){
+    const bd = document.getElementById("crudBackdrop");
+    bd.classList.toggle("show", !!open);
+    bd.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
+  
+  // Phase 14: Template Manager
+  let tplCtx = { activeId: null };
+
+  
+  // Phase 18: Rights & Audit modals
+  let rightsCtx = { activeId: "planner" };
+
+  const ALL_PERMS = [
+    "view_projects","edit_projects",
+    "view_planning","edit_planning",
+    "auto_plan","view_reports",
+    "admin_settings"
+  ];
+
+  function ensureRoles(){
+    CWS.setState(s=>{
+      s.roles = s.roles || JSON.parse(JSON.stringify(CWS.DEFAULT_ROLES||{}));
+      if(!s.roles || !Object.keys(s.roles).length){
+        s.roles = JSON.parse(JSON.stringify(CWS.DEFAULT_ROLES||{}));
+      }
+      s.user = s.user || { name:"Gebruiker", role:"admin", dept:"" };
+      return s;
+    });
+  }
+
+  function openRightsModal(open){
+    const bd=document.getElementById("rightsBackdrop");
+    if(!bd) return;
+    bd.classList.toggle("show", !!open);
+    bd.setAttribute("aria-hidden", open ? "false" : "true");
+    if(open){
+      ensureRoles();
+      renderRoleList();
+      renderRoleEditor();
+    }
+  }
+
+  function renderRoleList(){
+    const root=document.getElementById("roleList");
+    if(!root) return;
+    root.innerHTML="";
+    const st=CWS.getState();
+    Object.entries(st.roles||{}).forEach(([id, role])=>{
+      const d=document.createElement("div");
+      d.className="pitem" + (id===rightsCtx.activeId ? " active":"");
+      d.innerHTML = `<div style="font-weight:900;">${role.name || id}</div><div class="pmeta">${(role.permissions||[]).includes('*')?'*':(role.permissions||[]).length + ' permissies'}</div>`;
+      d.addEventListener("click", ()=>{ rightsCtx.activeId=id; renderRoleList(); renderRoleEditor(); });
+      root.appendChild(d);
+    });
+  }
+
+  function renderRoleEditor(){
+    const st=CWS.getState();
+    const role = (st.roles||{})[rightsCtx.activeId];
+    if(!role) return;
+    document.getElementById("roleTitle").textContent = "Rol: " + (role.name||rightsCtx.activeId);
+    document.getElementById("roleName").value = role.name||"";
+
+    const tbody=document.getElementById("permRows");
+    tbody.innerHTML="";
+    const perms = role.permissions||[];
+    ALL_PERMS.forEach(p=>{
+      const tr=document.createElement("tr");
+      const on = perms.includes("*") || perms.includes(p);
+      tr.innerHTML = `<td><strong>${p}</strong></td><td style="text-align:right;"><button class="smallbtn" data-p="${p}">${on?'✅ aan':'⬜ uit'}</button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("button[data-p]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const p=btn.getAttribute("data-p");
+        CWS.setState(s=>{
+          const r=s.roles[rightsCtx.activeId];
+          if(!r || (r.permissions||[]).includes("*")) return s;
+          r.permissions = r.permissions||[];
+          const i=r.permissions.indexOf(p);
+          if(i>=0) r.permissions.splice(i,1);
+          else r.permissions.push(p);
+          CWS.audit?.("rights_change", { role:rightsCtx.activeId, perm:p, enabled:i<0 });
+          return s;
+        });
+        renderRoleEditor();
+        renderRoleList();
+      });
+    });
+  }
+
+  function openAuditModal(open){
+    const bd=document.getElementById("auditBackdrop");
+    if(!bd) return;
+    bd.classList.toggle("show", !!open);
+    bd.setAttribute("aria-hidden", open ? "false" : "true");
+    if(open) renderAudit();
+  }
+
+  function renderAudit(){
+    const st=CWS.getState();
+    const q=(document.getElementById("auditQ")?.value||"").toLowerCase();
+    const tbody=document.getElementById("auditRows");
+    tbody.innerHTML="";
+    const rows=(st.auditLog||[]).slice().reverse().filter(e=>{
+      if(!q) return true;
+      return (e.action||"").toLowerCase().includes(q) || (e.user||"").toLowerCase().includes(q) || (e.role||"").toLowerCase().includes(q) || JSON.stringify(e.meta||{}).toLowerCase().includes(q);
+    });
+    rows.slice(0, 800).forEach(e=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML = `<td>${e.ts||""}</td><td>${e.user||""}</td><td>${e.role||""}</td><td><strong>${e.action||""}</strong></td><td class="smallmuted">${escapeHtml(JSON.stringify(e.meta||{}))}</td>`;
+      tbody.appendChild(tr);
+    });
+    if(!rows.length){
+      const tr=document.createElement("tr");
+      tr.innerHTML = `<td colspan="5" class="smallmuted">Geen audit events</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+function openTplModal(open){
+    const bd = document.getElementById("tplBackdrop");
+    if(!bd) return;
+    bd.classList.toggle("show", !!open);
+    bd.setAttribute("aria-hidden", open ? "false" : "true");
+    if(open){
+      ensureTemplatesInState();
+      renderTplList();
+      if(!tplCtx.activeId){
+        const st=CWS.getState();
+        tplCtx.activeId = (st.templates?.taskSets?.[0]?.id) || "default";
+      }
+      renderTplEditor();
+    }
+  }
+
+  function ensureTemplatesInState(){
+    CWS.setState(s=>{
+      s.templates = s.templates || { taskSets: [] };
+      s.templates.taskSets = s.templates.taskSets || [];
+      if(!s.templates.taskSets.length){
+        s.templates.taskSets.push({ id:"default", name:"Standaard", phases:[] });
+      }
+      // normalize
+      s.templates.taskSets.forEach(ts=>{
+        ts.id = ts.id || ("tpl_" + Math.random().toString(16).slice(2,8));
+        ts.name = ts.name || "Template";
+        ts.phases = ts.phases || [];
+        ts.phases.forEach(ph=>{
+          ph.name = ph.name || "Fase";
+          ph.tasks = ph.tasks || [];
+          ph.tasks.forEach(t=>{
+            t.name = t.name || "Taak";
+            t.hours = Number(t.hours||0);
+            if(!t.dept) t.dept = "";
+          });
+        });
+      });
+      return s;
+    });
+  }
+
+  function activeTpl(){
+    const st=CWS.getState();
+    const sets = st.templates?.taskSets || [];
+    return sets.find(t=>t.id===tplCtx.activeId) || sets[0];
+  }
+
+  function renderTplList(){
+    const root=document.getElementById("tplList");
+    if(!root) return;
+    root.innerHTML="";
+    const st=CWS.getState();
+    (st.templates?.taskSets||[]).forEach(t=>{
+      const d=document.createElement("div");
+      d.className="pitem" + (t.id===tplCtx.activeId ? " active":"");
+      d.innerHTML = `<div style="font-weight:900;">${t.name}</div><div class="pmeta">${t.phases?.length||0} fasen</div>`;
+      d.addEventListener("click", ()=>{ tplCtx.activeId=t.id; renderTplEditor(); renderTplList(); });
+      root.appendChild(d);
+    });
+  }
+
+  function renderTplEditor(){
+    const tpl = activeTpl();
+    if(!tpl) return;
+    const title=document.getElementById("tplTitle");
+    const name=document.getElementById("tplName");
+    if(title) title.textContent = "Template: " + (tpl.name||tpl.id);
+    if(name) name.value = tpl.name||"";
+
+    const tbody=document.getElementById("tplRows");
+    if(!tbody) return;
+    tbody.innerHTML="";
+
+    (tpl.phases||[]).forEach((ph,pi)=>{
+      if(!(ph.tasks||[]).length){
+        const tr=document.createElement("tr");
+        tr.innerHTML = `<td><strong>${ph.name}</strong></td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted" style="text-align:center;">—</td><td class="smallmuted" style="text-align:right;">0</td><td class="smallmuted">—</td>
+          <td style="text-align:right;"><button class="smallbtn" data-act="delph" data-pi="${pi}">Verwijder fase</button></td>`;
+        tbody.appendChild(tr);
+      }
+      (ph.tasks||[]).forEach((t,ti)=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML = `<td><strong>${ph.name}</strong></td>
+          <td><input class="input" data-k="tname" data-pi="${pi}" data-ti="${ti}" value="${t.name||""}"/></td>
+          <td><input class="input" data-k="pred" data-pi="${pi}" data-ti="${ti}" placeholder="12FS,7SS+2" value="${t.pred||t.predecessors||""}"/></td>
+          <td><input class="input" data-k="dept" data-pi="${pi}" data-ti="${ti}" value="${t.dept||""}"/></td>
+          <td><input class="input" data-k="resource" data-pi="${pi}" data-ti="${ti}" value="${t.resource||""}"/></td>
+          <td><input class="input" data-k="start" data-pi="${pi}" data-ti="${ti}" type="date" value="${t.start||t.startDate||""}"/></td>
+          <td><input class="input" data-k="end" data-pi="${pi}" data-ti="${ti}" type="date" value="${t.end||t.endDate||""}"/></td>
+          <td><input class="input" data-k="days" data-pi="${pi}" data-ti="${ti}" type="number" min="1" step="1" style="width:86px" value="${Number(t.days||1)}"/></td>
+          <td><input class="input" data-k="hours" data-pi="${pi}" data-ti="${ti}" type="number" min="0" step="0.25" style="width:100px" value="${Number(t.hours||0)}"/></td>
+          <td><input class="input" data-k="color" data-pi="${pi}" data-ti="${ti}" placeholder="c1" style="width:72px" value="${t.colorKey||t.color||"c1"}"/></td>
+          <td style="text-align:right; display:flex; justify-content:flex-end; gap:8px;">
+            <button class="smallbtn" data-act="delt" data-pi="${pi}" data-ti="${ti}">Verwijder taak</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    });
+
+    // bind input updates
+    tbody.querySelectorAll("input[data-k]").forEach(inp=>{
+      inp.addEventListener("blur", ()=>{
+        const k=inp.getAttribute("data-k");
+        const pi=Number(inp.getAttribute("data-pi"));
+        const ti=Number(inp.getAttribute("data-ti"));
+        CWS.setState(s=>{
+          const ts = (s.templates?.taskSets||[]).find(x=>x.id===tplCtx.activeId);
+          if(!ts) return s;
+          const ph = ts.phases?.[pi];
+          const tk = ph?.tasks?.[ti];
+          if(!tk) return s;
+          if(k==="hours") tk.hours = Math.max(0, Number(inp.value||0));
+          else tk[k==="tname"?"name":k] = inp.value;
+          return s;
+        });
+      });
+      inp.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); inp.blur(); } });
+    });
+
+    tbody.querySelectorAll("button[data-act]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const act=btn.getAttribute("data-act");
+        const pi=Number(btn.getAttribute("data-pi"));
+        const ti=Number(btn.getAttribute("data-ti"));
+        if(act==="delph"){
+          CWS.setState(s=>{
+            const ts = (s.templates?.taskSets||[]).find(x=>x.id===tplCtx.activeId);
+            if(!ts) return s;
+            ts.phases.splice(pi,1);
+            return s;
+          });
+        } else if(act==="delt"){
+          CWS.setState(s=>{
+            const ts = (s.templates?.taskSets||[]).find(x=>x.id===tplCtx.activeId);
+            if(!ts) return s;
+            ts.phases?.[pi]?.tasks?.splice(ti,1);
+            return s;
+          });
+        }
+        renderTplEditor();
+        renderTplList();
+      });
+    });
+  }
+
+let editCtx = { mode:"new", sec:"", id:"" };
+
+  function startEdit(itemId){
+    const sec = activeSection();
+    const it = sec.items.find(x=>x.id===itemId);
+    editCtx = { mode:"edit", sec: sec.name, id: itemId };
+    document.getElementById("crudTitle").textContent = it.title;
+    document.getElementById("fTitle").value = it.title;
+    document.getElementById("fDesc").value = it.desc;
+    document.getElementById("fIcon").value = it.icon;
+    document.getElementById("deleteBtn").style.visibility = "visible";
+    openCrud(true);
+  }
+
+  function startNew(){
+    const sec = activeSection();
+    editCtx = { mode:"new", sec: sec.name, id: "" };
+    document.getElementById("crudTitle").textContent = "Nieuw item";
+    document.getElementById("fTitle").value = "";
+    document.getElementById("fDesc").value = "";
+    document.getElementById("fIcon").value = "⚙️";
+    document.getElementById("deleteBtn").style.visibility = "hidden";
+    openCrud(true);
+    document.getElementById("fTitle").focus();
+  }
+
+  function saveCrud(){
+    const title = document.getElementById("fTitle").value.trim() || "Nieuw item";
+    const desc  = document.getElementById("fDesc").value.trim() || "";
+    const icon  = document.getElementById("fIcon").value.trim() || "⚙️";
+
+    CWS.setState(s=>{
+      const sec = s.settings.sections.find(x=>x.name===editCtx.sec);
+      if(!sec) return s;
+      if(editCtx.mode==="new"){
+        const id = "it_" + Math.random().toString(16).slice(2,8);
+        sec.items.unshift({ id, title, desc, icon });
+      } else {
+        const it = sec.items.find(x=>x.id===editCtx.id);
+        if(it){ it.title=title; it.desc=desc; it.icon=icon; }
+      }
+      return s;
+    });
+
+    CWS.audit("template_changed");
+      UI.toast("Opgeslagen");
+    openCrud(false);
+    render();
+  }
+
+  function deleteCrud(){
+    CWS.setState(s=>{
+      const sec = s.settings.sections.find(x=>x.name===editCtx.sec);
+      if(!sec) return s;
+      sec.items = sec.items.filter(x=>x.id!==editCtx.id);
+      return s;
+    });
+    CWS.audit("template_changed");
+      UI.toast("Verwijderd");
+    openCrud(false);
+    render();
+  }
+
+  function renderSide(){
+    const side = document.getElementById("side");
+    side.innerHTML="";
+    const st = CWS.getState();
+    sideModel().forEach(sec=>{
+      const h = document.createElement("h4");
+      h.textContent = sec.name.toUpperCase();
+      side.appendChild(h);
+
+      // section item itself
+      const it = document.createElement("div");
+      it.className = "navitem" + (st.settings.activeSection===sec.name ? " active":"");
+      it.innerHTML = `<div>${sec.name}</div><span>${sec.items.length}</span>`;
+      it.addEventListener("click", ()=> setActive(sec.name));
+      side.appendChild(it);
+    });
+  }
+
+  function renderTiles(){
+    const sec = activeSection();
+    document.getElementById("sectionTitle").textContent = sec.name;
+    document.getElementById("sectionHint").textContent = sec.hint;
+
+    const grid = document.getElementById("tilegrid");
+    grid.innerHTML="";
+    sec.items.forEach(it=>{
+      const card = document.createElement("div");
+      card.className="tile";
+      const ic = document.createElement("div");
+      ic.className="ticon";
+      ic.textContent = it.icon || "⚙️";
+      const body = document.createElement("div");
+      const t = document.createElement("div");
+      t.className="ttitle";
+      t.textContent = it.title;
+      const d = document.createElement("div");
+      d.className="tdesc";
+      d.textContent = it.desc || "";
+      body.append(t,d);
+      card.append(ic, body);
+      card.addEventListener("click", ()=>{ openModule(it.id); });
+      grid.appendChild(card);
+    });
+  }
+
+  function bindModal(){
+    const bd = document.getElementById("crudBackdrop");
+    document.getElementById("crudClose").onclick = () => openCrud(false);
+    document.getElementById("cancelBtn").onclick = () => openCrud(false);
+    bd.addEventListener("click",(e)=>{ if(e.target===bd) openCrud(false); });
+    document.getElementById("saveBtn").onclick = saveCrud;
+    document.getElementById("deleteBtn").onclick = deleteCrud;
+  }
+
+
+  // --- Dataset CRUD (Instellingen modules) ---
+  const DS = {
+    profiel: { key:"profile", title:"Profiel", hint:"Naam, contactgegevens, handtekening.", cols:[
+      ["name","Naam"],["email","E-mail"],["phone","Telefoon"],["signature","Handtekening"]
+    ]},
+    beveiliging: { key:"security", title:"Beveiliging", hint:"Wachtwoord, 2FA, sessies.", cols:[
+      ["twoFactor","2FA"],["lastPwdChange","Laatste wijziging"],["sessions","Sessies"],["notes","Opmerkingen"]
+    ]},
+    locale: { key:"locale", title:"Algemeen", hint:"Taal, tijdzone, datumformat.", cols:[
+      ["language","Taal"],["timezone","Tijdzone"],["dateFormat","Datumformat"],["weekStart","Week start"]
+    ]},
+    weergave: { key:"display", title:"Weergave", hint:"Thema, dichtheid, raster.", cols:[
+      ["theme","Thema"],["density","Dichtheid"],["grid","Raster"],["notes","Opmerkingen"]
+    ]},
+    io: { key:"importExport", title:"Import/Export", hint:"Excel/CSV, mapping, validatie.", cols:[
+      ["type","Type"],["enabled","Actief"],["mapping","Mapping"],["notes","Opmerkingen"]
+    ]},
+    capaciteit: { key:"capacitySettings", title:"Capaciteit", hint:"Uurtypen, targets, overuren.", cols:[
+      ["key","Sleutel"],["value","Waarde"],["unit","Eenheid"],["notes","Opmerkingen"]
+    ]},
+    kolommen: { key:"columnPresets", title:"Kolommenbeheer", hint:"Zichtbaarheid per module.", cols:[
+      ["module","Module"],["columns","Kolommen"],["locked","Vast"],["notes","Opmerkingen"]
+    ]},
+    gebruikers: { key:"users", title:"Gebruikers", hint:"Accounts beheren en uitnodigen.", cols:[
+      ["name","Naam"],["email","E-mail"],["role","Rol"],["dept","Afdeling"]
+    ]},
+    teams: { key:"teams", title:"Teams", hint:"Teams en afdelingen.", cols:[
+      ["name","Team"],["lead","Teamleider (UserId)"]
+    ]},
+    categorieen: { key:"categories", title:"Projectcategorieën", hint:"Categorieën en tags.", cols:[
+      ["code","Code"],["name","Naam"]
+    ]},
+    statussen: { key:"statuses", title:"Statussen", hint:"Workflow statuses en kleuren.", cols:[
+      ["name","Status"],["color","Kleur"]
+    ]},
+    labels: { key:"labels", title:"Labels", hint:"Labels en kleuren.", cols:[
+      ["name","Label"],["color","Kleur"]
+    ]},
+    integraties: { key:"integrations", title:"Integraties", hint:"Koppelingen met externe systemen.", cols:[
+      ["name","Integratie"],["status","Status"],["endpoint","Endpoint"]
+    ]},
+    portaal: { key:"portalInvites", title:"Klantportaal", hint:"Uitnodigingen / toegang klanten.", cols:[
+      ["name","Contact"],["email","E-mail"],["module","Module"],["status","Status"]
+    ]},
+  };
+
+  // Phase 21: unified table manager datasets (array-based)
+  const TABLES = {
+    opdrachtgevers: {
+      title: "Opdrachtgevers",
+      tableKey: "settings.clients",
+      statePath: "settings.tables.clients",
+      columns: [
+        { key:"name", label:"Naam" },
+        { key:"code", label:"Code" },
+        { key:"kvk", label:"KVK" },
+        { key:"email", label:"E-mail" },
+        { key:"phone", label:"Telefoon" }
+      ],
+      defaultRow: () => ({ name:"", code:"", kvk:"", email:"", phone:"" })
+    },
+    contactpersonen: {
+      title: "Contactpersonen",
+      tableKey: "settings.contacts",
+      statePath: "settings.tables.contacts",
+      columns: [
+        { key:"name", label:"Naam" },
+        { key:"company", label:"Opdrachtgever" },
+        { key:"role", label:"Functie" },
+        { key:"email", label:"E-mail" },
+        { key:"phone", label:"Telefoon" }
+      ],
+      defaultRow: () => ({ name:"", company:"", role:"", email:"", phone:"" })
+    },
+    adressen: {
+      title: "Adressen",
+      tableKey: "settings.addresses",
+      statePath: "settings.tables.addresses",
+      columns: [
+        { key:"label", label:"Label" },
+        { key:"street", label:"Straat" },
+        { key:"zip", label:"Postcode" },
+        { key:"city", label:"Plaats" },
+        { key:"country", label:"Land" }
+      ],
+      defaultRow: () => ({ label:"", street:"", zip:"", city:"", country:"NL" })
+    },
+    projecteig: {
+      title: "Projecteigenschappen",
+      tableKey: "settings.projectProps",
+      statePath: "settings.tables.projectProps",
+      columns: [
+        { key:"key", label:"Sleutel" },
+        { key:"label", label:"Label" },
+        { key:"type", label:"Type" },
+        { key:"default", label:"Standaard" }
+      ],
+      defaultRow: () => ({ key:"", label:"", type:"text", default:"" })
+    }
+    ,
+    bedrijf: {
+      title: "Bedrijf",
+      tableKey: "settings.company",
+      statePath: "settings.tables.company",
+      columns: [
+        { key:"name", label:"Bedrijfsnaam" },
+        { key:"kvk", label:"KVK" },
+        { key:"btw", label:"BTW" },
+        { key:"street", label:"Straat" },
+        { key:"zip", label:"Postcode" },
+        { key:"city", label:"Plaats" },
+        { key:"country", label:"Land" },
+        { key:"email", label:"E-mail" },
+        { key:"phone", label:"Telefoon" },
+        { key:"website", label:"Website" }
+      ],
+      defaultRow: () => ({ name:"", kvk:"", btw:"", street:"", zip:"", city:"", country:"NL", email:"", phone:"", website:"" })
+    },
+    afdelingen: {
+      title: "Afdelingen",
+      tableKey: "settings.departments",
+      statePath: "settings.tables.departments",
+      columns: [
+        { key:"name", label:"Afdeling" },
+        { key:"code", label:"Code" },
+        { key:"color", label:"Kleur" },
+        { key:"emp_count", label:"# Werkn.", readonly:true, valueGetter:(row,ctx)=>{
+            const emps = ctx.state?.settings?.tables?.employees || [];
+            const name = (row?.name||'').trim();
+            const code = (row?.code||'').trim();
+            const list = Array.isArray(emps)?emps:[];
+            return list.filter(e=> (e?.active!==false) && ((e?.dept||'').trim()===name || (e?.dept||'').trim()===code)).length;
+        }},
+        { key:"cap_ma", label:"Ma (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{
+            const emps = ctx.state?.settings?.tables?.employees || [];
+            const name = (row?.name||'').trim();
+            const code = (row?.code||'').trim();
+            let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.ma||0); });
+            return sum;
+        }},
+        { key:"cap_di", label:"Di (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{ const emps=ctx.state?.settings?.tables?.employees||[]; const name=(row?.name||'').trim(); const code=(row?.code||'').trim(); let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.di||0); }); return sum; }},
+        { key:"cap_wo", label:"Wo (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{ const emps=ctx.state?.settings?.tables?.employees||[]; const name=(row?.name||'').trim(); const code=(row?.code||'').trim(); let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.wo||0); }); return sum; }},
+        { key:"cap_do", label:"Do (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{ const emps=ctx.state?.settings?.tables?.employees||[]; const name=(row?.name||'').trim(); const code=(row?.code||'').trim(); let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.do||0); }); return sum; }},
+        { key:"cap_vr", label:"Vr (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{ const emps=ctx.state?.settings?.tables?.employees||[]; const name=(row?.name||'').trim(); const code=(row?.code||'').trim(); let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.vr||0); }); return sum; }},
+        { key:"cap_za", label:"Za (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{ const emps=ctx.state?.settings?.tables?.employees||[]; const name=(row?.name||'').trim(); const code=(row?.code||'').trim(); let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.za||0); }); return sum; }},
+        { key:"cap_zo", label:"Zo (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{ const emps=ctx.state?.settings?.tables?.employees||[]; const name=(row?.name||'').trim(); const code=(row?.code||'').trim(); let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.zo||0); }); return sum; }},
+        { key:"cap_week", label:"Totaal/week (u)", readonly:true, type:'number', valueGetter:(row,ctx)=>{
+            const emps=ctx.state?.settings?.tables?.employees||[]; const name=(row?.name||'').trim(); const code=(row?.code||'').trim();
+            let sum=0; (Array.isArray(emps)?emps:[]).forEach(e=>{ if(e?.active===false) return; const d=(e?.dept||'').trim(); if(d!==name && d!==code) return; sum += Number(e?.ma||0)+Number(e?.di||0)+Number(e?.wo||0)+Number(e?.do||0)+Number(e?.vr||0)+Number(e?.za||0)+Number(e?.zo||0); });
+            return sum;
+        }},
+        { key:"active", label:"Actief", type:'boolean' }
+      ],
+      defaultRow: () => ({ name:"", code:"", color:"#4B5563", active:true })
+    },
+    rollen: {
+      title: "Rollen & rechten",
+      tableKey: "settings.roles",
+      statePath: "settings.tables.roles",
+      columns: [
+        { key:"role", label:"Rol" },
+        { key:"canEdit", label:"Bewerken" },
+        { key:"canPlan", label:"Plannen" },
+        { key:"canManageSettings", label:"Instellingen" },
+        { key:"notes", label:"Opmerkingen" }
+      ],
+      defaultRow: () => ({ role:"", canEdit:false, canPlan:false, canManageSettings:false, notes:"" })
+    },
+    werknemers: {
+      title: "Werknemers",
+      tableKey: "settings.employees",
+      statePath: "settings.tables.employees",
+      columns: [
+        { key:"name", label:"Naam" },
+        { key:"dept", label:"Afdeling" },
+        { key:"email", label:"E-mail" },
+        { key:"ma", label:"Ma", type:'number' },
+        { key:"di", label:"Di", type:'number' },
+        { key:"wo", label:"Wo", type:'number' },
+        { key:"do", label:"Do", type:'number' },
+        { key:"vr", label:"Vr", type:'number' },
+        { key:"za", label:"Za", type:'number' },
+        { key:"zo", label:"Zo", type:'number' },
+        { key:"totalWeek", label:"Totaal/week", readonly:true, type:'number', valueGetter:(row)=>{
+            return Number(row?.ma||0)+Number(row?.di||0)+Number(row?.wo||0)+Number(row?.do||0)+Number(row?.vr||0)+Number(row?.za||0)+Number(row?.zo||0);
+        }},
+        { key:"active", label:"Actief", type:'boolean' }
+      ],
+      defaultRow: () => ({ name:"", dept:"", email:"", ma:8, di:8, wo:8, do:8, vr:8, za:0, zo:0, totalWeek:40, active:true })
+    },
+    kalender: {
+      title: "Niet-werkbare dagen",
+      tableKey: "settings.calendar",
+      statePath: "settings.tables.calendar",
+      columns: [
+        { key:"date", label:"Datum" },
+        { key:"type", label:"Type" },
+        { key:"label", label:"Omschrijving" },
+        { key:"isWorking", label:"Werkdag?" }
+      ],
+      defaultRow: () => ({ date:"", type:"holiday", label:"", isWorking:false })
+    },
+    capaciteit: {
+      title: "Capaciteit – uurtypen",
+      tableKey: "settings.hourTypes",
+      statePath: "settings.tables.hourTypes",
+      columns: [
+        { key:"name", label:"Uurtype" },
+        { key:"code", label:"Code" },
+        { key:"factor", label:"Factor" },
+        { key:"default", label:"Standaard" }
+      ],
+      defaultRow: () => ({ name:"", code:"", factor:1, default:false })
+    },
+    statussen: {
+      title: "Status & voortgang",
+      tableKey: "settings.statuses",
+      statePath: "settings.tables.statuses",
+      columns: [
+        { key:"name", label:"Status" },
+        { key:"scope", label:"Scope" },
+        { key:"color", label:"Kleur" },
+        { key:"progressDefault", label:"Standaard (%)" },
+        { key:"order", label:"Volgorde" }
+      ],
+      defaultRow: () => ({ name:"", scope:"project", color:"#6B7280", progressDefault:0, order:0 })
+    },
+    kolommen: {
+      title: "Kolommenbeheer",
+      tableKey: "settings.columns",
+      statePath: "settings.tables.columns",
+      columns: [
+        { key:"module", label:"Module" },
+        { key:"columnKey", label:"Kolom sleutel" },
+        { key:"label", label:"Label" },
+        { key:"visible", label:"Zichtbaar" },
+        { key:"width", label:"Breedte" }
+      ],
+      defaultRow: () => ({ module:"", columnKey:"", label:"", visible:true, width:140 })
+    },
+    io: {
+      title: "Import/Export profielen",
+      tableKey: "settings.ioProfiles",
+      statePath: "settings.tables.ioProfiles",
+      columns: [
+        { key:"name", label:"Profiel" },
+        { key:"module", label:"Module" },
+        { key:"format", label:"Formaat" },
+        { key:"notes", label:"Opmerkingen" }
+      ],
+      defaultRow: () => ({ name:"", module:"projecten", format:"xlsx", notes:"" })
+    },
+    integraties: {
+      title: "Integraties",
+      tableKey: "settings.integrations",
+      statePath: "settings.tables.integrations",
+      columns: [
+        { key:"name", label:"Integratie" },
+        { key:"type", label:"Type" },
+        { key:"endpoint", label:"Endpoint" },
+        { key:"status", label:"Status" }
+      ],
+      defaultRow: () => ({ name:"", type:"api", endpoint:"", status:"actief" })
+    },
+    profiel: {
+      title: "Profiel",
+      tableKey: "settings.profile",
+      statePath: "settings.tables.profile",
+      columns: [
+        { key:"name", label:"Naam" },
+        { key:"email", label:"E-mail" },
+        { key:"phone", label:"Telefoon" },
+        { key:"signature", label:"Handtekening" }
+      ],
+      defaultRow: () => ({ name:"", email:"", phone:"", signature:"" })
+    },
+    beveiliging: {
+      title: "Beveiliging",
+      tableKey: "settings.security",
+      statePath: "settings.tables.security",
+      columns: [
+        { key:"twoFA", label:"2FA" },
+        { key:"sessions", label:"Sessies actief" },
+        { key:"lastPasswordChange", label:"Laatste wijziging" },
+        { key:"notes", label:"Opmerkingen" }
+      ],
+      defaultRow: () => ({ twoFA:false, sessions:1, lastPasswordChange:"", notes:"" })
+    }
+
+  };
+
+  let dsCtx = { moduleId:null, dsKey:null };
+
+  function ensureDatasets(){
+    CWS.setState(s=>{
+      s.settings = s.settings || { activeSection:"Accountinformatie", datasets:{} };
+      s.settings.datasets = s.settings.datasets || {};
+      s.settings.tables = s.settings.tables || {};
+      const d = s.settings.datasets;
+      Object.values(DS).forEach(m=>{
+        d[m.key] = d[m.key] || { order: [], byId: {} };
+      });
+      // Phase 21: ensure array-based tables exist
+      s.settings.tables.clients = Array.isArray(s.settings.tables.clients) ? s.settings.tables.clients : [];
+      s.settings.tables.contacts = Array.isArray(s.settings.tables.contacts) ? s.settings.tables.contacts : [];
+      s.settings.tables.addresses = Array.isArray(s.settings.tables.addresses) ? s.settings.tables.addresses : [];
+      s.settings.tables.projectProps = Array.isArray(s.settings.tables.projectProps) ? s.settings.tables.projectProps : [];
+      s.settings.tables.company = Array.isArray(s.settings.tables.company) ? s.settings.tables.company : [];
+      s.settings.tables.departments = Array.isArray(s.settings.tables.departments) ? s.settings.tables.departments : [];
+      s.settings.tables.roles = Array.isArray(s.settings.tables.roles) ? s.settings.tables.roles : [];
+      s.settings.tables.employees = Array.isArray(s.settings.tables.employees) ? s.settings.tables.employees : [];
+      s.settings.tables.calendar = Array.isArray(s.settings.tables.calendar) ? s.settings.tables.calendar : [];
+      s.settings.tables.hourTypes = Array.isArray(s.settings.tables.hourTypes) ? s.settings.tables.hourTypes : [];
+      s.settings.tables.statuses = Array.isArray(s.settings.tables.statuses) ? s.settings.tables.statuses : [];
+      s.settings.tables.columns = Array.isArray(s.settings.tables.columns) ? s.settings.tables.columns : [];
+      s.settings.tables.ioProfiles = Array.isArray(s.settings.tables.ioProfiles) ? s.settings.tables.ioProfiles : [];
+      s.settings.tables.integrations = Array.isArray(s.settings.tables.integrations) ? s.settings.tables.integrations : [];
+      s.settings.tables.profile = Array.isArray(s.settings.tables.profile) ? s.settings.tables.profile : [];
+      s.settings.tables.security = Array.isArray(s.settings.tables.security) ? s.settings.tables.security : [];
+
+      // Seed demo rows only when empty (SSOT UI: tables always show data)
+      if(s.settings.tables.company.length===0){
+        s.settings.tables.company.push({ name:"Tasche Staalbouw", kvk:"", btw:"", street:"", zip:"", city:"", country:"NL", email:"info@tasche.nl", phone:"", website:"" });
+      }
+      if(s.settings.tables.departments.length===0){
+        s.settings.tables.departments.push(
+          { name:"Werkvoorbereiding", code:"WP", color:"#2563EB", capacityPerDay:8, active:true },
+          { name:"Engineering", code:"ENG", color:"#7C3AED", capacityPerDay:8, active:true },
+          { name:"Productie", code:"PROD", color:"#16A34A", capacityPerDay:8, active:true },
+          { name:"Montage", code:"MON", color:"#F59E0B", capacityPerDay:8, active:true }
+        );
+      }
+      if(s.settings.tables.roles.length===0){
+        s.settings.tables.roles.push(
+          { role:"Admin", canEdit:true, canPlan:true, canManageSettings:true, notes:"Volledige rechten" },
+          { role:"Planner", canEdit:true, canPlan:true, canManageSettings:false, notes:"Planning & uren" },
+          { role:"Viewer", canEdit:false, canPlan:false, canManageSettings:false, notes:"Alleen lezen" }
+        );
+      }
+      if(s.settings.tables.employees.length===0){
+        s.settings.tables.employees.push(
+          { name:"Jan de Planner", dept:"Werkvoorbereiding", email:"jan@demo.nl", hoursPerWeek:40, workdays:"Ma,Di,Wo,Do,Vr" },
+          { name:"Sanne Engineer", dept:"Engineering", email:"sanne@demo.nl", hoursPerWeek:40, workdays:"Ma,Di,Wo,Do,Vr" },
+          { name:"Piet Productie", dept:"Productie", email:"piet@demo.nl", hoursPerWeek:40, workdays:"Ma,Di,Wo,Do,Vr" }
+        );
+      }
+      if(s.settings.tables.hourTypes.length===0){
+        s.settings.tables.hourTypes.push(
+          { name:"Normaal", code:"N", factor:1, default:true },
+          { name:"Overuren", code:"OT", factor:1.25, default:false }
+        );
+      }
+      if(s.settings.tables.statuses.length===0){
+        s.settings.tables.statuses.push(
+          { name:"Te plannen", scope:"project", color:"#6B7280", progressDefault:0, order:1 },
+          { name:"Ingepland", scope:"project", color:"#2563EB", progressDefault:10, order:2 },
+          { name:"Uitvoering", scope:"project", color:"#16A34A", progressDefault:50, order:3 },
+          { name:"Gereed", scope:"project", color:"#111827", progressDefault:100, order:4 }
+        );
+      }
+      if(s.settings.tables.columns.length===0){
+        s.settings.tables.columns.push(
+          { module:"projecten", columnKey:"projectnummer", label:"Projectnr", visible:true, width:120 },
+          { module:"projecten", columnKey:"projectnaam", label:"Projectnaam", visible:true, width:220 },
+          { module:"gantt", columnKey:"voorganger", label:"Voorganger", visible:true, width:120 },
+          { module:"capaciteit", columnKey:"uren_benodigd", label:"Uren benodigd", visible:true, width:140 }
+        );
+      }
+      if(s.settings.tables.ioProfiles.length===0){
+        s.settings.tables.ioProfiles.push(
+          { name:"Standaard Excel", module:"projecten", format:"xlsx", notes:"Import projecten + fasen" },
+          { name:"CSV contactpersonen", module:"contactpersonen", format:"csv", notes:"Kolommen: naam, email, telefoon" }
+        );
+      }
+      if(s.settings.tables.integrations.length===0){
+        s.settings.tables.integrations.push(
+          { name:"Webhook – status updates", type:"webhook", endpoint:"", status:"inactief" }
+        );
+      }
+      if(s.settings.tables.profile.length===0){
+        s.settings.tables.profile.push(
+          { name:"De Dappere", email:"", phone:"", signature:"" }
+        );
+      }
+      if(s.settings.tables.security.length===0){
+        s.settings.tables.security.push(
+          { twoFA:false, sessions:1, lastPasswordChange:"", notes:"" }
+        );
+      }
+
+      d.notifications = d.notifications || { email:true, push:false };
+      d.locale = d.locale || { timezone:"Europe/Amsterdam", weekStart:1, dateFormat:"DD-MM-YYYY" };
+      return s;
+    });
+  }
+
+  function openDsModal(moduleId){
+    ensureDatasets();
+    const m = DS[moduleId];
+    if(!m) return;
+    dsCtx = { moduleId, dsKey: m.key };
+    document.getElementById("dsTitle").textContent = m.title;
+    document.getElementById("dsHint").textContent = m.hint;
+    const bd=document.getElementById("dsBackdrop");
+    bd.classList.add("show");
+    bd.setAttribute("aria-hidden","false");
+    renderDs();
+  }
+
+  function closeDsModal(){
+    const bd=document.getElementById("dsBackdrop");
+    bd.classList.remove("show");
+    bd.setAttribute("aria-hidden","true");
+  }
+
+  function dsGet(){
+    const st=CWS.getState();
+    return st.settings?.datasets?.[dsCtx.dsKey] || { order:[], byId:{} };
+  }
+
+  function dsSet(mut){
+    CWS.setState(s=>{
+      const d=s.settings.datasets[dsCtx.dsKey];
+      mut(d, s);
+      return s;
+    });
+  }
+
+  function dsNewId(prefix){
+    return prefix + "-" + Math.random().toString(16).slice(2,8).toUpperCase();
+  }
+
+  function renderDs(){
+    const m = DS[dsCtx.moduleId];
+    const q = (document.getElementById("dsQ").value||"").toLowerCase().trim();
+    const head=document.getElementById("dsHead");
+    const body=document.getElementById("dsRows");
+    head.innerHTML = m.cols.map(c=>`<th>${c[1]}</th>`).join("") + `<th style="text-align:right; width:110px;">Acties</th>`;
+    body.innerHTML = "";
+
+    const ds = dsGet();
+    const rows = ds.order.map(id=>({ id, ...(ds.byId[id]||{}) }))
+      .filter(r=>{
+        if(!q) return true;
+        return m.cols.some(c => String(r[c[0]]||"").toLowerCase().includes(q)) || String(r.id).toLowerCase().includes(q);
+      });
+
+    rows.forEach(r=>{
+      const tr=document.createElement("tr");
+      m.cols.forEach(([k,_label])=>{
+        const td=document.createElement("td");
+        td.contentEditable = "true";
+        td.spellcheck = false;
+        td.textContent = r[k] || "";
+        td.addEventListener("blur", ()=>{
+          const v = td.textContent.trim();
+          dsSet((d)=>{ d.byId[r.id] = d.byId[r.id] || { id:r.id }; d.byId[r.id][k]=v; });
+        });
+        tr.appendChild(td);
+      });
+      const act=document.createElement("td");
+      act.style.textAlign="right";
+      act.innerHTML = `<button class="smallbtn" data-del="${r.id}">Verwijder</button>`;
+      tr.appendChild(act);
+      body.appendChild(tr);
+    });
+
+    body.querySelectorAll("button[data-del]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const id=btn.getAttribute("data-del");
+        dsSet((d)=>{
+          d.order = (d.order||[]).filter(x=>x!==id);
+          delete d.byId[id];
+        });
+        CWS.audit("settings_dataset_delete", { module: dsCtx.moduleId, id });
+        UI.toast("Verwijderd");
+        renderDs();
+      });
+    });
+
+    document.getElementById("dsMeta").textContent = `${rows.length} items`;
+  }
+
+  function dsExportCSV(){
+    const m = DS[dsCtx.moduleId];
+    const ds = dsGet();
+    const rows = [["id", ...m.cols.map(c=>c[0])]];
+    ds.order.forEach(id=>{
+      const r = ds.byId[id] || {};
+      rows.push([id, ...m.cols.map(c=>r[c[0]]||"")]);
+    });
+    UI.downloadCSV(`${m.key}.csv`, rows);
+  }
+
+  function dsAddRow(){
+    const m = DS[dsCtx.moduleId];
+    const prefix = m.key.substring(0,1).toUpperCase() + "X";
+    const id = dsNewId(prefix);
+    dsSet((d)=>{
+      d.order = d.order || [];
+      d.byId = d.byId || {};
+      d.order.unshift(id);
+      const base = { id };
+      m.cols.forEach(([k])=> base[k]="");
+      d.byId[id]=base;
+    });
+    CWS.audit("settings_dataset_add", { module: dsCtx.moduleId, id });
+    renderDs();
+  }
+
+  function openModule(moduleId){
+    // Instellingen must always keep the underlying tables visible.
+    // Dedicated SSOT screens are opened via an explicit button in the table manager.
+
+    // Alias tiles to datasets/tables (keep SSOT UI intact)
+    if(moduleId==="algemeen") moduleId = "locale";
+    // keep weergave as its own dataset popup
+    if(moduleId==="integraties") moduleId = "integraties"; // keep as-is (table below)
+
+    if(TABLES[moduleId]){
+      ensureDatasets();
+      const t = TABLES[moduleId];
+      // keep derived capacity fields (employee totals + dept totals) in sync
+      try{ CWS?.capacity?.recalcDerivedCapacityFields?.(); }catch(e){}
+      const extraButtons = [];
+      if(moduleId==="kalender") extraButtons.push({ label:"Open kalender", act:"openNonWork", primary:true });
+      if(moduleId==="werknemers") extraButtons.push({ label:"Werkweek & kalender", act:"openWorkweek", primary:true });
+      UI.openTableManager({
+        title: t.title,
+        subtitle: "Instellingen – Standaard tabellen",
+        tableKey: t.tableKey,
+        statePath: t.statePath,
+        columns: t.columns,
+        defaultRow: t.defaultRow,
+        extraButtons,
+        onAction: (act) => {
+          if(act==="openNonWork"){ try{ openNonWorkCalendarModal(); }catch(e){ console.error(e); } }
+          if(act==="openWorkweek"){ try{ openWorkweekCalendarModal(); }catch(e){ console.error(e); } }
+        },
+        onChange: () => { try{ CWS?.capacity?.recalcDerivedCapacityFields?.(); }catch(e){} }
+      });
+      return;
+    }
+    if(moduleId==="fasen" || moduleId==="taken") return openTplModal(true);
+    if(moduleId==="rechten") return openRightsModal(true);
+    if(moduleId==="rollenrechten") return openRightsModal(true);
+    if(moduleId==="audit") return openAuditModal(true);
+
+    // Map tiles to datasets
+    if(DS[moduleId]) return openDsModal(moduleId);
+    // allow editing the tile itself as fallback
+    startEdit(moduleId);
+  }
+
+  // -----------------------------
+  // Niet-werkbare dagen kalender (SSOT)
+  // - Weekpatroon Ma..Zo (werkdag aan/uit)
+  // - Jaaroverzicht met date-overrides (klik om togglen)
+  // -----------------------------
+  function ensureNonWorkModel(){
+    CWS.setState(st=>{
+      st.settings = st.settings || {};
+      st.settings.calendar = st.settings.calendar || {};
+      const cal = st.settings.calendar;
+      // workweek: 1=ma .. 7=zo (ISO)
+      // SSOT: default = all weekdays workbaar; user can toggle a weekday to "niet-werkbaar".
+      // Individual date clicks create overrides.
+      if(!cal.workweek){
+        cal.workweek = { 1:true, 2:true, 3:true, 4:true, 5:true, 6:true, 7:true };
+      }
+      if(!cal.overrides){
+        cal.overrides = {}; // { 'YYYY-MM-DD': true|false }  true = niet-werkdag, false = werkdag
+      }
+      return st;
+    });
+  }
+
+  function isoDate(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${da}`;
+  }
+
+  function isoWeekday(d){
+    const js = d.getDay(); // 0=zo..6=za
+    return js===0 ? 7 : js;
+  }
+
+  function getNonWorkEffective(st, iso){
+    const cal = st.settings?.calendar;
+    const ov = cal?.overrides?.[iso];
+    if(typeof ov === 'boolean') return ov;
+    const d = new Date(iso + 'T00:00:00');
+    const wd = isoWeekday(d);
+    const isWork = !!cal?.workweek?.[wd];
+    return !isWork;
+  }
+
+  function defaultNonWorkForDate(st, iso){
+    const d = new Date(iso + 'T00:00:00');
+    const wd = isoWeekday(d);
+    const isWork = !!st.settings?.calendar?.workweek?.[wd];
+    return !isWork;
+  }
+
+  function openNonWorkCalendarModal(){
+    ensureNonWorkModel();
+    const st = CWS.getState();
+    const baseYear = (st.ui?.week?.year) || (new Date().getFullYear());
+    let year = baseYear;
+
+    const root = document.createElement('div');
+    root.className = 'cws-yearcal';
+
+    const top = document.createElement('div');
+    top.className = 'cws-yearcal-top';
+
+    const yearWrap = document.createElement('div');
+    yearWrap.className = 'cws-yearcal-year';
+    yearWrap.innerHTML = `
+      <button class="btn" data-act="prev">◀</button>
+      <div class="cws-yearcal-yearlbl"></div>
+      <button class="btn" data-act="next">▶</button>
+    `;
+
+    const toggles = document.createElement('div');
+    toggles.className = 'cws-week-toggles';
+    const days = [
+      {k:1, l:'Ma'}, {k:2, l:'Di'}, {k:3, l:'Wo'}, {k:4, l:'Do'}, {k:5, l:'Vr'}, {k:6, l:'Za'}, {k:7, l:'Zo'}
+    ];
+    days.forEach(d=>{
+      const b = document.createElement('button');
+      b.className = 'btn toggle';
+      b.dataset.wd = String(d.k);
+      b.textContent = d.l;
+      toggles.appendChild(b);
+    });
+
+    top.appendChild(yearWrap);
+    top.appendChild(toggles);
+    root.appendChild(top);
+
+    const grid = document.createElement('div');
+    grid.className = 'cws-yearcal-grid';
+    root.appendChild(grid);
+
+    const render = () => {
+      const stNow = CWS.getState();
+      root.querySelector('.cws-yearcal-yearlbl').textContent = `${year}`;
+
+      // toggles active state
+      // UI semantics: button ON = "Niet-werkbaar" for that weekday (matches user expectation).
+      toggles.querySelectorAll('button[data-wd]').forEach(btn=>{
+        const wd = Number(btn.dataset.wd);
+        const isWork = !!stNow.settings?.calendar?.workweek?.[wd];
+        const isNonWork = !isWork;
+        btn.classList.toggle('on', isNonWork);
+        btn.title = isNonWork ? 'Niet-werkbaar' : 'Werkbaar';
+      });
+
+      // months
+      grid.innerHTML = '';
+      for(let m=0;m<12;m++){
+        const card = document.createElement('div');
+        card.className = 'cws-month';
+        const first = new Date(year, m, 1);
+        const monthName = first.toLocaleString('nl-NL', { month:'long' });
+        const hdr = document.createElement('div');
+        hdr.className = 'cws-month-hdr';
+        hdr.textContent = `${monthName} ${year}`;
+        card.appendChild(hdr);
+
+        const table = document.createElement('table');
+        table.className = 'cws-cal';
+        table.innerHTML = `
+          <thead><tr>
+            <th>Ma</th><th>Di</th><th>Wo</th><th>Do</th><th>Vr</th><th>Za</th><th>Zo</th>
+          </tr></thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+
+        const startWd = isoWeekday(first); // 1..7
+        const daysInMonth = new Date(year, m+1, 0).getDate();
+        let day = 1;
+        let row = document.createElement('tr');
+        // leading blanks
+        for(let i=1;i<startWd;i++){
+          const td = document.createElement('td');
+          td.className='empty';
+          row.appendChild(td);
+        }
+        while(day<=daysInMonth){
+          const date = new Date(year, m, day);
+          const iso = isoDate(date);
+          const td = document.createElement('td');
+          td.className = 'day';
+          td.dataset.iso = iso;
+          td.innerHTML = `<button type="button" class="cws-daybtn" data-iso="${iso}">${day}</button>`;
+          const btn = td.querySelector('.cws-daybtn');
+          const toggle = (ev)=>{
+            ev.preventDefault();
+            ev.stopPropagation();
+            CWS.setState(st=>{
+              const eff = getNonWorkEffective(st, iso);
+              const next = !eff;
+              const def = defaultNonWorkForDate(st, iso);
+              if(next === def){
+                delete st.settings.calendar.overrides[iso];
+              }else{
+                st.settings.calendar.overrides[iso] = next;
+              }
+              return st;
+            });
+            render();
+          };
+          btn.addEventListener('pointerdown', toggle);
+          btn.addEventListener('click', toggle);
+          const effNonWork = getNonWorkEffective(stNow, iso);
+          const hasOv = Object.prototype.hasOwnProperty.call(stNow.settings?.calendar?.overrides||{}, iso);
+          td.classList.toggle('nonwork', effNonWork);
+          td.classList.toggle('override', hasOv);
+          td.style.background = effNonWork ? '#fee2e2' : '';
+          td.style.outline = hasOv ? '2px solid #60a5fa' : '';
+          td.style.outlineOffset = hasOv ? '-2px' : '';
+          row.appendChild(td);
+          if(isoWeekday(date)===7){
+            tbody.appendChild(row);
+            row = document.createElement('tr');
+          }
+          day++;
+        }
+        // trailing blanks
+        if(row.children.length){
+          while(row.children.length<7){
+            const td = document.createElement('td');
+            td.className='empty';
+            row.appendChild(td);
+          }
+          tbody.appendChild(row);
+        }
+
+        card.appendChild(table);
+        grid.appendChild(card);
+      }
+    };
+
+    yearWrap.addEventListener('click', (e)=>{
+      const act = e.target?.dataset?.act;
+      if(act==='prev'){ year--; render(); }
+      if(act==='next'){ year++; render(); }
+    });
+
+    toggles.addEventListener('click', (e)=>{
+      const wd = Number(e.target?.dataset?.wd);
+      if(!wd) return;
+      CWS.setState(st=>{
+        // toggle weekday default (workable <-> non-workable)
+        st.settings.calendar.workweek[wd] = !st.settings.calendar.workweek[wd];
+        return st;
+      });
+      render();
+    });
+
+    render();
+
+    UI.openModal({
+      title: 'Niet-werkbare dagen',
+      subtitle: 'Jaar-kalender',
+      contentEl: root,
+      actions: [ { label:'Sluiten', primary:true } ]
+    });
+  }
+
+  function ensureEmployeeCalendarFields(emp){
+    if(!emp) return;
+    // per-employee defaults: inherit global workweek at first use
+    const g = CWS.getState().settings?.calendar?.workweek || {1:true,2:true,3:true,4:true,5:true,6:true,7:true};
+    if(!emp.workweek){
+      emp.workweek = { 1:!!g[1], 2:!!g[2], 3:!!g[3], 4:!!g[4], 5:!!g[5], 6:!!g[6], 7:!!g[7] };
+    }
+    if(!emp.overrides){
+      emp.overrides = {}; // { 'YYYY-MM-DD': true|false }  true = niet-werkdag, false = werkdag
+    }
+  }
+
+  function getEmpNonWorkEffective(emp, st, iso){
+    if(!emp) return getNonWorkEffective(st, iso);
+    const ov = emp.overrides?.[iso];
+    if(typeof ov === 'boolean') return ov;
+    const d = new Date(iso + 'T00:00:00');
+    const wd = isoWeekday(d);
+    const isWork = !!emp.workweek?.[wd];
+    return !isWork;
+  }
+
+  function defaultEmpNonWorkForDate(emp, st, iso){
+    const d = new Date(iso + 'T00:00:00');
+    const wd = isoWeekday(d);
+    const isWork = !!emp?.workweek?.[wd];
+    // if emp has no workweek yet, fall back to global
+    if(emp && emp.workweek) return !isWork;
+    return defaultNonWorkForDate(st, iso);
+  }
+
+  function openWorkweekCalendarModal(){
+    ensureNonWorkModel();
+    const st = CWS.getState();
+    const emps = st.settings?.tables?.employees || [];
+    if(!Array.isArray(emps) || emps.length===0){
+      UI.toast('Geen werknemers');
+      return;
+    }
+
+    const baseYear = (st.ui?.week?.year) || (new Date().getFullYear());
+    let year = baseYear;
+    let selectedId = emps[0]?.id || 0;
+
+    const root = document.createElement('div');
+    root.className = 'cws-yearcal';
+
+    const top = document.createElement('div');
+    top.className = 'cws-yearcal-top';
+
+    const left = document.createElement('div');
+    left.className = 'cws-yearcal-left';
+    left.innerHTML = `
+      <div class="cws-emp-select">
+        <label>Werknemer</label>
+        <select class="cws-emp-dd"></select>
+      </div>
+    `;
+    const dd = left.querySelector('select');
+    emps.forEach(e=>{
+      const opt = document.createElement('option');
+      opt.value = String(e.id || e.name || '');
+      opt.textContent = e.name || e.email || String(e.id||'');
+      dd.appendChild(opt);
+    });
+    dd.value = String(selectedId);
+
+    const yearWrap = document.createElement('div');
+    yearWrap.className = 'cws-yearcal-year';
+    yearWrap.innerHTML = `
+      <button class="btn" data-act="prev">◀</button>
+      <div class="cws-yearcal-yearlbl"></div>
+      <button class="btn" data-act="next">▶</button>
+    `;
+
+    const toggles = document.createElement('div');
+    toggles.className = 'cws-week-toggles';
+    const days = [
+      {k:1, l:'Ma'}, {k:2, l:'Di'}, {k:3, l:'Wo'}, {k:4, l:'Do'}, {k:5, l:'Vr'}, {k:6, l:'Za'}, {k:7, l:'Zo'}
+    ];
+    days.forEach(d=>{
+      const b = document.createElement('button');
+      b.className = 'btn toggle';
+      b.dataset.wd = String(d.k);
+      b.textContent = d.l;
+      toggles.appendChild(b);
+    });
+
+    top.appendChild(left);
+    top.appendChild(yearWrap);
+    top.appendChild(toggles);
+    root.appendChild(top);
+
+    const grid = document.createElement('div');
+    grid.className = 'cws-yearcal-grid';
+    root.appendChild(grid);
+
+    const getEmp = () => {
+      const stNow = CWS.getState();
+      const list = stNow.settings?.tables?.employees || [];
+      const id = dd.value;
+      const emp = list.find(e=>String(e.id||e.name||'')===String(id)) || list[0];
+      return emp;
+    };
+
+    const render = () => {
+      const stNow = CWS.getState();
+      const emp = getEmp();
+      if(emp) ensureEmployeeCalendarFields(emp);
+      root.querySelector('.cws-yearcal-yearlbl').textContent = `${year}`;
+
+      toggles.querySelectorAll('button[data-wd]').forEach(btn=>{
+        const wd = Number(btn.dataset.wd);
+        const isWork = !!emp?.workweek?.[wd];
+        const isNonWork = !isWork;
+        btn.classList.toggle('on', isNonWork);
+        btn.title = isNonWork ? 'Niet-werkbaar' : 'Werkbaar';
+      });
+
+      grid.innerHTML = '';
+      for(let m=0;m<12;m++){
+        const card = document.createElement('div');
+        card.className = 'cws-month';
+        const first = new Date(year, m, 1);
+        const monthName = first.toLocaleString('nl-NL', { month:'long' });
+        const hdr = document.createElement('div');
+        hdr.className = 'cws-month-hdr';
+        hdr.textContent = `${monthName} ${year}`;
+        card.appendChild(hdr);
+
+        const table = document.createElement('table');
+        table.className = 'cws-cal';
+        table.innerHTML = `
+          <thead><tr>
+            <th>Ma</th><th>Di</th><th>Wo</th><th>Do</th><th>Vr</th><th>Za</th><th>Zo</th>
+          </tr></thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+
+        const startWd = isoWeekday(first);
+        const daysInMonth = new Date(year, m+1, 0).getDate();
+        let day = 1;
+        let row = document.createElement('tr');
+        for(let i=1;i<startWd;i++){
+          const td = document.createElement('td');
+          td.className='empty';
+          row.appendChild(td);
+        }
+        while(day<=daysInMonth){
+          const date = new Date(year, m, day);
+          const iso = isoDate(date);
+          const td = document.createElement('td');
+          td.className = 'day';
+          td.dataset.iso = iso;
+          td.innerHTML = `<button type="button" class="cws-daybtn" data-iso="${iso}">${day}</button>`;
+          const btn = td.querySelector('.cws-daybtn');
+          const toggle = (ev)=>{
+            ev.preventDefault();
+            ev.stopPropagation();
+            const empKey = String(emp?.id || emp?.name || emp?.email || '');
+            CWS.setState(st=>{
+              const list = st.settings?.tables?.employees || [];
+              const target = list.find(x=>String(x?.id || x?.name || x?.email || '')===empKey) || list[0];
+              ensureEmployeeCalendarFields(target);
+              const eff = getEmpNonWorkEffective(target, st, iso);
+              const next = !eff;
+              const def = defaultEmpNonWorkForDate(target, st, iso);
+              if(next === def){
+                delete target.overrides[iso];
+              }else{
+                target.overrides[iso] = next;
+              }
+              return st;
+            });
+            render();
+          };
+          btn.addEventListener('pointerdown', toggle);
+          btn.addEventListener('click', toggle);
+          const effNonWork = getEmpNonWorkEffective(emp, stNow, iso);
+          const hasOv = Object.prototype.hasOwnProperty.call(emp?.overrides||{}, iso);
+          td.classList.toggle('nonwork', effNonWork);
+          td.classList.toggle('override', hasOv);
+          td.style.background = effNonWork ? '#fee2e2' : '';
+          td.style.outline = hasOv ? '2px solid #60a5fa' : '';
+          td.style.outlineOffset = hasOv ? '-2px' : '';
+          row.appendChild(td);
+          if(isoWeekday(date)===7){
+            tbody.appendChild(row);
+            row = document.createElement('tr');
+          }
+          day++;
+        }
+        if(row.children.length){
+          while(row.children.length<7){
+            const td = document.createElement('td');
+            td.className='empty';
+            row.appendChild(td);
+          }
+          tbody.appendChild(row);
+        }
+
+        card.appendChild(table);
+        grid.appendChild(card);
+      }
+    };
+
+    yearWrap.addEventListener('click', (e)=>{
+      const act = e.target?.dataset?.act;
+      if(act==='prev'){ year--; render(); }
+      if(act==='next'){ year++; render(); }
+    });
+
+    dd.addEventListener('change', ()=>{ render(); });
+
+    toggles.addEventListener('click', (e)=>{
+      const wd = Number(e.target?.dataset?.wd);
+      if(!wd) return;
+      CWS.setState(st2=>{
+        const list = st2.settings?.tables?.employees || [];
+        const id = dd.value;
+        const emp = list.find(e=>String(e.id||e.name||'')===String(id)) || list[0];
+        if(!emp) return st2;
+        ensureEmployeeCalendarFields(emp);
+        emp.workweek[wd] = !emp.workweek[wd];
+        return st2;
+      });
+      render();
+    });
+
+    render();
+
+    UI.openModal({
+      title: 'Werknemers',
+      subtitle: 'Werkweek & jaar-kalender',
+      contentEl: root,
+      actions: [ { label:'Sluiten', primary:true } ]
+    });
+  }
+
+  function render(){
+    ensureSettings();
+    renderSide();
+    renderTiles();
+    // Auto-open a module when requested (used by dedicated screens)
+    try{
+      const st = CWS.getState();
+      const k = st.ui && st.ui.settingsAutoOpen;
+      if(k){
+        CWS.setState(s=>{ if(s.ui) delete s.ui.settingsAutoOpen; return s; });
+        openModule(k);
+      }
+    }catch(e){}
+  }
+
+  // Toolbar bindings (fixed)
+  const __addBtn=document.getElementById("addBtn"); if(__addBtn) __addBtn.addEventListener("click", startNew);
+  const __resetBtn=document.getElementById("resetBtn"); if(__resetBtn) __resetBtn.addEventListener("click", ()=>{
+    CWS.setState(s=>{ delete s.settings; return s; });
+    ensureSettings();
+    CWS.audit?.("settings_reset");
+    UI.toast("Demo instellingen hersteld");
+    render();
+  });
+
+  const __genDemo=document.getElementById("genDemo");
+  if(__genDemo) __genDemo.addEventListener("click", ()=>{
+    CWS.loadDemo?.();
+    CWS.audit?.("demo_loaded");
+    UI.toast("Demo data gegenereerd");
+    render();
+  });
+
+  // Template manager bindings
+  const __tplClose = document.getElementById("tplClose");
+  if(__tplClose) __tplClose.onclick = ()=> openTplModal(false);
+  const __tplBd = document.getElementById("tplBackdrop");
+  if(__tplBd) __tplBd.addEventListener("click",(e)=>{ if(e.target===__tplBd) openTplModal(false); });
+
+  const __tplNew = document.getElementById("tplNew");
+  if(__tplNew) __tplNew.onclick = ()=>{
+    ensureTemplatesInState();
+    CWS.setState(s=>{
+      const id = "tpl_" + Math.random().toString(16).slice(2,8);
+      s.templates.taskSets.unshift({ id, name:"Nieuw template", phases:[{ name:"Fase 1", tasks:[{ name:"Taak 1", hours:8, dept:"" }]}] });
+      return s;
+    });
+    tplCtx.activeId = CWS.getState().templates.taskSets[0].id;
+    renderTplList(); renderTplEditor();
+  };
+
+  const __tplSaveName = document.getElementById("tplSaveName");
+  if(__tplSaveName) __tplSaveName.onclick = ()=>{
+    const v = (document.getElementById("tplName")?.value||"").trim() || "Template";
+    CWS.setState(s=>{
+      const ts = s.templates.taskSets.find(x=>x.id===tplCtx.activeId);
+      if(ts) ts.name = v;
+      return s;
+    });
+    CWS.audit("template_changed");
+      UI.toast("Naam opgeslagen");
+    renderTplList(); renderTplEditor();
+  };
+
+  const __tplDelete = document.getElementById("tplDelete");
+  if(__tplDelete) __tplDelete.onclick = ()=>{
+    if(!confirm("Template verwijderen?")) return;
+    CWS.setState(s=>{
+      const i = s.templates.taskSets.findIndex(x=>x.id===tplCtx.activeId);
+      if(i>=0) s.templates.taskSets.splice(i,1);
+      if(!s.templates.taskSets.length) s.templates.taskSets.push({ id:"default", name:"Standaard", phases:[] });
+      return s;
+    });
+    tplCtx.activeId = CWS.getState().templates.taskSets[0].id;
+    renderTplList(); renderTplEditor();
+    CWS.audit("template_changed");
+      UI.toast("Verwijderd");
+  };
+
+  const __tplApply = document.getElementById("tplApply");
+  if(__tplApply) __tplApply.onclick = ()=>{
+    try{ requirePerm("edit_projects", ()=>{ CWS.applyTemplateToProjects })(tplCtx.activeId); }catch(e){}
+    CWS.audit("template_changed");
+      UI.toast("Toegepast op projecten met dit template");
+  };
+
+  const __phAdd = document.getElementById("phAdd");
+  if(__phAdd) __phAdd.onclick = ()=>{
+    CWS.setState(s=>{
+      const ts = s.templates.taskSets.find(x=>x.id===tplCtx.activeId);
+      if(!ts) return s;
+      ts.phases.push({ name:"Nieuwe fase", tasks:[] });
+      return s;
+    });
+    renderTplList(); renderTplEditor();
+  };
+
+  const __taskAdd = document.getElementById("taskAdd");
+  if(__taskAdd) __taskAdd.onclick = ()=>{
+    CWS.setState(s=>{
+      const ts = s.templates.taskSets.find(x=>x.id===tplCtx.activeId);
+      if(!ts) return s;
+      if(!ts.phases.length) ts.phases.push({ name:"Fase 1", tasks:[] });
+      ts.phases[0].tasks.push({ name:"Nieuwe taak", hours:8, dept:"" });
+      return s;
+    });
+    renderTplList(); renderTplEditor();
+  };
+
+
+  // Rights modal bindings (fixed)
+  const __rightsClose=document.getElementById('rightsClose');
+  if(__rightsClose) __rightsClose.addEventListener('click', ()=> openRightsModal(false));
+  const __rightsBackdrop=document.getElementById('rightsBackdrop');
+  if(__rightsBackdrop) __rightsBackdrop.addEventListener('click',(e)=>{ if(e.target.id==='rightsBackdrop') openRightsModal(false); });
+  const __roleSaveName=document.getElementById('roleSaveName');
+  if(__roleSaveName) __roleSaveName.addEventListener('click', ()=>{
+    const v=(document.getElementById('roleName').value||'').trim()||'Rol';
+    CWS.setState(s=>{ if(s.roles[rightsCtx.activeId]) s.roles[rightsCtx.activeId].name=v; CWS.audit?.('role_rename',{id:rightsCtx.activeId,name:v}); return s; });
+    UI.toast('Rolnaam opgeslagen');
+    renderRoleList(); renderRoleEditor();
+  });
+  const __roleNew=document.getElementById('roleNew');
+  if(__roleNew) __roleNew.addEventListener('click', ()=>{
+    const id='role_' + Math.random().toString(16).slice(2,8);
+    CWS.setState(s=>{ s.roles[id]={ name:'Nieuwe rol', permissions:['view_projects','view_planning'] }; CWS.audit?.('role_create',{id}); return s; });
+    rightsCtx.activeId=id; renderRoleList(); renderRoleEditor();
+  });
+  const __roleDelete=document.getElementById('roleDelete');
+  if(__roleDelete) __roleDelete.addEventListener('click', ()=>{
+    if(rightsCtx.activeId==='admin' || rightsCtx.activeId==='planner' || rightsCtx.activeId==='viewer'){ UI.toast('Default rol kan niet weg'); return; }
+    if(!confirm('Rol verwijderen?')) return;
+    CWS.setState(s=>{ delete s.roles[rightsCtx.activeId]; CWS.audit?.('role_delete',{id:rightsCtx.activeId}); return s; });
+    rightsCtx.activeId='planner'; renderRoleList(); renderRoleEditor();
+  });
+  const __roleReset=document.getElementById('roleReset');
+  if(__roleReset) __roleReset.addEventListener('click', ()=>{
+    if(!confirm('Reset roles naar default?')) return;
+    CWS.setState(s=>{ s.roles=JSON.parse(JSON.stringify(CWS.DEFAULT_ROLES||{})); CWS.audit?.('roles_reset'); return s; });
+    rightsCtx.activeId='planner'; renderRoleList(); renderRoleEditor();
+  });
+
+  // Audit modal bindings (fixed)
+  const __auditClose=document.getElementById('auditClose');
+  if(__auditClose) __auditClose.addEventListener('click', ()=> openAuditModal(false));
+  const __auditBackdrop=document.getElementById('auditBackdrop');
+  if(__auditBackdrop) __auditBackdrop.addEventListener('click',(e)=>{ if(e.target.id==='auditBackdrop') openAuditModal(false); });
+  const __auditQ=document.getElementById('auditQ');
+  if(__auditQ) __auditQ.addEventListener('input', renderAudit);
+  const __auditExport=document.getElementById('auditExport');
+  if(__auditExport) __auditExport.addEventListener('click', ()=>{
+    const rows=(CWS.getState().auditLog||[]).map(e=>({ ts:e.ts, user:e.user, role:e.role, action:e.action, meta:JSON.stringify(e.meta||{}) }));
+    CWSExport.toCSV('audit_log.csv', rows);
+  });
+  const __auditClear=document.getElementById('auditClear');
+  if(__auditClear) __auditClear.addEventListener('click', ()=>{
+    if(!confirm('Audit log leegmaken?')) return;
+    CWS.setState(s=>{ s.auditLog=[]; CWS.audit?.('audit_clear'); return s; });
+    renderAudit();
+  });
+
+
+  // Dataset modal bindings
+  const __dsBd=document.getElementById('dsBackdrop');
+  if(__dsBd) __dsBd.addEventListener('click',(e)=>{ if(e.target===__dsBd) closeDsModal(); });
+  const __dsClose=document.getElementById('dsClose'); if(__dsClose) __dsClose.onclick=closeDsModal;
+  const __dsQ=document.getElementById('dsQ'); if(__dsQ) __dsQ.addEventListener('input', ()=>renderDs());
+  const __dsAdd=document.getElementById('dsAdd'); if(__dsAdd) __dsAdd.addEventListener('click', dsAddRow);
+  const __dsExport=document.getElementById('dsExport'); if(__dsExport) __dsExport.addEventListener('click', dsExportCSV);
+
+  bindModal();
+  render();
+
+
+
+</script>
+
+<!-- Rights modal (Phase 18) -->
+<div class="modal-backdrop" id="rightsBackdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" style="width:min(1100px, 96vw);">
+    <div class="modal-head">
+      Rollen & Rechten
+      <button class="close" id="rightsClose" aria-label="Sluiten">✕</button>
+    </div>
+    <div class="modal-body" style="display:grid; grid-template-columns: 320px 1fr; gap:12px;">
+      <div style="border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff;">
+        <div class="listhead">Rollen</div>
+        <div style="padding:10px 12px; border-bottom:1px solid var(--border); display:flex; gap:10px;">
+          <button class="btn" id="roleNew">Nieuwe rol</button>
+          <button class="btn" id="roleReset">Reset default</button>
+        </div>
+        <div id="roleList"></div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff;">
+        <div class="listhead" id="roleTitle">Rol</div>
+        <div style="padding:12px; border-bottom:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input class="input" id="roleName" placeholder="Rolnaam" style="min-width:220px;"/>
+          <button class="btn" id="roleSaveName">Opslaan naam</button>
+          <button class="btn" id="roleDelete">Verwijder rol</button>
+        </div>
+
+        <div style="padding:12px;"><strong>Permissies</strong> <span class="smallmuted">(klik om aan/uit te zetten)</span></div>
+        <div class="table-wrap" style="max-height:420px;">
+          <table>
+            <thead><tr><th>Permission</th><th>Toegang</th></tr></thead>
+            <tbody id="permRows"></tbody>
+          </table>
+        </div>
+        <div class="footerbar"><div class="smallmuted">Admin heeft altijd *</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Audit modal (Phase 18) -->
+<div class="modal-backdrop" id="auditBackdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" style="width:min(1100px, 96vw);">
+    <div class="modal-head">
+      Audit log
+      <button class="close" id="auditClose" aria-label="Sluiten">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <input class="input" id="auditQ" placeholder="Zoek (actie / user / role)" style="min-width:320px;"/>
+        <button class="btn" id="auditExport">Export CSV</button>
+        <button class="btn" id="auditClear">Leegmaken</button>
+      </div>
+      <div class="table-wrap" style="max-height:520px;">
+        <table>
+          <thead><tr><th style="width:190px;">Tijd</th><th style="width:140px;">User</th><th style="width:120px;">Role</th><th style="width:170px;">Actie</th><th>Meta</th></tr></thead>
+          <tbody id="auditRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Dataset modal (Instellingen CRUD per module) -->
+<div class="modal-backdrop" id="dsBackdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" style="width:min(1150px, 96vw);">
+    <div class="modal-head">
+      <span id="dsTitle">Beheer</span>
+      <button class="close" id="dsClose" aria-label="Sluiten">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <input class="input" id="dsQ" placeholder="Zoek…" style="min-width:260px;"/>
+        <button class="btn" id="dsAdd">Nieuw</button>
+        <button class="btn" id="dsExport">Export CSV</button>
+        <span class="smallmuted" id="dsHint"></span>
+      </div>
+      <div class="table-wrap" style="max-height:560px;">
+        <table>
+          <thead><tr id="dsHead"></tr></thead>
+          <tbody id="dsRows"></tbody>
+        </table>
+      </div>
+      <div class="footerbar">
+        <div class="smallmuted">Alles inline bewerkbaar. Wijzigingen worden direct opgeslagen.</div>
+        <div class="smallmuted" id="dsMeta"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

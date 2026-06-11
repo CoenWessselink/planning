@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Niet-werkbare dagen</title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/patches.css" />
+  <style>
+    .page{padding:14px;}
+    .toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+    .toolbar .left{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+    .toolbar .right{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+    .card{border:1px solid var(--btnBorder); background:rgba(0,0,0,.18); border-radius:12px; padding:12px;}
+    .grid2{display:grid; grid-template-columns: 360px 1fr; gap:12px;}
+    .weekdays{display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:10px;}
+    .wd{display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid var(--btnBorder); border-radius:10px; padding:10px; background:rgba(255,255,255,.03);}
+    .wd .meta{display:flex; flex-direction:column; gap:2px;}
+    .wd .meta .t{font-weight:600;}
+    .toggle{display:inline-flex; align-items:center; gap:8px;}
+    .toggle input{width:16px; height:16px;}
+    .calwrap{overflow:auto; border:1px solid var(--btnBorder); border-radius:12px; background:rgba(0,0,0,.14);}
+    .months{display:grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap:10px; padding:10px; min-width: 900px;}
+    .month{border:1px solid var(--btnBorder); border-radius:12px; background:rgba(255,255,255,.02); overflow:hidden;}
+    .month .mh{display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1px solid var(--btnBorder); background:rgba(255,255,255,.03);}
+    .month .mh .name{font-weight:700;}
+    .dow{display:grid; grid-template-columns: repeat(7, 1fr); gap:0; padding:6px 8px; border-bottom:1px solid var(--btnBorder); font-size:11px; color:rgba(255,255,255,.7);}
+    .days{display:grid; grid-template-columns: repeat(7, 1fr); gap:0; padding:8px;}
+    .d{height:26px; display:flex; align-items:center; justify-content:center; font-size:11px; border-radius:6px; margin:2px; cursor:pointer; user-select:none;}
+    .d.off{background:rgba(255,85,85,.18); border:1px solid rgba(255,85,85,.25);}
+    .d.on{background:rgba(120,255,170,.10); border:1px solid rgba(120,255,170,.18);}
+    .d.blank{opacity:.12; cursor:default;}
+    .legend{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;}
+    .chip{display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid var(--btnBorder); background:rgba(255,255,255,.03); font-size:12px;}
+    .sw{width:10px; height:10px; border-radius:3px; border:1px solid var(--btnBorder);}
+    .smallmuted{font-size:12px; color:rgba(255,255,255,.65);}
+    @media (max-width: 1100px){
+      .grid2{grid-template-columns: 1fr;}
+      .months{grid-template-columns: repeat(2, minmax(260px, 1fr)); min-width: 0;}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="toolbar">
+      <div class="left">
+        <button class="btn" id="backBtn">← Terug naar Instellingen</button>
+        <span class="pill">Niet-werkbare dagen</span>
+        <span class="smallmuted" id="meta"></span>
+      </div>
+      <div class="right">
+        <button class="btn" id="resetYear">Reset jaar</button>
+        <button class="btn" id="applyWeekPattern">Toepassen op heel jaar</button>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div>
+            <div style="font-weight:700; font-size:14px;">Werkdag / Niet-werkdag (per weekdag)</div>
+            <div class="smallmuted">Deze instelling geldt als standaard voor het hele jaar. Klik in de kalender om een datum-override te zetten.</div>
+          </div>
+          <div class="pill">Jaar: <span id="yearLabel"></span></div>
+        </div>
+
+        <div class="weekdays" id="weekdayToggles"></div>
+
+        <div class="legend">
+          <span class="chip"><span class="sw on"></span> Werkdag</span>
+          <span class="chip"><span class="sw off"></span> Niet-werkdag</span>
+          <span class="chip"><span class="sw" style="background:rgba(255,255,255,.08)"></span> Override (klik datum)</span>
+        </div>
+
+        <div class="smallmuted" style="margin-top:10px;">
+          Opslaan gebeurt direct via CWS state; in API-modus wordt dit naar Cloudflare D1 gesynchroniseerd. Dit scherm is SSOT: geen tabel-UI.
+        </div>
+      </div>
+
+      <div class="calwrap">
+        <div class="months" id="months"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>const CWS = window.parent?.CWS || window.CWS;</script>
+  <script src="../js/core/permissions.js"></script>
+  <script src="../js/core/ui.js"></script>
+  <script>
+    const NL_DOW = ["Ma","Di","Wo","Do","Vr","Za","Zo"];
+    const JS_DOW = [1,2,3,4,5,6,0]; // map Mon..Sun to JS getDay()
+
+    function getSettings(){
+      const s = CWS.getState();
+      s.settings = s.settings || {};
+      s.settings.nonWorking = s.settings.nonWorking || {};
+      return s.settings;
+    }
+    function getYear(){
+      const st = CWS.getState();
+      return (st.settings && st.settings.nonWorking && st.settings.nonWorking.year) || new Date().getFullYear();
+    }
+    function ensureModel(){
+      CWS.setState(s=>{
+        s.settings = s.settings || {};
+        s.settings.nonWorking = s.settings.nonWorking || {};
+        const y = s.settings.nonWorking.year || new Date().getFullYear();
+        s.settings.nonWorking.year = y;
+
+        // Week pattern: true = werkdag
+        if(!s.settings.nonWorking.weekPattern){
+          s.settings.nonWorking.weekPattern = { mon:true,tue:true,wed:true,thu:true,fri:true,sat:false,sun:false };
+        }
+        if(!s.settings.nonWorking.overrides){
+          s.settings.nonWorking.overrides = {}; // "YYYY-MM-DD": true/false (werkdag)
+        }
+        // Keep settings.tables.calendar as optional mirror (date-specific)
+        s.settings.tables = s.settings.tables || {};
+        s.settings.tables.calendar = s.settings.tables.calendar || [];
+        return s;
+      });
+    }
+
+    function pad(n){ return (n<10? "0":"")+n; }
+    function iso(d){
+      return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+    }
+    function isWorkingByPattern(date, weekPattern){
+      const day = date.getDay(); // 0 sun .. 6 sat
+      const map = {
+        1: weekPattern.mon,
+        2: weekPattern.tue,
+        3: weekPattern.wed,
+        4: weekPattern.thu,
+        5: weekPattern.fri,
+        6: weekPattern.sat,
+        0: weekPattern.sun,
+      };
+      return !!map[day];
+    }
+    function getWorking(date){
+      const s = CWS.getState();
+      const m = s.settings.nonWorking;
+      const k = iso(date);
+      if(m.overrides && k in m.overrides) return !!m.overrides[k];
+      return isWorkingByPattern(date, m.weekPattern);
+    }
+
+    function syncOverridesToTable(){
+      const s = CWS.getState();
+      const m = s.settings.nonWorking;
+      // Mirror overrides into settings.tables.calendar (date list)
+      const rows = [];
+      Object.keys(m.overrides || {}).sort().forEach(k=>{
+        rows.push({ date:k, type:"override", label:"Override", isWorking: !!m.overrides[k] });
+      });
+      CWS.setState(st=>{
+        st.settings.tables = st.settings.tables || {};
+        st.settings.tables.calendar = rows;
+        return st;
+      });
+    }
+
+    function renderWeekdayToggles(){
+      const s = CWS.getState();
+      const wp = s.settings.nonWorking.weekPattern;
+      const wrap = document.getElementById("weekdayToggles");
+      wrap.innerHTML = "";
+      const keys = [
+        ["mon","Maandag"],
+        ["tue","Dinsdag"],
+        ["wed","Woensdag"],
+        ["thu","Donderdag"],
+        ["fri","Vrijdag"],
+        ["sat","Zaterdag"],
+        ["sun","Zondag"]
+      ];
+      keys.forEach(([k,label])=>{
+        const el = document.createElement("div");
+        el.className = "wd";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML = '<div class="t">'+label+'</div><div class="smallmuted">Standaard: '+(wp[k]?'Werkdag':'Niet-werkdag')+'</div>';
+        const tg = document.createElement("label");
+        tg.className = "toggle";
+        const inp = document.createElement("input");
+        inp.type="checkbox";
+        inp.checked = !wp[k]; // checked = niet-werkbaar
+        inp.addEventListener("change", ()=>{
+          CWS.setState(st=>{
+            st.settings.nonWorking.weekPattern[k] = !inp.checked;
+            return st;
+          });
+          render();
+        });
+        const span = document.createElement("span");
+        span.textContent = "Niet-werkdag";
+        tg.appendChild(inp); tg.appendChild(span);
+        el.appendChild(meta);
+        el.appendChild(tg);
+        wrap.appendChild(el);
+      });
+    }
+
+    function renderCalendar(){
+      const s = CWS.getState();
+      const y = s.settings.nonWorking.year;
+      const monthsEl = document.getElementById("months");
+      monthsEl.innerHTML = "";
+      const monthNames = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
+      for(let m=0;m<12;m++){
+        const box = document.createElement("div");
+        box.className = "month";
+        const mh = document.createElement("div");
+        mh.className = "mh";
+        mh.innerHTML = '<div class="name">'+monthNames[m]+'</div><div class="smallmuted">'+y+'</div>';
+        const dow = document.createElement("div");
+        dow.className = "dow";
+        dow.innerHTML = NL_DOW.map(d=>'<div style="text-align:center">'+d+'</div>').join("");
+        const days = document.createElement("div");
+        days.className = "days";
+
+        const first = new Date(y,m,1);
+        const firstDow = (first.getDay()+6)%7; // 0=Mon
+        const daysInMonth = new Date(y,m+1,0).getDate();
+
+        // blanks
+        for(let i=0;i<firstDow;i++){
+          const d = document.createElement("div");
+          d.className="d blank";
+          d.textContent="·";
+          days.appendChild(d);
+        }
+        for(let day=1; day<=daysInMonth; day++){
+          const dt = new Date(y,m,day);
+          const k = iso(dt);
+          const working = getWorking(dt);
+          const d = document.createElement("div");
+          d.className = "d " + (working ? "on":"off");
+          if(s.settings.nonWorking.overrides && (k in s.settings.nonWorking.overrides)){
+            d.style.outline = "2px solid rgba(255,255,255,.22)";
+            d.title = "Override: " + (working? "Werkdag":"Niet-werkdag") + " (klik om te verwijderen/om te wisselen)";
+          } else {
+            d.title = "Klik om override te zetten";
+          }
+          d.textContent = String(day);
+          d.addEventListener("click", ()=>{
+            CWS.setState(st=>{
+              const mw = st.settings.nonWorking;
+              mw.overrides = mw.overrides || {};
+              if(k in mw.overrides){
+                // toggle then remove on second toggle back to pattern
+                const newVal = !mw.overrides[k];
+                mw.overrides[k] = newVal;
+                // if equals pattern, delete
+                const pat = isWorkingByPattern(dt, mw.weekPattern);
+                if(newVal === pat) delete mw.overrides[k];
+              } else {
+                // set opposite of pattern
+                mw.overrides[k] = !isWorkingByPattern(dt, mw.weekPattern);
+              }
+              return st;
+            });
+            syncOverridesToTable();
+            renderCalendar();
+          });
+          days.appendChild(d);
+        }
+
+        box.appendChild(mh);
+        box.appendChild(dow);
+        box.appendChild(days);
+        monthsEl.appendChild(box);
+      }
+    }
+
+    function render(){
+      ensureModel();
+      const s = CWS.getState();
+      document.getElementById("yearLabel").textContent = s.settings.nonWorking.year;
+      document.getElementById("meta").textContent = "Standaard werkweek + datum-overrides";
+      renderWeekdayToggles();
+      renderCalendar();
+    }
+
+    document.getElementById("backBtn").addEventListener("click", ()=>{
+      try{ parent.Router && parent.Router.loadApp && parent.Router.loadApp("instellingen"); }catch(e){}
+    });
+    document.getElementById("resetYear").addEventListener("click", ()=>{
+      CWS.setState(s=>{
+        s.settings.nonWorking.overrides = {};
+        return s;
+      });
+      syncOverridesToTable();
+      render();
+      UI.toast("Jaar-overrides gereset");
+    });
+    document.getElementById("applyWeekPattern").addEventListener("click", ()=>{
+      // applying week pattern is implicit; just re-render and keep overrides.
+      UI.toast("Standaard weekpatroon toegepast");
+      renderCalendar();
+    });
+
+    ensureModel();
+    syncOverridesToTable();
+    render();
+  </script>
+</body>
+</html>

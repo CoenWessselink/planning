@@ -1,0 +1,513 @@
+<!doctype html><html lang="nl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="../css/theme.css"/></head>
+<body style="background:transparent">
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-tools">
+      <button class="btn" onclick="UI.openAppsMenuSafe()">Apps Menu</button>
+      <span class="smallmuted">Rapporten</span>
+    </div>
+    <div class="panel-tools" data-testid="std-toolbar">
+      <button class="btn" id="filtersBtn">Filters</button>
+      <button class="btn" id="colsBtn">Kolommen</button>
+      <button class="btn" id="runBtn">Run</button>
+      <button class="btn" id="exportBtn">Export CSV</button>
+      <button class="btn" id="printBtn">Print A3</button>
+    </div>
+  </div>
+
+  <div class="report-wrap">
+    <!-- Left: templates -->
+    <div class="rep-left">
+      <div class="listhead">Rapport templates</div>
+      <div style="padding:10px 12px; border-bottom:1px solid var(--border);">
+        <input class="input" id="tSearch" placeholder="Zoeken template…" style="width:100%;" />
+      </div>
+      <div id="templates"></div>
+    </div>
+
+    <!-- Right: filters + preview -->
+    <div class="rep-right">
+      <div class="listhead" id="title">Rapport</div>
+
+      <div id="filtersRow" style="padding:12px; border-bottom:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <select class="input" id="scenarioSel" style="min-width:180px;"><option value="">Scenario: Live</option><option value="A">Scenario A</option><option value="B">Scenario B</option></select>
+        <select class="input" id="scope" style="min-width:220px;">
+          <option value="week">Week (huidige)</option>
+          <option value="all">Alle data</option>
+        </select>
+        <select class="input" id="status" style="min-width:220px;">
+          <option value="Alle">Alle statussen</option>
+          <option value="Te plannen">Te plannen</option>
+          <option value="Ingepland">Ingepland</option>
+          <option value="In uitvoering">In uitvoering</option>
+          <option value="Gereed">Gereed</option>
+        </select>
+        <input class="input" id="q" placeholder="Filter (project/opdrachtgever)..." style="min-width:260px;" />
+        <span class="smallmuted" id="meta"></span>
+      </div>
+
+      <div class="kpi" id="kpis"></div>
+
+      <div class="panel" style="margin:12px;">
+        <div class="panel-head" style="border-bottom:0;">
+          <div class="panel-tools">
+            <div style="font-size:16px; font-weight:900;">Preview</div>
+            <span class="smallmuted">Samenvatting gebaseerd op huidige state</span>
+          </div>
+        </div>
+        <div class="table-toolbar"><input class="input search" id="fuzzyQ" placeholder="Zoek..."/><button class="smallbtn" id="clearQ">Leeg</button></div>
+<div class="table-wrap" style="max-height: 340px;">
+          <table>
+            <thead><tr>
+              <th id="h1">Project</th>
+              <th id="h2">Opdrachtgever</th>
+              <th id="h3">Status</th>
+              <th id="h4">Uren ingepland</th>
+            </tr></thead>
+            <tbody id="previewRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="footerbar">
+        <div class="smallmuted">Run bouwt rapport op basis van Projecten + Toewijzingen (allocations) + weekfilter.</div>
+        <div class="smallmuted">v6 build-26</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script>
+(function(){
+  const q=document.getElementById('fuzzyQ');
+  const c=document.getElementById('clearQ');
+  const tbl=document.querySelector('table');
+  if(!q||!c||!tbl) return;
+  function applyFuzzy(){
+    const v=(q.value||'').toLowerCase().trim();
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      const txt=tr.textContent.toLowerCase();
+      tr.style.display = (!v || txt.includes(v)) ? '' : 'none';
+    });
+  }
+  q.addEventListener('input', applyFuzzy);
+  c.addEventListener('click', ()=>{ q.value=''; applyFuzzy(); });
+})();
+</script>
+<script src="../js/core/permissions.js"></script>
+<script src="../js/core/ui.js"></script>
+<script>
+  
+  function weekCapByDept(){
+    const st=CWS.getState();
+    const out={};
+    st.resources.order.forEach(rid=>{
+      const r=st.resources.byId[rid]||{};
+      const dept=(r.dept||"Onbekend").trim()||"Onbekend";
+      const daily=Number(r.daily||0);
+      out[dept]=(out[dept]||0) + daily*5;
+    });
+    return out;
+  }
+
+  function plannedByDept(scope){
+    const st=CWS.getState();
+    const byWeek = st.allocations?.byWeek||{};
+    const proj=st.projects.byId;
+    const res=st.resources.byId;
+    const add=(list)=>{
+      (list||[]).forEach(a=>{
+        const dept=(res[a.resId]?.dept||"Onbekend").trim()||"Onbekend";
+        out[dept]=(out[dept]||0)+Number(a.hours||0);
+      });
+    };
+    const out={};
+    const sc=(document.getElementById('scenarioSel')?.value)||'';
+    const wk = sc ? (weekKey()+'@'+sc) : weekKey();
+    if(scope==='week') add(byWeek[wk]);
+    else Object.values(byWeek).forEach(add);
+    return out;
+  }
+
+  function projectProgress(pid){
+    const st=CWS.getState();
+    const pack=st.tasks?.byProject?.[pid];
+    if(!pack) return null;
+    let sumH=0, sumDone=0;
+    pack.phases.forEach(ph=> ph.tasks.forEach(t=>{
+      const h=Number(t.hours||0);
+      const pct=Number(t.pct||0);
+      sumH += h;
+      sumDone += h*(pct/100);
+    }));
+    if(!sumH) return 0;
+    return Math.round((sumDone/sumH)*100);
+  }
+
+  function totalPlannedAllWeeks(pid){
+    const st=CWS.getState();
+    let sum=0;
+    Object.entries(st.allocations?.byWeek||{}).forEach(([k,list])=>{
+      if(k.includes('@')) return; // live only for forecast
+      (list||[]).forEach(a=>{ if(a.projectId===pid) sum+=Number(a.hours||0); });
+    });
+    return sum;
+  }
+
+function norm(s){ return (s||"").toString().toLowerCase().trim(); }
+  function weekKey(){ return UI.weekKey(CWS.getState().ui.week); }
+
+  function ensureReports(){
+    const st = CWS.getState();
+    if(st.reports && st.reports.templates && st.reports.templates.length) return;
+    const seed = {
+      active: "cap_week",
+      templates: [
+        { id:"cap_week", title:"Capaciteit per project (week)", tag:"Capaciteit", desc:"Uren ingepland per project in geselecteerde week." },
+        { id:"cap_all",  title:"Capaciteit per project (alle data)", tag:"Capaciteit", desc:"Uren ingepland per project over alle weken." },
+        { id:"proj_status", title:"Projecten per status", tag:"Projecten", desc:"Aantallen projecten per status." },
+        { id:"res_load", title:"Resource belasting (week)", tag:"Planbord", desc:"Uren per resource in geselecteerde week." },
+        { id:"proj_kpis", title:"Project KPI overzicht", tag:"Projecten", desc:"Status, voortgang en ingeplande uren per project." },
+        { id:"dept_load", title:"Afdeling belasting (week)", tag:"Capaciteit", desc:"Benutting per afdeling in geselecteerde week." },
+      ]
+    };
+    CWS.setState(s=>{ s.reports = seed; return s; });
+  }
+
+  function templates(){
+    return CWS.getState().reports.templates;
+  }
+
+  function setActive(id){
+    CWS.setState(s=>{ s.reports.active = id; return s; });
+    buildTemplates();
+    run();
+  }
+
+  function active(){
+    const st = CWS.getState();
+    return st.reports.templates.find(t=>t.id===st.reports.active) || st.reports.templates[0];
+  }
+
+  function allocAgg(scope){
+    const st = CWS.getState();
+    const byWeek = st.allocations?.byWeek || {};
+    const agg = {}; // projectId -> hours
+    const add = (arr)=>{
+      (arr||[]).forEach(a=>{
+        const pid=a.projectId;
+        agg[pid]=(agg[pid]||0) + Number(a.hours||0);
+      });
+    };
+    const sc=(document.getElementById('scenarioSel')?.value)||'';
+    const wk = sc ? (weekKey()+'@'+sc) : weekKey();
+    if(scope==="week"){
+      add(byWeek[wk]);
+    } else {
+      Object.values(byWeek).forEach(add);
+    }
+    return agg;
+  }
+
+  function resAgg(scope){
+    const st = CWS.getState();
+    const byWeek = st.allocations?.byWeek || {};
+    const agg = {}; // resId -> hours
+    const add = (arr)=>{
+      (arr||[]).forEach(a=>{
+        const rid=a.resId;
+        agg[rid]=(agg[rid]||0) + Number(a.hours||0);
+      });
+    };
+    const sc=(document.getElementById('scenarioSel')?.value)||'';
+    const wk = sc ? (weekKey()+'@'+sc) : weekKey();
+    if(scope==="week") add(byWeek[wk]);
+    else Object.values(byWeek).forEach(add);
+    return agg;
+  }
+
+  function buildTemplates(){
+    const root=document.getElementById("templates");
+    root.innerHTML="";
+    const q = norm(document.getElementById("tSearch").value);
+    templates().filter(t=>{
+      if(!q) return true;
+      return norm(t.title).includes(q) || norm(t.tag).includes(q);
+    }).forEach(t=>{
+      const card=document.createElement("div");
+      card.className="rep-card" + (active().id===t.id ? " active":"");
+      card.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="font-weight:900;">${t.title}</div>
+        <span class="tag">${t.tag}</span>
+      </div>
+      <div class="smallmuted" style="margin-top:6px;">${t.desc}</div>`;
+      card.addEventListener("click", ()=> setActive(t.id));
+      root.appendChild(card);
+    });
+  }
+
+  function kpiBox(label, value){
+    const d=document.createElement("div");
+    d.className="k";
+    d.innerHTML = `<div class="v">${value}</div><div class="l">${label}</div>`;
+    return d;
+  }
+
+  function run(){
+    const st=CWS.getState();
+    const t=active();
+
+    const scope=document.getElementById("scope").value;
+    const status=document.getElementById("status").value;
+    const q=norm(document.getElementById("q").value);
+
+    const proj=st.projects.byId;
+    const order=st.projects.order;
+    const aggP = allocAgg(scope);
+    const aggR = resAgg(scope);
+
+    let ids=[...order];
+
+    if(status!=="Alle") ids = ids.filter(id => (proj[id]?.status||"")===status);
+    if(q){
+      ids = ids.filter(id=>{
+        const p=proj[id]||{};
+        const hay = [p.nr,p.name,p.client].map(norm).join(" | ");
+        return hay.includes(q);
+      });
+    }
+
+    // KPI area
+    const kpis=document.getElementById("kpis");
+    kpis.innerHTML="";
+
+    const totalProjects = ids.length;
+    const totalHours = ids.reduce((s,id)=> s + (aggP[id]||0), 0);
+
+    if(t.id==="proj_status"){
+      const counts = { "Te plannen":0, "Ingepland":0, "In uitvoering":0, "Gereed":0 };
+      ids.forEach(id=>{ const s=(proj[id]?.status||"Te plannen"); counts[s]=(counts[s]||0)+1; });
+      kpis.append(
+        kpiBox("Te plannen", counts["Te plannen"]),
+        kpiBox("Ingepland", counts["Ingepland"]),
+        kpiBox("In uitvoering", counts["In uitvoering"]),
+        kpiBox("Gereed", counts["Gereed"]),
+      );
+    } else if(t.id==="res_load"){
+      const res=st.resources.byId;
+      const top = Object.entries(aggR).sort((a,b)=>b[1]-a[1]).slice(0,4);
+      if(!top.length){
+        kpis.append(kpiBox("Resources", 0), kpiBox("Uren", 0), kpiBox("Top", "—"), kpiBox("Top uren", "—"));
+      } else {
+        const [r1,h1] = top[0];
+        kpis.append(
+          kpiBox("Resources", Object.keys(aggR).length),
+          kpiBox("Uren totaal", Object.values(aggR).reduce((s,v)=>s+v,0)),
+          kpiBox("Top resource", res[r1]?.name || r1),
+          kpiBox("Top uren", h1),
+        );
+      }
+    } else {
+      kpis.append(
+        kpiBox("Projecten", totalProjects),
+        kpiBox("Uren ingepland", totalHours),
+        kpiBox("Scope", scope==="week" ? "Week" : "Alle"),
+        kpiBox("Template", t.tag),
+      );
+    }
+
+    // Preview table (template-specific)
+    const tbody=document.getElementById("previewRows");
+    tbody.innerHTML="";
+    const setHeads = (a,b,c,d)=>{
+      document.getElementById("h1").textContent=a;
+      document.getElementById("h2").textContent=b;
+      document.getElementById("h3").textContent=c;
+      document.getElementById("h4").textContent=d;
+    };
+    const emptyRow = (cols=4, msg="Geen resultaten voor huidige filters.")=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td colspan="${cols}" class="smallmuted">${msg}</td>`;
+      tbody.appendChild(tr);
+    };
+
+    if(t.id==="dept_load"){
+      setHeads("Afdeling","Capaciteit (h)","Ingepland (h)","Benutting");
+      const byDept = (function(){
+        const out={};
+        const st=CWS.getState();
+        const addArr = (arr)=>{
+          (arr||[]).forEach(a=>{
+            const res = st.resources?.byId?.[a.resId] || {};
+            const dept = res.dept || "—";
+            out[dept]=out[dept]||{planned:0,cap:0};
+            out[dept].planned += Number(a.hours||0);
+          });
+        };
+        const sc=(document.getElementById('scenarioSel')?.value)||'';
+        const wk = sc ? (weekKey()+'@'+sc) : weekKey();
+        if(scope==="week") addArr(st.allocations?.byWeek?.[wk]);
+        else Object.values(st.allocations?.byWeek||{}).forEach(addArr);
+
+        (st.resources?.order||[]).forEach(rid=>{
+          const r=st.resources.byId[rid]||{};
+          const dept=r.dept||"—";
+          out[dept]=out[dept]||{planned:0,cap:0};
+          out[dept].cap += Number(r.daily||0)*5;
+        });
+        return out;
+      })();
+      const rows = Object.entries(byDept).sort((a,b)=> (b[1].planned/b[1].cap||0)-(a[1].planned/a[1].cap||0));
+      if(!rows.length) emptyRow(4,"Geen afdeling-data.");
+      rows.forEach(([dept,v])=>{
+        const cap=v.cap||0, planned=v.planned||0;
+        const pct = cap ? Math.round((planned/cap)*100) : 0;
+        const tr=document.createElement("tr");
+        tr.innerHTML = `<td style="font-weight:900;">${dept}</td><td>${cap.toFixed(1)}</td><td>${planned.toFixed(1)}</td><td>${pct}%</td>`;
+        tbody.appendChild(tr);
+      });
+    } else if(t.id==="proj_kpis"){
+      setHeads("Project","Status","Benodigd (h)","Ingepland (h)");
+      const model = (st.ganttV2?.byProject)||{};
+      if(!ids.length) emptyRow(4);
+      ids.slice(0,50).forEach(id=>{
+        const p=proj[id]||{};
+        let needed = Number(p.hoursNeeded||0);
+        const pm=model[id];
+        if(pm){
+          let sum=0;
+          (pm.rows||[]).forEach(rid=>{
+            const r=pm.byId?.[rid];
+            if(r && r.type==="task") sum += Number(r.hoursNeeded||r.hours||0);
+          });
+          if(sum>0) needed=sum;
+        }
+        const planned = aggP[id]||0;
+        const tr=document.createElement("tr");
+        tr.innerHTML = `<td><div style="font-weight:900;">${p.nr||id}</div><div class="smallmuted">${p.name||""}</div></td>
+                        <td>${p.status||"Te plannen"}</td>
+                        <td>${needed?needed.toFixed(1):"—"}</td>
+                        <td>${planned.toFixed(1)}</td>`;
+        tbody.appendChild(tr);
+      });
+    } else {
+      setHeads("Project","Opdrachtgever","Status","Uren ingepland");
+      if(!ids.length) emptyRow(4);
+      ids.slice(0,50).forEach(id=>{
+        const p=proj[id]||{};
+        const tr=document.createElement("tr");
+        const td1=document.createElement("td"); td1.innerHTML = `<div style="font-weight:900;">${p.nr||id}</div><div class="smallmuted">${p.name||""}</div>`;
+        const td2=document.createElement("td"); td2.textContent = p.client||"—";
+        const td3=document.createElement("td"); td3.appendChild(UI.statusBadge(p.status||"Te plannen"));
+        const td4=document.createElement("td"); td4.textContent = aggP[id]||0;
+        tr.append(td1,td2,td3,td4);
+        tbody.appendChild(tr);
+      });
+    }
+
+document.getElementById("title").textContent = t.title;
+    document.getElementById("meta").textContent = `• ${totalProjects} projecten • ${totalHours} uur`;
+    UI.toast("Rapport opgebouwd");
+  }
+
+  document.getElementById("runBtn").addEventListener("click", run);
+  document.getElementById("printBtn").addEventListener("click", ()=>{
+    const title = document.getElementById("title").textContent || "Rapport";
+    const meta = document.getElementById("meta").textContent || "";
+    const tableHtml = document.querySelector("#previewRows")?.closest("table")?.outerHTML || "";
+    UI.printA3(title, meta, tableHtml);
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", ()=>{
+    // Export current preview table based on last run filters
+    const st=CWS.getState();
+    const t=active();
+    const scope=document.getElementById("scope").value;
+    const status=document.getElementById("status").value;
+    const q=norm(document.getElementById("q").value);
+
+    const proj=st.projects.byId;
+    const order=st.projects.order;
+    const aggP = allocAgg(scope);
+
+    let ids=[...order];
+    if(status!=="Alle") ids = ids.filter(id => (proj[id]?.status||"")===status);
+    if(q){
+      ids = ids.filter(id=>{
+        const p=proj[id]||{};
+        const hay = [p.nr,p.name,p.client].map(norm).join(" | ");
+        return hay.includes(q);
+      });
+    }
+
+    const rows = [["Template", t.title], ["Scope", scope], ["Status", status], ["Filter", q], [], ["Project","Opdrachtgever","Status","Uren ingepland"]];
+    ids.forEach(id=>{
+      const p=proj[id]||{};
+      rows.push([p.nr||id, p.client||"", p.status||"", aggP[id]||0]);
+    });
+    UI.downloadCSV(`rapport_${t.id}_${scope}.csv`, rows);
+    UI.toast("CSV geëxporteerd");
+  });
+  document.getElementById("tSearch").addEventListener("input", buildTemplates);
+  ["scenarioSel","scope","status","q"].forEach(id=> document.getElementById(id).addEventListener("change", run));
+  document.getElementById("q").addEventListener("input", ()=>{ /* lazy */ });
+
+
+  // Standard toolbar: Filters + Columns
+  const filtersBtn = document.getElementById("filtersBtn");
+  const filtersRow = document.getElementById("filtersRow");
+  if (filtersBtn && filtersRow){
+    filtersBtn.addEventListener("click", ()=>{
+      const now = (filtersRow.style.display === "none") ? "" : "none";
+      filtersRow.style.display = now;
+    });
+  }
+
+  const colsBtn = document.getElementById("colsBtn");
+  if (colsBtn){
+    colsBtn.addEventListener("click", ()=>{
+      UI.openColumnWizard({
+        tableKey: "reports.preview",
+        columns: [
+          { key:"h1", label: document.getElementById("h1")?.textContent || "Kolom 1", visible:true, locked:true },
+          { key:"h2", label: document.getElementById("h2")?.textContent || "Kolom 2", visible:true },
+          { key:"h3", label: document.getElementById("h3")?.textContent || "Kolom 3", visible:true },
+          { key:"h4", label: document.getElementById("h4")?.textContent || "Kolom 4", visible:true }
+        ],
+        onApply: (cols)=>{
+          // apply visibility + labels
+          cols.forEach(c=>{
+            const th = document.getElementById(c.key);
+            if(th) th.textContent = c.label || th.textContent;
+          });
+          const vis = Object.fromEntries(cols.map(c=>[c.key, c.visible!==false]));
+          const table = document.querySelector("#previewRows")?.closest("table");
+          if(table){
+            const ths = table.querySelectorAll("thead th");
+            ths.forEach(th=>{
+              const id = th.id;
+              if(id && vis[id]===false) th.style.display="none";
+              else th.style.display="";
+            });
+            table.querySelectorAll("tbody tr").forEach(tr=>{
+              [...tr.children].forEach((td,i)=>{
+                const th = ths[i];
+                const id = th?.id;
+                if(id && vis[id]===false) td.style.display="none";
+                else td.style.display="";
+              });
+            });
+          }
+        }
+      });
+    });
+  }
+
+  ensureReports();
+  buildTemplates();
+  run();
+</script>
+</body></html>

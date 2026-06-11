@@ -1,0 +1,775 @@
+<!doctype html><html lang="nl"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="../css/theme.css"/></head>
+<body style="background:transparent">
+<div class="panel">
+  <div class="panel-head">
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <button class="btn" id="newProject">Nieuw project</button>
+      <button class="btn" id="openBron">Brondata</button>
+      <button class="btn" id="openDeptHours">Uren per afdeling</button>
+      <input class="input" id="search" placeholder="Zoeken (project, opdrachtgever, status)…" />
+      <span class="kbd">CTRL</span><span class="kbd">K</span>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;" data-testid="std-toolbar">
+      <span class="smallmuted" id="hint">Bronlaag voor Gantt / Capaciteit / Planbord</span>
+      <button class="btn" id="filtersBtn">Filters</button>
+      <button class="btn" id="colsBtn">Kolommen</button>
+      <button class="btn" id="exportBtn">Export CSV</button>
+      <button class="btn" id="printBtn">Print A3</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="table-toolbar"><input class="input search" id="fuzzyQ" placeholder="Zoek..."/><button class="smallbtn" id="clearQ">Leeg</button></div>
+<div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-key="nr">Projectnummer</th>
+          <th data-key="name">Projectnaam</th>
+          <th data-key="client">Opdrachtgever</th>
+          <th data-key="status">Status ▾</th>
+          <th data-key="needHours">Uren benodigd</th>
+          <!-- dept-cols -->
+          <th data-key="start">Startdatum</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="footerbar">
+    <div id="count">0 projecten • Pagina 1 van 1</div>
+    <div class="pagination">
+      <button class="pagebtn" id="prev">‹</button>
+      <button class="pagebtn" id="next">›</button>
+      <span class="smallmuted" id="ver">v6 build-26</span>
+    </div>
+  </div>
+</div>
+
+<!-- Nieuw project modal -->
+<div class="modal-backdrop" id="npBackdrop" aria-hidden="true">
+  <div class="modal modal-sm" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      Nieuw project
+      <button class="close" id="npClose" aria-label="Sluiten">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="formrow"><div class="label">Projectnummer</div><input class="input" id="npNr" placeholder="P-1005"/></div>
+      <div class="formrow"><div class="label">Projectnaam</div><input class="input" id="npName" placeholder="Nieuwe opdracht"/></div>
+      <div class="formrow"><div class="label">Opdrachtgever</div><input class="input" id="npClient" placeholder="Klant BV"/></div>
+      <div class="formrow"><div class="label">Status</div>
+        <select class="input" id="npStatus">
+          <option>Te plannen</option>
+          <option>Ingepland</option>
+          <option>In uitvoering</option>
+          <option>Gereed</option>
+        </select>
+      </div>
+      <div class="formrow"><div class="label">Startdatum</div><input class="input" id="npStart" placeholder="dd-mm-jjjj"/></div>
+
+      <div class="hr"></div>
+      <div class="smallmuted" style="margin-top:6px;">Uren per afdeling</div>
+      <div id="npDeptHours" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+        <button class="btn" id="npCancel">Annuleren</button>
+        <button class="btn" id="npSave">Opslaan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script>
+(function(){
+  const q=document.getElementById('fuzzyQ');
+  const c=document.getElementById('clearQ');
+  const tbl=document.querySelector('table');
+  if(!q||!c||!tbl) return;
+  function applyFuzzy(){
+    const v=(q.value||'').toLowerCase().trim();
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      const txt=tr.textContent.toLowerCase();
+      tr.style.display = (!v || txt.includes(v)) ? '' : 'none';
+    });
+  }
+  q.addEventListener('input', applyFuzzy);
+  c.addEventListener('click', ()=>{ q.value=''; applyFuzzy(); });
+})();
+</script>
+<script src="../js/core/permissions.js"></script>
+<script src="../js/core/ui.js"></script>
+<script>
+  // Projecturen per afdeling (prompt: enige bron voor benodigde uren richting Gantt/Capaciteit)
+  function ensureDeptHoursRows(){
+    try{
+      CWS.setState(s=>{
+        s.projects = s.projects || { byId:{}, order:[] };
+        s.projects.deptHours = Array.isArray(s.projects.deptHours) ? s.projects.deptHours : [];
+        return s;
+      });
+    }catch(_){ }
+  }
+  function recalcNeedHoursFromDeptRows(){
+    try{
+      CWS.setState(s=>{
+        const rows = Array.isArray(s.projects?.deptHours) ? s.projects.deptHours : [];
+        const byProj = {};
+        rows.forEach(r=>{
+          const pid = (r.projectId||r.project||'').toString().trim();
+          const deptId = (r.deptId||r.department||r.dept||'').toString().trim();
+          const h = Number(String(r.hours??r.uren??'').replace(',', '.'));
+          if(!pid) return;
+          byProj[pid] = byProj[pid] || { total:0, byDept:{} };
+          const v = Number.isFinite(h) ? Math.max(0,h) : 0;
+          byProj[pid].total += v;
+          if(deptId) byProj[pid].byDept[deptId] = v;
+        });
+        // Write totals back into projects (needHours + deptHours map)
+        (s.projects?.order||[]).forEach(pid=>{
+          const p = s.projects.byId?.[pid];
+          if(!p) return;
+          const agg = byProj[pid];
+          if(agg){
+            p.needHours = agg.total;
+            p.deptHours = agg.byDept;
+          } else {
+            // keep existing if any, but ensure numeric needHours
+            if(p.needHours==null) p.needHours = 0;
+            p.deptHours = p.deptHours || {};
+          }
+        });
+        return s;
+      });
+    }catch(_){ }
+  }
+
+  // Phase 21: Open brondata tables (opdrachtgevers / contactpersonen) from Projects.
+  const __bronBtn = document.getElementById('openBron');
+  if(__bronBtn){
+    __bronBtn.addEventListener('click', ()=>{
+      try{
+        CWS.setState(s=>{
+          s.settings = s.settings || { activeSection:"Accountinformatie", datasets:{}, tables:{} };
+          s.settings.tables = s.settings.tables || {};
+          s.settings.tables.clients = Array.isArray(s.settings.tables.clients) ? s.settings.tables.clients : [];
+          s.settings.tables.contacts = Array.isArray(s.settings.tables.contacts) ? s.settings.tables.contacts : [];
+          return s;
+        });
+      }catch(e){}
+      UI.openModal({
+        title: 'Brondata',
+        subtitle: 'Opdrachtgevers en contactpersonen',
+        contentEl: (()=>{
+          const w=document.createElement('div');
+          w.style.display='flex';
+          w.style.gap='10px';
+          w.style.flexWrap='wrap';
+          const b1=document.createElement('button'); b1.className='btn'; b1.textContent='Opdrachtgevers';
+          const b2=document.createElement('button'); b2.className='btn'; b2.textContent='Contactpersonen';
+          b1.onclick=()=>UI.openTableManager({ title:'Opdrachtgevers', subtitle:'Brondata', tableKey:'settings.clients', statePath:'settings.tables.clients', columns:[{key:'name',label:'Opdrachtgever'},{key:'code',label:'Code'},{key:'phone',label:'Telefoon'},{key:'email',label:'E-mail'}], defaultRow:()=>({name:'',code:'',phone:'',email:''}) });
+          b2.onclick=()=>UI.openTableManager({ title:'Contactpersonen', subtitle:'Brondata', tableKey:'settings.contacts', statePath:'settings.tables.contacts', columns:[{key:'name',label:'Naam'},{key:'client',label:'Opdrachtgever'},{key:'role',label:'Functie'},{key:'phone',label:'Telefoon'},{key:'email',label:'E-mail'}], defaultRow:()=>({name:'',client:'',role:'',phone:'',email:''}) });
+          w.append(b1,b2);
+          return w;
+        })(),
+        actions:[{label:'Sluiten',className:'btn',onClick:({close})=>close()}]
+      });
+    });
+  }
+
+  // Open Projecturen per afdeling table
+  const __deptBtn = document.getElementById('openDeptHours');
+  if(__deptBtn){
+    __deptBtn.addEventListener('click', ()=>{
+      ensureDeptHoursRows();
+      // Ensure departments exist; fallback to known departments list if missing
+      try{
+        const st=CWS.getState();
+        if(!st.departments){
+          // Derive departments from resources if departments module not present
+          const depts=[...new Set((st.resources?.order||[]).map(id=>st.resources.byId[id]?.dept).filter(Boolean))];
+          if(depts.length){
+            CWS.setState(s=>{
+              s.departments = s.departments || { byId:{}, order:[] };
+              depts.forEach((name,i)=>{
+                const id = String(name);
+                if(!s.departments.byId[id]){ s.departments.byId[id]={ id, name }; s.departments.order.push(id); }
+              });
+              return s;
+            });
+          }
+        }
+      }catch(_){ }
+
+      const st=CWS.getState();
+      const projOpts=(st.projects?.order||[]).map(id=>({id, label:(st.projects.byId[id]?.nr||id)+" — "+(st.projects.byId[id]?.name||'')}));
+      const deptOpts=(st.departments?.order||[]).map(id=>({id, label:st.departments.byId[id]?.name||id}));
+      UI.openTableManager({
+        title:'Projecturen per afdeling',
+        subtitle:'Benodigde uren (bron voor Gantt/Capaciteit)',
+        tableKey:'projects.deptHours',
+        statePath:'projects.deptHours',
+        columns:[
+          { key:'projectId', label:'Project (ID)', visible:true },
+          { key:'deptId', label:'Afdeling (ID)', visible:true },
+          { key:'hours', label:'Benodigde uren', visible:true },
+          { key:'note', label:'Notitie', visible:true },
+        ],
+        defaultRow:()=>({ projectId:(st.projects?.order||[])[0]||'', deptId:(st.departments?.order||[])[0]||'', hours:0, note:'' }),
+        onChange:()=>{ recalcNeedHoursFromDeptRows(); }
+      });
+      // One-time recalc after open to keep projects in sync
+      setTimeout(()=>{ try{ recalcNeedHoursFromDeptRows(); }catch(_){} }, 0);
+    });
+  }
+
+  // Ensure sync once on load
+  ensureDeptHoursRows();
+  recalcNeedHoursFromDeptRows();
+
+  const TABS = ["Alle","Te plannen","Ingepland","In uitvoering","Gereed"];
+  const tabDots = {
+    "Ingepland":"var(--st-teplannen)",
+    "In uitvoering":"var(--st-uitvoering)",
+    "Gereed":"var(--st-teplannen)"
+  };
+
+  let sortKey = "nr";
+  let sortDir = "asc";
+  let page = 1;
+  const pageSize = 10;
+
+  function norm(s){ return (s||"").toString().toLowerCase().trim(); }
+
+  function openNP(open){
+    const bd = document.getElementById("npBackdrop");
+    bd.classList.toggle("show", !!open);
+    bd.setAttribute("aria-hidden", open ? "false" : "true");
+    if(open){
+      document.getElementById("npNr").focus();
+    }
+  }
+
+  // Afdelingen komen uit Instellingen → Afdelingen (tabel). Fallback: legacy departments.
+  function getDeptList(st){
+    const rows = Array.isArray(st?.settings?.tables?.afdelingen) ? st.settings.tables.afdelingen : [];
+    const mapped = rows.map(r=>{
+      const name = (r.afdeling ?? r.name ?? r.Naam ?? r.Afdeling ?? r.id ?? r.code ?? '').toString().trim();
+      const code = (r.code ?? r.Code ?? '').toString().trim();
+      const active = (r.actief ?? r.active ?? r.Actief);
+      return { id: name || code, name: name || code, code, active: (active===false?false:true) };
+    }).filter(d=>d.id && d.active);
+    if(mapped.length) return mapped;
+    const legacyOrder = st?.departments?.order || [];
+    return legacyOrder.map(id=>({ id:String(id), name:(st.departments?.byId?.[id]?.name||id), code:'' }));
+  }
+
+  function sumWeekFromRow(row){
+    const keys = ['ma','di','wo','do','vr','za','zo','Ma','Di','Wo','Do','Vr','Za','Zo'];
+    // prefer lowercase first
+    const get = (k)=> Number(String(row[k] ?? '').replace(',', '.')) || 0;
+    const vals = ['ma','di','wo','do','vr','za','zo'].map(k=> get(row[k]!=null?k:(k[0].toUpperCase()+k.slice(1))));
+    return vals.reduce((a,b)=>a+b,0);
+  }
+
+  function recalcProjectNeedHours(p){
+    const map = p.deptHours || {};
+    let tot = 0;
+    Object.keys(map).forEach(k=>{ const v = Number(String(map[k]??0).replace(',', '.')); tot += (Number.isFinite(v)?Math.max(0,v):0); });
+    p.needHours = tot;
+  }
+
+  function syncDeptHoursRowsForProject(projectId, deptHoursMap){
+    try{
+      CWS.setState(s=>{
+        s.projects = s.projects || { byId:{}, order:[] };
+        s.projects.deptHours = Array.isArray(s.projects.deptHours) ? s.projects.deptHours : [];
+        // remove existing rows for project
+        s.projects.deptHours = s.projects.deptHours.filter(r=>String(r.projectId||r.project||'').trim()!==String(projectId));
+        Object.keys(deptHoursMap||{}).forEach(deptId=>{
+          const h = Number(String(deptHoursMap[deptId]??0).replace(',', '.'));
+          if(!Number.isFinite(h)) return;
+          s.projects.deptHours.push({ projectId:String(projectId), deptId:String(deptId), hours: Math.max(0,h), note:'' });
+        });
+        return s;
+      });
+      recalcNeedHoursFromDeptRows();
+    }catch(_){ }
+  }
+
+  let __editProjectId = null;
+
+  function buildDeptHoursInputs(project){
+    const st = CWS.getState();
+    const depts = getDeptList(st);
+    const wrap = document.getElementById('npDeptHours');
+    if(!wrap) return;
+    wrap.innerHTML='';
+    depts.forEach(d=>{
+      // Align department-hour inputs with the rest of the form (label column left, input column right)
+      const row=document.createElement('div');
+      row.className='formrow';
+      const lab=document.createElement('div');
+      lab.className='label';
+      lab.textContent = d.name;
+      const inp=document.createElement('input');
+      inp.className='input';
+      inp.type='number';
+      inp.step='0.25';
+      inp.min='0';
+      inp.value = (project?.deptHours?.[d.id] ?? 0);
+      inp.dataset.deptId = d.id;
+      // keep inputs compact like other numeric fields
+      inp.style.maxWidth = '140px';
+      row.append(lab, inp);
+      wrap.appendChild(row);
+    });
+  }
+
+  function openProjectModal(projectId){
+    const st = CWS.getState();
+    __editProjectId = projectId || null;
+    const p = projectId ? (st.projects?.byId?.[projectId] || null) : null;
+    document.querySelector('#npBackdrop .modal-head').childNodes[0].textContent = (p? 'Project wijzigen' : 'Nieuw project');
+    document.getElementById('npNr').value = p?.nr || '';
+    document.getElementById('npName').value = p?.name || '';
+    document.getElementById('npClient').value = p?.client || '';
+    document.getElementById('npStatus').value = p?.status || 'Te plannen';
+    document.getElementById('npStart').value = p?.start || '';
+    buildDeptHoursInputs(p || { deptHours:{} });
+    openNP(true);
+  }
+
+function bindNP(){
+    const bd = document.getElementById("npBackdrop");
+    document.getElementById("npClose").onclick = () => openNP(false);
+    const __npCancel = document.getElementById("npCancel");
+    if(__npCancel) __npCancel.onclick = () => openNP(false);
+    bd.addEventListener("click", (e)=>{ if(e.target===bd) openNP(false); });
+    document.getElementById("npSave").onclick = () => {
+      const st = CWS.getState();
+      const canCreate = Permissions.can(st.ui.role, __editProjectId ? "edit_project" : "create_project");
+      if(!canCreate){ UI.toast("Geen rechten"); return; }
+
+      const nr = document.getElementById("npNr").value.trim() || ("P-" + Math.floor(1000 + Math.random()*9000));
+      const id = (__editProjectId || nr);
+      const deptHours = {};
+      document.querySelectorAll('#npDeptHours input[data-dept-id]').forEach(inp=>{
+        const deptId = inp.dataset.deptId;
+        const v = Number(String(inp.value||'0').replace(',', '.'));
+        deptHours[deptId] = Number.isFinite(v) ? Math.max(0,v) : 0;
+      });
+
+      const p = {
+        id,
+        nr,
+        name: document.getElementById("npName").value.trim() || "Nieuw project",
+        client: document.getElementById("npClient").value.trim() || "—",
+        status: document.getElementById("npStatus").value,
+        start: document.getElementById("npStart").value.trim(),
+        deptHours
+      };
+      recalcProjectNeedHours(p);
+
+      CWS.setState(s=>{
+        s.projects = s.projects || { byId:{}, order:[] };
+        if(!s.projects.byId[id]) s.projects.order.unshift(id);
+        s.projects.byId[id] = { ...(s.projects.byId[id]||{}), ...p };
+        return s;
+      });
+      const __wasEdit = !!__editProjectId;
+      syncDeptHoursRowsForProject(id, deptHours);
+      openNP(false);
+      __editProjectId = null;
+      CWS.audit(__wasEdit ? "project_updated" : "project_created");
+      UI.toast(__wasEdit ? "Project bijgewerkt" : "Project toegevoegd");
+      render();
+    };
+  }
+
+  function renderTabs(active){
+    const tabs = document.getElementById("tabs");
+    tabs.innerHTML="";
+    TABS.forEach(t=>{
+      const el = document.createElement("div");
+      el.className = "tab" + (t===active ? " active":"");
+      if (tabDots[t]){
+        const d=document.createElement("span");
+        d.className="dot";
+        d.style.background=tabDots[t];
+        el.appendChild(d);
+      }
+      el.appendChild(document.createTextNode(t));
+      el.addEventListener("click", ()=>{
+        CWS.setState(s=>{ s.ui.lastTab=t; return s; });
+        page = 1;
+        render();
+      });
+      tabs.appendChild(el);
+    });
+  }
+
+  function setSort(key){
+    if(sortKey===key){
+      sortDir = (sortDir==="asc" ? "desc":"asc");
+    } else {
+      sortKey = key;
+      sortDir = "asc";
+    }
+    render();
+  }
+
+  function filteredIds(st, tab, q){
+    let ids = [...st.projects.order];
+    if (tab !== "Alle") ids = ids.filter(id => (st.projects.byId[id]?.status||"") === tab);
+
+    const nq = norm(q);
+    if (nq){
+      ids = ids.filter(id=>{
+        const p = st.projects.byId[id] || {};
+        const hay = [p.nr,p.name,p.client,p.status,p.start].map(norm).join(" | ");
+        return hay.includes(nq);
+      });
+    }
+
+    ids.sort((a,b)=>{
+      const pa = st.projects.byId[a] || {};
+      const pb = st.projects.byId[b] || {};
+      const va = norm(pa[sortKey] || "");
+      const vb = norm(pb[sortKey] || "");
+      if(va<vb) return sortDir==="asc" ? -1:1;
+      if(va>vb) return sortDir==="asc" ? 1:-1;
+      return 0;
+    });
+
+    return ids;
+  }
+
+  function statusSelect(projectId, cur){
+    const sel=document.createElement("select");
+    sel.className="select-badge";
+    const opts=["Te plannen","Ingepland","In uitvoering","Gereed"];
+    opts.forEach(s=>{
+      const o=document.createElement("option");
+      o.value=s; o.textContent=s;
+      if (s===cur) o.selected=true;
+      sel.appendChild(o);
+    });
+    sel.style.background = UI.statusToColor(cur);
+    sel.addEventListener("change",(e)=>{
+      const st = CWS.getState();
+      if(!Permissions.can(st.ui.role,"edit_status")) { CWS.audit("project_created");
+      UI.toast("Geen rechten"); sel.value=cur; return; }
+      const val=e.target.value;
+      CWS.setState(s=>{ s.projects.byId[projectId].status=val; return s; });
+      CWS.audit("project_created");
+      UI.toast("Status bijgewerkt");
+      render();
+    });
+    return sel;
+  }
+
+  function editableCell(text, onCommit){
+    const td=document.createElement("td");
+    td.textContent = text || "—";
+    td.contentEditable = "true";
+    td.spellcheck = false;
+    td.style.outline="none";
+    td.addEventListener("focus", ()=>{ td.dataset.prev = td.textContent; });
+    td.addEventListener("keydown", (e)=>{
+      if(e.key==="Enter"){ e.preventDefault(); td.blur(); }
+      if(e.key==="Escape"){ e.preventDefault(); td.textContent = td.dataset.prev || ""; td.blur(); }
+    });
+    td.addEventListener("blur", ()=>{
+      const next = (td.textContent||"").trim();
+      const prev = (td.dataset.prev||"").trim();
+      if(next!==prev) onCommit(next);
+    });
+    return td;
+  }
+
+  function ensureDeptColumns(st){
+    const depts = getDeptList(st);
+    const tr = document.querySelector('table thead tr');
+    if(!tr) return depts;
+    // remove existing dynamic dept headers
+    [...tr.querySelectorAll('th[data-deptcol="1"]')].forEach(th=>th.remove());
+    const needTh = tr.querySelector('th[data-key="needHours"]');
+    if(!needTh) return depts;
+    // insert after needHours
+    let ref = needTh.nextSibling;
+    depts.forEach(d=>{
+      const th=document.createElement('th');
+      th.dataset.deptcol='1';
+      th.style.cursor='default';
+      th.textContent = `${d.name} (u)`;
+      tr.insertBefore(th, ref);
+    });
+    return depts;
+  }
+
+  function hourInputCell(value, onCommit){
+    const td=document.createElement('td');
+    td.style.textAlign='right';
+    const inp=document.createElement('input');
+    inp.className='input';
+    inp.type='number';
+    inp.step='0.25';
+    inp.min='0';
+    inp.style.maxWidth='88px';
+    inp.value = Number.isFinite(Number(value)) ? String(value) : '0';
+    inp.addEventListener('change', ()=>{
+      const v = Number(String(inp.value||'0').replace(',', '.'));
+      onCommit(Number.isFinite(v)?Math.max(0,v):0);
+    });
+    td.appendChild(inp);
+    return td;
+  }
+
+  function render(){
+    const st = CWS.getState();
+    const depts = ensureDeptColumns(st);
+    const active = st.ui.lastTab || "Alle";
+    renderTabs(active);
+
+    const q = document.getElementById("search").value;
+    const idsAll = filteredIds(st, active, q);
+
+    const pages = Math.max(1, Math.ceil(idsAll.length / pageSize));
+    page = Math.min(page, pages);
+    const startIdx = (page-1)*pageSize;
+    const ids = idsAll.slice(startIdx, startIdx+pageSize);
+
+    const tbody = document.getElementById("rows");
+    tbody.innerHTML="";
+
+    ids.forEach(id=>{
+      const p = st.projects.byId[id] || {};
+      const tr=document.createElement("tr");
+
+      tr.addEventListener('dblclick', ()=> openProjectModal(id));
+
+      const tdNr=document.createElement("td");
+      tdNr.style.fontWeight="800";
+      tdNr.textContent = p.nr || id;
+
+      const tdName = editableCell(p.name, (val)=>{
+        if(!Permissions.can(CWS.getState().ui.role,"edit_project")){ UI.toast("Geen rechten"); return; }
+        CWS.setState(s=>{ s.projects.byId[id].name = val; return s; });
+        CWS.audit("project_updated");
+        UI.toast("Projectnaam bijgewerkt");
+      });
+
+      const tdClient = editableCell(p.client, (val)=>{
+        if(!Permissions.can(CWS.getState().ui.role,"edit_project")){ UI.toast("Geen rechten"); return; }
+        CWS.setState(s=>{ s.projects.byId[id].client = val; return s; });
+        CWS.audit("project_updated");
+        UI.toast("Opdrachtgever bijgewerkt");
+      });
+
+      const tdStatus=document.createElement("td");
+      tdStatus.appendChild(statusSelect(id, p.status || "Te plannen"));
+
+      const tdNeed=document.createElement('td');
+      tdNeed.style.textAlign='right';
+      const need = Number(p.needHours||0);
+      const btnNeed=document.createElement('button');
+      btnNeed.className='smallbtn';
+      btnNeed.textContent = (Number.isFinite(need) ? need : 0) + ' u';
+      btnNeed.title = 'Bewerk benodigde uren per afdeling';
+      btnNeed.addEventListener('click', ()=>{
+        // open table and prefill projectId in a new row if empty
+        try{
+          document.getElementById('openDeptHours')?.click();
+          setTimeout(()=>{
+            try{
+              // If there are no rows for this project, add one prefilled row.
+              const st2=CWS.getState();
+              const rows=Array.isArray(st2.projects?.deptHours)?st2.projects.deptHours:[];
+              const has=rows.some(r=>String(r.projectId||r.project||'').trim()===id);
+              if(!has){
+                CWS.setState(s=>{ s.projects.deptHours = Array.isArray(s.projects.deptHours)?s.projects.deptHours:[]; s.projects.deptHours.push({projectId:id, deptId:(s.departments?.order||[])[0]||'', hours:0, note:''}); return s; });
+                recalcNeedHoursFromDeptRows();
+              }
+            }catch(_){ }
+          }, 50);
+        }catch(_){ }
+      });
+      tdNeed.appendChild(btnNeed);
+
+      const tdStart = editableCell(p.start, (val)=>{
+        if(!Permissions.can(CWS.getState().ui.role,"edit_project")){ UI.toast("Geen rechten"); return; }
+        CWS.setState(s=>{ s.projects.byId[id].start = val; return s; });
+        CWS.audit("project_updated");
+        UI.toast("Startdatum bijgewerkt");
+      });
+
+      // Dept columns (hours per afdeling) — handmatig invulbaar
+      const deptTds = depts.map(d=>{
+        const cur = Number(p.deptHours?.[d.id] ?? 0);
+        return hourInputCell(cur, (newVal)=>{
+          if(!Permissions.can(CWS.getState().ui.role,"edit_project")){ UI.toast("Geen rechten"); return; }
+          CWS.setState(s=>{
+            const proj = s.projects.byId[id];
+            proj.deptHours = proj.deptHours || {};
+            proj.deptHours[d.id] = newVal;
+            recalcProjectNeedHours(proj);
+            return s;
+          });
+          syncDeptHoursRowsForProject(id, CWS.getState().projects.byId[id].deptHours || {});
+          render();
+        });
+      });
+
+      [tdNr,tdName,tdClient,tdStatus,tdNeed, ...deptTds, tdStart].forEach(td=>tr.appendChild(td));
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("count").textContent = `${idsAll.length} projecten • Pagina ${page} van ${pages}`;
+    document.getElementById("prev").disabled = (page<=1);
+    document.getElementById("next").disabled = (page>=pages);
+  }
+
+  // events
+  document.querySelectorAll("thead th").forEach(th=>{
+    const k = th.dataset.key;
+    if(!k) return; // dynamic dept columns are not sortable
+    th.style.cursor="pointer";
+    th.addEventListener("click", ()=> setSort(k));
+  });
+
+  document.getElementById("prev").addEventListener("click", ()=>{ page=Math.max(1,page-1); render(); });
+  document.getElementById("next").addEventListener("click", ()=>{ page=page+1; render(); });
+
+  document.getElementById("newProject").addEventListener("click", ()=> openProjectModal(null));
+
+  document.getElementById("search").addEventListener("input", ()=>{ page=1; render(); });
+
+  // Ctrl+K focus search
+  window.addEventListener("keydown",(e)=>{
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="k"){
+      e.preventDefault();
+      document.getElementById("search").focus();
+    }
+  });
+
+  
+  // Export/Print
+  const __exp = document.getElementById("exportBtn");
+  if(__exp) __exp.addEventListener("click", ()=>{
+    const st = CWS.getState();
+    const active = st.ui.lastTab || "Alle";
+    const q = document.getElementById("search").value;
+    const idsAll = filteredIds(st, active, q);
+    const rows = [["Tab", active], ["Filter", q], [], ["Projectnummer","Projectnaam","Opdrachtgever","Status","Uren benodigd","Startdatum"]];
+    idsAll.forEach(id=>{
+      const p = st.projects.byId[id] || {};
+      rows.push([p.nr||id, p.name||"", p.client||"", p.status||"", p.needHours??"", p.start||""]);
+    });
+    UI.downloadCSV(`projecten_${active.replace(/\s+/g,'_').toLowerCase()}.csv`, rows);
+    CWS.audit("project_created");
+      UI.toast("CSV geëxporteerd");
+  });
+
+  const __prt = document.getElementById("printBtn");
+  if(__prt) __prt.addEventListener("click", ()=>{
+    const st = CWS.getState();
+    const active = st.ui.lastTab || "Alle";
+    const q = document.getElementById("search").value;
+    const title = "Projecten — " + active;
+    const subtitle = q ? ("Filter: " + q) : "";
+    const tableHtml = document.querySelector("table")?.outerHTML || "";
+    UI.printA3(title, subtitle, tableHtml);
+  });
+bindNP();
+
+  // Excel/CSV Template + Validator (Phase 12)
+  const tplBtn = document.getElementById("templateBtn");
+  if(tplBtn){
+    tplBtn.addEventListener("click", ()=>{
+      const rows = [
+        ["Projectnummer","Projectnaam","Opdrachtgever","Status","Startdatum"],
+        ["P-1001","Voorbeeld project","ACME","Te plannen","2026-04-01"]
+      ];
+      UI.downloadCSV("projecten_template.csv", rows);
+      CWS.audit("project_created");
+      UI.toast("Template gedownload");
+    });
+  }
+
+  // Validate CSV headers on import (basic)
+  const impBtn = document.getElementById("importBtn");
+  if(impBtn){
+    impBtn.addEventListener("change", (e)=>{
+      const f = e.target.files?.[0];
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = ()=>{
+        const t = String(r.result||"");
+        const first = t.split(/\r?\n/)[0] || "";
+        const headers = first.split(",").map(s=>s.replace(/"/g,"").trim());
+        const need = ["Projectnummer","Projectnaam","Opdrachtgever","Status"];
+        const miss = need.filter(h=>!headers.includes(h));
+        if(miss.length){
+          CWS.audit("project_created");
+      UI.toast("Import mislukt: ontbrekende kolommen: " + miss.join(", "));
+        }
+      };
+      r.readAsText(f);
+    });
+  }
+
+  // Standard toolbar: Filters + Kolommen
+  const fb = document.getElementById("filtersBtn");
+  if(fb){
+    fb.addEventListener("click", ()=>{
+      const tabs = document.getElementById("tabs");
+      if(!tabs) return;
+      tabs.style.display = (tabs.style.display==="none") ? "" : "none";
+    });
+  }
+  const cb = document.getElementById("colsBtn");
+  if(cb){
+    cb.addEventListener("click", ()=>{
+      UI.openColumnWizard({
+        tableKey: "projects.table",
+        columns: [
+          { key:"nr", label:"Projectnummer", visible:true, locked:true },
+          { key:"name", label:"Projectnaam", visible:true },
+          { key:"client", label:"Opdrachtgever", visible:true },
+          { key:"status", label:"Status", visible:true },
+          { key:"start", label:"Startdatum", visible:true }
+        ],
+        onApply: (cols)=>{
+          const vis = Object.fromEntries(cols.map(c=>[c.key, c.visible!==false]));
+          const labels = Object.fromEntries(cols.map(c=>[c.key, c.label||c.key]));
+          const table = document.querySelector("table");
+          if(!table) return;
+          // headers
+          table.querySelectorAll("thead th").forEach(th=>{
+            const k = th.dataset.key;
+            if(!k) return;
+            th.textContent = labels[k] || th.textContent;
+            th.style.display = (vis[k]===false) ? "none" : "";
+          });
+          // body
+          table.querySelectorAll("tbody tr").forEach(tr=>{
+            tr.querySelectorAll("td").forEach((td, idx)=>{
+              const th = table.querySelectorAll("thead th")[idx];
+              const k = th?.dataset.key;
+              if(k && vis[k]===false) td.style.display="none";
+              else td.style.display="";
+            });
+          });
+        }
+      });
+    });
+  }
+
+  render();
+</script>
+</body></html>

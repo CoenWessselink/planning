@@ -1,0 +1,118 @@
+<!doctype html><html lang="nl"><head>
+<meta charset="utf-8"/>
+<link rel="stylesheet" href="../css/theme.css"/>
+<title>Capaciteit – A3</title>
+</head>
+<body class="print-a3">
+<div class="print-header">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <img id="logo" alt="logo" style="width:36px;height:36px;border-radius:8px;object-fit:contain;display:none;"/>
+    <div>
+      <div class="print-title">CAPACITY PLANNING</div>
+      <div class="print-sub" id="meta"></div>
+    </div>
+  </div>
+  <div class="print-sub" id="stamp"></div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Projectnummer</th>
+      <th>Projectnaam</th>
+      <th>Opdrachtgever</th>
+      <th>Uren benodigd</th>
+      <th>Uren ingepland</th>
+      <th id="d1">Ma</th>
+      <th id="d2">Di</th>
+      <th id="d3">Wo</th>
+      <th id="d4">Do</th>
+      <th id="d5">Vr</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script>const CWS = window.opener?.CWS || window.parent?.CWS || window.CWS;</script>
+<script>
+  const st = CWS.getState();
+  const proj = st.projects.byId;
+  const order = st.projects.order;
+  const wk = st.ui.week;
+
+  function isoWeekStart(year, week){
+    const simple = new Date(Date.UTC(year,0,1 + (week-1)*7));
+    const dow = simple.getUTCDay();
+    const ISOweekStart = new Date(simple);
+    const diff = (dow<=4 ? 1-dow : 8-dow);
+    ISOweekStart.setUTCDate(simple.getUTCDate() + diff);
+    return ISOweekStart;
+  }
+  function fmtRange(d0, d4){
+    const months = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
+    return `${months[d0.getUTCMonth()]} ${d0.getUTCDate()} - ${d4.getUTCDate()}`;
+  }
+  function dayLabel(i, d){
+    const names = ["Ma","Di","Wo","Do","Vr"];
+    return `${names[i]} ${d.getUTCDate()}`;
+  }
+
+  const start = isoWeekStart(wk.year, wk.week);
+  const days = [0,1,2,3,4].map(i=> new Date(start.getTime()+i*86400000));
+  document.getElementById('d1').textContent = dayLabel(0, days[0]);
+  document.getElementById('d2').textContent = dayLabel(1, days[1]);
+  document.getElementById('d3').textContent = dayLabel(2, days[2]);
+  document.getElementById('d4').textContent = dayLabel(3, days[3]);
+  document.getElementById('d5').textContent = dayLabel(4, days[4]);
+
+  document.getElementById("meta").textContent = `Week ${wk.week} - ${wk.year} • ${fmtRange(days[0], days[4])}`;
+  document.getElementById('stamp').textContent = new Date().toLocaleString('nl-NL');
+
+  // branding
+  const logoData = st.company?.logo || st.branding?.logo || st.ui?.logo || null;
+  if(logoData){
+    const img = document.getElementById('logo');
+    img.src = logoData; img.style.display='block';
+  }
+
+  // need hours (from tasks) + planned (from allocations)
+  const needByP = {};
+  order.forEach(pid=>{
+    const tp = st.tasks?.byProject?.[pid];
+    if(tp?.phases){
+      needByP[pid] = tp.phases.reduce((sum,ph)=> sum + (ph.tasks||[]).reduce((s2,t)=> s2 + Number(t.hours||0), 0), 0);
+    }
+  });
+
+  const byP = {};
+  const allocs = st.allocations.byWeek?.[UI.weekKey(wk)] || [];
+  allocs.forEach(a=>{
+    const pid = a.projectId;
+    byP[pid] = byP[pid] || { total:0, days:[0,0,0,0,0] };
+    const d = Math.max(1, Math.min(5, a.day||1));
+    const h = Number(a.hours||0);
+    byP[pid].total += h;
+    byP[pid].days[d-1] += h;
+  });
+
+  const tb = document.getElementById("rows");
+  let totNeed=0, totPlan=0; const totDays=[0,0,0,0,0];
+  order.forEach(id=>{
+    const p=proj[id];
+    if(!p) return;
+    const a = byP[id] || { total:0, days:[0,0,0,0,0] };
+    const need = Number(p.needHours ?? needByP[id] ?? 0);
+    totNeed += need; totPlan += Number(a.total||0); for(let i=0;i<5;i++) totDays[i]+=Number(a.days[i]||0);
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td>${p.nr||id}</td><td>${p.name||''}</td><td>${p.client||''}</td><td style="text-align:right">${need}</td><td style="text-align:center">${a.total||0}</td>`+
+      a.days.map(v=>`<td style="text-align:center">${v||''}</td>`).join('');
+    tb.appendChild(tr);
+  });
+
+  const trT=document.createElement('tr');
+  trT.style.fontWeight='900';
+  trT.innerHTML = `<td>Totaal</td><td></td><td></td><td style="text-align:right">${totNeed}</td><td style="text-align:center">${totPlan}</td>`+
+    totDays.map(v=>`<td style="text-align:center">${v||''}</td>`).join('');
+  tb.appendChild(trT);
+</script>
+</body></html>

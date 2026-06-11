@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Werknemers – werkweek</title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/patches.css" />
+  <style>
+    .page{padding:14px;}
+    .toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+    .toolbar .left{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+    .toolbar .right{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+    .layout{display:grid; grid-template-columns: 360px 1fr; gap:12px;}
+    .card{border:1px solid var(--btnBorder); background:rgba(0,0,0,.18); border-radius:12px; overflow:hidden;}
+    .card .head{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--btnBorder); background:rgba(255,255,255,.03);}
+    .list{max-height: calc(100vh - 210px); overflow:auto;}
+    .row{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.06); cursor:pointer;}
+    .row:hover{background:rgba(255,255,255,.03);}
+    .row.active{background:rgba(120,255,170,.06);}
+    .row .t{font-weight:700;}
+    .row .s{font-size:12px; color:rgba(255,255,255,.65);}
+    .body{padding:12px;}
+    .weekdays{display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:10px;}
+    .wd{display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid var(--btnBorder); border-radius:10px; padding:10px; background:rgba(255,255,255,.03);}
+    .wd .meta{display:flex; flex-direction:column; gap:2px;}
+    .wd .meta .t{font-weight:600;}
+    .toggle{display:inline-flex; align-items:center; gap:8px;}
+    .toggle input{width:16px; height:16px;}
+    .calwrap{overflow:auto; border:1px solid var(--btnBorder); border-radius:12px; background:rgba(0,0,0,.14);}
+    .months{display:grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap:10px; padding:10px; min-width: 900px;}
+    .month{border:1px solid var(--btnBorder); border-radius:12px; background:rgba(255,255,255,.02); overflow:hidden;}
+    .month .mh{display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1px solid var(--btnBorder); background:rgba(255,255,255,.03);}
+    .month .mh .name{font-weight:700;}
+    .dow{display:grid; grid-template-columns: repeat(7, 1fr); gap:0; padding:6px 8px; border-bottom:1px solid var(--btnBorder); font-size:11px; color:rgba(255,255,255,.7);}
+    .days{display:grid; grid-template-columns: repeat(7, 1fr); gap:0; padding:8px;}
+    .d{height:26px; display:flex; align-items:center; justify-content:center; font-size:11px; border-radius:6px; margin:2px; cursor:pointer; user-select:none;}
+    .d.off{background:rgba(255,85,85,.18); border:1px solid rgba(255,85,85,.25);}
+    .d.on{background:rgba(120,255,170,.10); border:1px solid rgba(120,255,170,.18);}
+    .d.blank{opacity:.12; cursor:default;}
+    .smallmuted{font-size:12px; color:rgba(255,255,255,.65);}
+    @media (max-width: 1100px){
+      .layout{grid-template-columns: 1fr;}
+      .months{grid-template-columns: repeat(2, minmax(260px, 1fr)); min-width: 0;}
+      .list{max-height: 320px;}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="toolbar">
+      <div class="left">
+        <button class="btn" id="backBtn">← Terug naar Instellingen</button>
+        <span class="pill">Werknemers</span>
+        <span class="smallmuted">Werkweek + jaarkalender per werknemer</span>
+      </div>
+      <div class="right">
+        <button class="btn" id="openTable">Open werknemers-tabel</button>
+        <button class="btn" id="resetEmp">Reset overrides</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <div class="head">
+          <div style="font-weight:700;">Werknemers</div>
+          <div class="smallmuted" id="empCount"></div>
+        </div>
+        <div class="list" id="empList"></div>
+      </div>
+
+      <div class="card">
+        <div class="head">
+          <div>
+            <div style="font-weight:700;" id="empTitle">Selecteer een werknemer</div>
+            <div class="smallmuted" id="empSub"></div>
+          </div>
+          <div class="pill">Jaar: <span id="yearLabel"></span></div>
+        </div>
+        <div class="body">
+          <div style="font-weight:700; font-size:14px;">Werkweek (Ma–Zo)</div>
+          <div class="smallmuted">Klik in de kalender om datum-overrides te zetten voor deze werknemer.</div>
+          <div class="weekdays" id="weekdayToggles"></div>
+          <div style="height:10px;"></div>
+          <div class="calwrap">
+            <div class="months" id="months"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>const CWS = window.parent?.CWS || window.CWS;</script>
+  <script src="../js/core/permissions.js"></script>
+  <script src="../js/core/ui.js"></script>
+  <script>
+    const NL_DOW = ["Ma","Di","Wo","Do","Vr","Za","Zo"];
+
+    function pad(n){ return (n<10? "0":"")+n; }
+    function iso(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+
+    function ensureModel(){
+      CWS.setState(s=>{
+        s.settings = s.settings || {};
+        s.settings.tables = s.settings.tables || {};
+        s.settings.tables.employees = s.settings.tables.employees || [];
+        s.settings.employeeWork = s.settings.employeeWork || {}; // allow per employee overrides separate from table
+
+        // Seed a few demo employees if empty
+        if(s.settings.tables.employees.length===0){
+          s.settings.tables.employees = [
+            { id:"emp1", name:"Jan Jansen", dept:"Engineering", email:"jan@demo.nl", hoursPerWeek:40, workdays:"Ma,Di,Wo,Do,Vr" },
+            { id:"emp2", name:"Piet Peters", dept:"Werkvoorbereiding", email:"piet@demo.nl", hoursPerWeek:40, workdays:"Ma,Di,Wo,Do,Vr" },
+            { id:"emp3", name:"Klaas Klaassen", dept:"Productie", email:"klaas@demo.nl", hoursPerWeek:38, workdays:"Ma,Di,Wo,Do,Vr" },
+          ];
+        }
+        // Ensure IDs and per-employee schedule objects
+        s.settings.tables.employees.forEach((e, i)=>{
+          if(!e.id) e.id = "emp"+(i+1);
+          s.settings.employeeWork[e.id] = s.settings.employeeWork[e.id] || {};
+          const ew = s.settings.employeeWork[e.id];
+          ew.year = ew.year || new Date().getFullYear();
+          ew.overrides = ew.overrides || {}; // iso -> true/false
+          ew.weekPattern = ew.weekPattern || parseWorkdays(e.workdays || "Ma,Di,Wo,Do,Vr");
+        });
+
+        // Selected employee
+        s.ui = s.ui || {};
+        if(!s.ui.selectedEmployeeId){
+          s.ui.selectedEmployeeId = s.settings.tables.employees[0]?.id || null;
+        }
+        return s;
+      });
+    }
+
+    function parseWorkdays(str){
+      const s = (str||"").toLowerCase();
+      const has = (k)=> s.indexOf(k)>=0;
+      return {
+        mon: has("ma"),
+        tue: has("di"),
+        wed: has("wo"),
+        thu: has("do"),
+        fri: has("vr"),
+        sat: has("za"),
+        sun: has("zo"),
+      };
+    }
+    function workdaysToString(wp){
+      const parts=[];
+      if(wp.mon) parts.push("Ma");
+      if(wp.tue) parts.push("Di");
+      if(wp.wed) parts.push("Wo");
+      if(wp.thu) parts.push("Do");
+      if(wp.fri) parts.push("Vr");
+      if(wp.sat) parts.push("Za");
+      if(wp.sun) parts.push("Zo");
+      return parts.join(",");
+    }
+    function isWorkingByPattern(date, wp){
+      const day = date.getDay();
+      const map = {
+        1: wp.mon, 2: wp.tue, 3: wp.wed, 4: wp.thu, 5: wp.fri, 6: wp.sat, 0: wp.sun
+      };
+      return !!map[day];
+    }
+
+    function getSelected(){
+      const s = CWS.getState();
+      const id = s.ui.selectedEmployeeId;
+      const list = s.settings.tables.employees;
+      const emp = list.find(e=>e.id===id) || list[0] || null;
+      const ew = emp ? s.settings.employeeWork[emp.id] : null;
+      return { emp, ew };
+    }
+
+    function setSelected(id){
+      CWS.setState(s=>{ s.ui.selectedEmployeeId = id; return s; });
+      render();
+    }
+
+    function getWorking(date){
+      const { emp, ew } = getSelected();
+      if(!emp || !ew) return true;
+      const k = iso(date);
+      if(ew.overrides && k in ew.overrides) return !!ew.overrides[k];
+      return isWorkingByPattern(date, ew.weekPattern);
+    }
+
+    function renderList(){
+      const s = CWS.getState();
+      const list = s.settings.tables.employees;
+      const el = document.getElementById("empList");
+      el.innerHTML = "";
+      document.getElementById("empCount").textContent = list.length + " medewerkers";
+      list.forEach(e=>{
+        const row=document.createElement("div");
+        row.className="row" + (s.ui.selectedEmployeeId===e.id ? " active":"");
+        row.innerHTML = '<div class="t">'+e.name+'</div><div class="s">'+(e.dept||"")+' • '+(e.hoursPerWeek||"")+' u/w</div>';
+        row.addEventListener("click", ()=>setSelected(e.id));
+        el.appendChild(row);
+      });
+    }
+
+    function renderWeekdayToggles(){
+      const { emp, ew } = getSelected();
+      const wrap = document.getElementById("weekdayToggles");
+      wrap.innerHTML = "";
+      if(!emp || !ew){
+        wrap.innerHTML = '<div class="smallmuted">Geen werknemer geselecteerd.</div>';
+        return;
+      }
+      const keys = [
+        ["mon","Maandag"],
+        ["tue","Dinsdag"],
+        ["wed","Woensdag"],
+        ["thu","Donderdag"],
+        ["fri","Vrijdag"],
+        ["sat","Zaterdag"],
+        ["sun","Zondag"]
+      ];
+      keys.forEach(([k,label])=>{
+        const el=document.createElement("div");
+        el.className="wd";
+        const meta=document.createElement("div");
+        meta.className="meta";
+        meta.innerHTML='<div class="t">'+label+'</div><div class="smallmuted">Standaard: '+(ew.weekPattern[k]?'Werkdag':'Vrij')+'</div>';
+        const tg=document.createElement("label");
+        tg.className="toggle";
+        const inp=document.createElement("input");
+        inp.type="checkbox";
+        inp.checked = !ew.weekPattern[k]; // checked = vrij
+        inp.addEventListener("change", ()=>{
+          CWS.setState(s=>{
+            const emp = s.settings.tables.employees.find(x=>x.id===s.ui.selectedEmployeeId);
+            const ew = s.settings.employeeWork[s.ui.selectedEmployeeId];
+            ew.weekPattern[k] = !inp.checked;
+            if(emp){
+              emp.workdays = workdaysToString(ew.weekPattern);
+            }
+            return s;
+          });
+          render();
+        });
+        const span=document.createElement("span");
+        span.textContent="Vrij";
+        tg.appendChild(inp); tg.appendChild(span);
+        el.appendChild(meta); el.appendChild(tg);
+        wrap.appendChild(el);
+      });
+    }
+
+    function renderCalendar(){
+      const s = CWS.getState();
+      const { emp, ew } = getSelected();
+      const y = ew ? ew.year : new Date().getFullYear();
+      document.getElementById("yearLabel").textContent = y;
+      const monthsEl = document.getElementById("months");
+      monthsEl.innerHTML = "";
+      if(!emp || !ew){
+        monthsEl.innerHTML = "";
+        return;
+      }
+      const monthNames = ["Januari","Februari","Maart","April","Mei","Juni","Juli","Augustus","September","Oktober","November","December"];
+      for(let m=0;m<12;m++){
+        const box=document.createElement("div");
+        box.className="month";
+        const mh=document.createElement("div");
+        mh.className="mh";
+        mh.innerHTML='<div class="name">'+monthNames[m]+'</div><div class="smallmuted">'+y+'</div>';
+        const dow=document.createElement("div");
+        dow.className="dow";
+        dow.innerHTML = NL_DOW.map(d=>'<div style="text-align:center">'+d+'</div>').join("");
+        const days=document.createElement("div");
+        days.className="days";
+        const first=new Date(y,m,1);
+        const firstDow=(first.getDay()+6)%7; // 0=Mon
+        const dim=new Date(y,m+1,0).getDate();
+        for(let i=0;i<firstDow;i++){
+          const d=document.createElement("div");
+          d.className="d blank"; d.textContent="·";
+          days.appendChild(d);
+        }
+        for(let day=1; day<=dim; day++){
+          const dt=new Date(y,m,day);
+          const k=iso(dt);
+          const working=getWorking(dt);
+          const d=document.createElement("div");
+          d.className="d " + (working? "on":"off");
+          if(ew.overrides && (k in ew.overrides)){
+            d.style.outline="2px solid rgba(255,255,255,.22)";
+            d.title="Override: "+(working? "Werkdag":"Vrij")+" (klik om te wijzigen/verwijderen)";
+          } else d.title="Klik om override te zetten";
+          d.textContent=String(day);
+          d.addEventListener("click", ()=>{
+            CWS.setState(st=>{
+              const ew=st.settings.employeeWork[st.ui.selectedEmployeeId];
+              ew.overrides = ew.overrides || {};
+              if(k in ew.overrides){
+                const newVal = !ew.overrides[k];
+                ew.overrides[k]=newVal;
+                const pat = isWorkingByPattern(dt, ew.weekPattern);
+                if(newVal===pat) delete ew.overrides[k];
+              } else {
+                ew.overrides[k] = !isWorkingByPattern(dt, ew.weekPattern);
+              }
+              return st;
+            });
+            renderCalendar();
+          });
+          days.appendChild(d);
+        }
+        box.appendChild(mh); box.appendChild(dow); box.appendChild(days);
+        monthsEl.appendChild(box);
+      }
+    }
+
+    function render(){
+      ensureModel();
+      const { emp, ew } = getSelected();
+      renderList();
+      if(emp && ew){
+        document.getElementById("empTitle").textContent = emp.name;
+        document.getElementById("empSub").textContent = (emp.dept||"") + (emp.email? " • "+emp.email:"");
+      } else {
+        document.getElementById("empTitle").textContent = "Selecteer een werknemer";
+        document.getElementById("empSub").textContent = "";
+      }
+      renderWeekdayToggles();
+      renderCalendar();
+    }
+
+    document.getElementById("backBtn").addEventListener("click", ()=>{
+      try{ parent.Router && parent.Router.loadApp && parent.Router.loadApp("instellingen"); }catch(e){}
+    });
+    document.getElementById("resetEmp").addEventListener("click", ()=>{
+      const { emp } = getSelected();
+      if(!emp) return;
+      CWS.setState(s=>{
+        s.settings.employeeWork[emp.id].overrides = {};
+        return s;
+      });
+      UI.toast("Overrides gereset");
+      render();
+    });
+
+    document.getElementById("openTable").addEventListener("click", ()=>{
+      // Open the existing table manager inside Instellingen context
+      try{
+        // Navigate back and open the table manager for employees
+        parent.Router && parent.Router.loadApp && parent.Router.loadApp("instellingen");
+        setTimeout(()=>{
+          try{
+            // call into iframe? simplest: set a flag for instellingen to auto-open
+            CWS.setState(s=>{ s.ui = s.ui||{}; s.ui.settingsAutoOpen = "werknemers_table"; return s; });
+          }catch(e){}
+        }, 50);
+      }catch(e){}
+      UI.toast("Open werknemers-tabel via Instellingen");
+    });
+
+    ensureModel();
+    render();
+  </script>
+</body>
+</html>

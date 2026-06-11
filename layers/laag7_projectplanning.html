@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Projectplanning</title><link rel="stylesheet" href="../css/theme.css">
+  <style>
+    body{padding:14px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.content{padding:14px}
+    .tablewrap{overflow:auto;border:1px solid var(--border);border-radius:8px}table{width:100%;border-collapse:collapse}
+    th,td{padding:9px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}th{position:sticky;top:0;background:#f8fafc}
+    td[contenteditable=true]:focus{outline:2px solid #2f6fbd;background:#eff6ff}.danger{color:#b91c1c}
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="panel-head"><div><strong>Laag 7 - Projectplanning</strong><div class="smallmuted">Weekgebonden, configureerbare projecttabel met autosave</div></div>
+      <div class="toolbar">
+        <label>Week <input class="input" id="week" type="week"></label>
+        <button class="btn" id="copy">Vorige week overnemen</button><button class="btn" id="add">Project toevoegen</button>
+        <button class="btn" id="undo">Undo</button><button class="btn" id="redo">Redo</button>
+        <button class="btn" id="export">Export</button><button class="btn" id="print">Print</button>
+      </div>
+    </div>
+    <div class="content"><div class="tablewrap"><table><thead><tr><th>Project</th><th>Opdrachtgever</th><th>Eigenaar</th><th>Prioriteit</th><th>Status</th><th>Notitie</th><th></th></tr></thead><tbody id="body"></tbody></table></div><div class="smallmuted" id="msg" style="margin-top:8px"></div></div>
+  </div>
+  <script>const CWS = window.parent?.CWS || window.CWS;</script><script src="../js/core/ui.js"></script>
+  <script>
+    const $=s=>document.querySelector(s), esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    const wk=()=>$("#week").value;
+    function ensureWeek(){
+      const key=wk(); if(!key)return;
+      if(!CWS.getState().projectPlanning.byWeek[key]) CWS.setState(s=>{s.projectPlanning.byWeek[key]=[];return s;});
+    }
+    function render(){
+      ensureWeek(); const st=CWS.getState(), rows=st.projectPlanning.byWeek[wk()]||[];
+      $("#body").innerHTML=rows.map((r,i)=>{const p=st.projects.byId[r.projectId]||{};return `<tr data-i="${i}">
+        <td><select class="input" data-key="projectId">${st.projects.order.map(id=>`<option value="${id}"${id===r.projectId?" selected":""}>${esc(st.projects.byId[id]?.nr)} - ${esc(st.projects.byId[id]?.name)}</option>`).join("")}</select></td>
+        <td>${esc(p.client||"-")}</td><td contenteditable="true" data-key="owner">${esc(r.owner)}</td><td contenteditable="true" data-key="priority">${esc(r.priority)}</td>
+        <td>${esc(p.status||"-")}</td><td contenteditable="true" data-key="note">${esc(r.note)}</td><td><button class="btn danger" data-del>Verwijder</button></td></tr>`}).join("");
+      $("#msg").textContent=`${rows.length} regels | wijzigingen worden direct opgeslagen`;
+      $("#body").querySelectorAll("[contenteditable]").forEach(td=>td.addEventListener("blur",saveCell));
+      $("#body").querySelectorAll("select").forEach(el=>el.addEventListener("change",saveCell));
+      $("#body").querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{const i=Number(e.target.closest("tr").dataset.i);CWS.mutate("projectplanning_delete",{week:wk(),index:i},s=>s.projectPlanning.byWeek[wk()].splice(i,1));render();}));
+    }
+    function saveCell(e){const tr=e.target.closest("tr"),i=Number(tr.dataset.i),key=e.target.dataset.key,value=e.target.value??e.target.textContent.trim();CWS.mutate("projectplanning_edit",{week:wk(),index:i,key},s=>{s.projectPlanning.byWeek[wk()][i][key]=value;});render();}
+    $("#week").value=`${CWS.getState().ui.week.year}-W${String(CWS.getState().ui.week.week).padStart(2,"0")}`;
+    $("#week").addEventListener("change",render);
+    $("#add").addEventListener("click",()=>{const id=CWS.getState().projects.order[0];if(!id)return UI.toast("Maak eerst een project.");CWS.mutate("projectplanning_add",{week:wk()},s=>s.projectPlanning.byWeek[wk()].push({id:"PP-"+Date.now(),projectId:id,owner:"",priority:"Normaal",note:""}));render();});
+    $("#copy").addEventListener("click",()=>{const [y,w]=wk().split("-W").map(Number);const d=new Date(Date.UTC(y,0,4+(w-1)*7));d.setUTCDate(d.getUTCDate()-7);const oneJan=new Date(Date.UTC(d.getUTCFullYear(),0,1));const prevWeek=Math.ceil((((d-oneJan)/86400000)+oneJan.getUTCDay()+1)/7);const prev=`${d.getUTCFullYear()}-W${String(prevWeek).padStart(2,"0")}`;CWS.mutate("projectplanning_copy",{from:prev,to:wk()},s=>{s.projectPlanning.byWeek[wk()]=JSON.parse(JSON.stringify(s.projectPlanning.byWeek[prev]||[])).map(r=>({...r,id:"PP-"+Math.random().toString(36).slice(2)}));});render();UI.toast(`Week ${prev} overgenomen`);});
+    $("#undo").addEventListener("click",()=>{CWS.undo();render();});$("#redo").addEventListener("click",()=>{CWS.redo();render();});
+    $("#export").addEventListener("click",()=>{const st=CWS.getState(),rows=st.projectPlanning.byWeek[wk()]||[];UI.downloadCSV(`projectplanning-${wk()}.csv`,[["Project","Eigenaar","Prioriteit","Notitie"],...rows.map(r=>[st.projects.byId[r.projectId]?.nr,r.owner,r.priority,r.note])]);});
+    $("#print").addEventListener("click",()=>UI.printA3(`Projectplanning ${wk()}`,"CWS Planning",document.querySelector(".tablewrap").innerHTML));
+    render();
+  </script>
+</body>
+</html>

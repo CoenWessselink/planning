@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Capaciteit</title>
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/patches.css" />
+  <style>
+    body{background:transparent;}
+    /* match SSOT: no internal vertical scrollbars, only horizontal for matrix */
+    .cap5-matrix-wrap{overflow-x:auto; overflow-y:visible;}
+    /* sticky header inside iframe; keep it below our internal toolbars */
+    .cap5-matrix th{top:0;}
+  </style>
+</head>
+<body>
+  <div class="panel" style="width:100%;">
+
+    <!-- Toolbar row (Nieuw / Import / Export / Print / Filters) + totals/progress right -->
+    <div class="panel-head" style="position:sticky; top:0; z-index:5;">
+      <div class="cap5-toolbar">
+        <button class="btn" id="btnNieuw">Nieuw ▾</button>
+        <button class="btn" id="btnImport">Import</button>
+        <button class="btn" id="btnExportTop">Export ▾</button>
+        <button class="btn" id="btnPrint">Print ▾</button>
+        <button class="btn" id="btnFilters">Filters ▾</button>
+      </div>
+      <div class="cap5-right">
+        <div class="cap5-total" id="totalPill">Totaal uren: 0 / 0</div>
+        <div class="cap5-progress">
+          <div class="cap5-bar" aria-label="progress"><div id="progFill"></div></div>
+          <div class="cap5-pct" id="pctLabel">0%</div>
+        </div>
+        <button class="btn" id="btnRefresh" title="Vernieuwen">⟳</button>
+        <button class="btn" id="btnSearch" title="Zoeken">🔎</button>
+      </div>
+    </div>
+
+    <!-- Status pills + view controls row (Alle/Te plannen/Ingepland/In uitvoering + Dag + Kolommen + Export) -->
+    <div class="cap5-controls" style="position:sticky; top:56px; z-index:4;">
+      <div class="cap5-toolbar" id="statusPills"></div>
+      <div class="cap5-right">
+        <button class="btn" id="btnDag">Dag ▾</button>
+        <button class="btn" id="btnKolommen">Kolommen ▾</button>
+        <button class="btn" id="btnExportMid">Export ▾</button>
+      </div>
+    </div>
+
+    <!-- Time navigation row (W03 2026, arrows, 6 weken, calendar) -->
+    <div class="panel-head" style="border-top:0; position:sticky; top:110px; z-index:3;">
+      <div class="cap5-toolbar">
+        <div class="pill" style="background:#fff; color:#111827; border:1px solid var(--border);" id="weekLabel">W03 2026</div>
+        <button class="btn" id="btnPrev">◀</button>
+        <button class="btn" id="btnNext">▶</button>
+        <button class="btn" id="btnWeeks">6 Weken ▾</button>
+        <button class="btn" id="btnCal" title="Kies periode">🗓</button>
+      </div>
+      <div class="cap5-right" style="gap:12px;">
+        <span class="smallmuted" style="font-weight:800;">Bronlaag voor Gantt / Capaciteit / Planbord</span>
+      </div>
+    </div>
+
+    <!-- Matrix -->
+    <div class="cap5-matrix-wrap">
+      <table class="cap5-matrix" id="capTable">
+        <thead>
+          <tr id="headRow"></tr>
+        </thead>
+        <tbody id="bodyRows"></tbody>
+      </table>
+    </div>
+
+    <!-- Legend -->
+    <div class="cap5-legend">
+      <div class="item"><span class="sw" style="background:rgba(46,155,87,.25)"></span> Binnen cap</div>
+      <div class="item"><span class="sw" style="background:rgba(209,154,0,.28)"></span> Rond cap</div>
+      <div class="item"><span class="sw" style="background:rgba(220,38,38,.22)"></span> Over cap</div>
+      <div class="item smallmuted" style="font-weight:900;">Initiatie · Engineering · Werkreden · Productie · Oplevering</div>
+    </div>
+
+  </div>
+
+  <script>const CWS = window.parent?.CWS || window.CWS;</script>
+  <script src="../js/core/permissions.js"></script>
+  <script src="../js/core/ui.js"></script>
+  <script>
+  (function(){
+    // =====================
+    // SSOT Capaciteit Matrix
+    // =====================
+
+    // Departments are derived from Instellingen > Werknemers (preferred) or demo resources.
+    function getDepts(){
+      const st = state();
+      const caps = capMap();
+      const fromCaps = Object.keys(caps||{}).filter(k=>k && k!=='(Geen)');
+      if(fromCaps.length) return fromCaps;
+      const fromRes = [...new Set((st.resources?.order||[]).map(id=>st.resources?.byId?.[id]?.dept).filter(Boolean))];
+      return fromRes.length ? fromRes : ["Engineering","Werkvoorbereiding","Productie","Montage"];
+    }
+
+    // Capacity per week is derived from Instellingen > Werknemers (Ma..Zo)
+    function capMap(){
+      try{ return CWS?.capacity?.computeDeptCapacity?.() || {}; }catch(e){ return {}; }
+    }
+    function capPerWeekDept(dept, wkStr){
+      // Preferred: compute capacity per week using calendars (global + per employee)
+      try{
+        const x = CWS?.capacity?.computeDeptCapacityForWeek?.(wkStr);
+        if(x && x.byDept) return Number(x.byDept?.[dept] || 0);
+      }catch(e){}
+      // Fallback: static weekly capacity from employee table (ignores calendar)
+      const m = capMap();
+      return Number(m?.[dept]?.week || 0);
+    }
+    function capPerWeekTotal(wkStr){
+      try{
+        const x = CWS?.capacity?.computeDeptCapacityForWeek?.(wkStr);
+        if(x && typeof x.total === 'number') return Number(x.total || 0);
+      }catch(e){}
+      const m = capMap();
+      return Object.keys(m).reduce((sum,k)=> sum + Number(m[k]?.week||0), 0);
+    }
+
+    const state = () => CWS?.getState?.() || { ui:{}, projects:{order:[],byId:{}}, allocations:{byWeek:{}} };
+
+    // --- simple deterministic demo values if no allocations exist ---
+    function hash(str){
+      let h=2166136261;
+      for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h = Math.imul(h,16777619); }
+      return (h>>>0);
+    }
+
+    function weekKey(y,w){
+      return `${y}-W${String(w).padStart(2,'0')}`;
+    }
+
+    function addWeeks(y,w,delta){
+      // crude ISO week stepping good enough for UI in demo: step week number and wrap year
+      let yy=y, ww=w+delta;
+      while(ww<1){ yy--; ww+=52; }
+      while(ww>52){ yy++; ww-=52; }
+      return {year:yy, week:ww};
+    }
+
+    function weeksRange(center, count){
+      // SSOT shows the current week label and then next weeks across the grid
+      const out=[];
+      for(let i=0;i<count;i++){
+        out.push(addWeeks(center.year, center.week, i));
+      }
+      return out;
+    }
+
+    // current UI period
+    let cur = { year: 2026, week: 3 };
+    let weeksCount = 6;
+    let status = 'Alle';
+
+    // --- build pills ---
+    function renderPills(){
+      const host = document.getElementById('statusPills');
+      host.innerHTML='';
+      const pills = [
+        {k:'Alle', dot:null},
+        {k:'Te plannen', dot:null},
+        {k:'Ingepland', dot:'green'},
+        {k:'In uitvoering', dot:'yellow'}
+      ];
+      pills.forEach(p=>{
+        const b=document.createElement('button');
+        b.className='tab' + (status===p.k?' active':'');
+        b.style.borderRadius='999px';
+        b.innerHTML = `${p.dot?`<span class="dot" style="background:${p.dot==='green'?'var(--st-uitvoering)':'var(--st-teplannen)'}"></span>`:''}${p.k}`;
+        b.addEventListener('click', ()=>{ status=p.k; render(); });
+        host.appendChild(b);
+      });
+    }
+
+    // --- data extract ---
+    function projectIds(){
+      const st=state();
+      let ids=[...(st.projects?.order||[])];
+      if(status && status!=='Alle'){
+        // map pills -> project status in store
+        const map={
+          'Te plannen':'Te plannen',
+          'Ingepland':'Ingepland',
+          'In uitvoering':'In uitvoering'
+        };
+        const want=map[status];
+        if(want) ids = ids.filter(id => (st.projects.byId[id]?.status||'')===want);
+      }
+      return ids;
+    }
+
+    function allocByWeek(wkKeyStr){
+      const st=state();
+      return (st.allocations?.byWeek?.[wkKeyStr]||[]);
+    }
+
+    function plannedHoursFor(pid, dept, wk){
+      const wkStr = weekKey(wk.year,wk.week);
+      let sum=0;
+      // Add SSOT Project→Gantt→Capaciteit demand: project deptHours are the only source,
+      // spread across the UNION of workdays for this dept as scheduled in Gantt.
+      try{
+        const match = String(wkStr).match(/^(\d{4})-W(\d{2})$/);
+        const simple = new Date(Date.UTC(Number(match[1]),0,1+(Number(match[2])-1)*7));
+        const dow = simple.getUTCDay();
+        simple.setUTCDate(simple.getUTCDate()+(dow<=4?1-dow:8-dow));
+        const start = simple.toISOString().slice(0,10);
+        const endDate = new Date(simple);
+        endDate.setUTCDate(endDate.getUTCDate()+6);
+        const end = endDate.toISOString().slice(0,10);
+        Object.entries(state().gantt?.sourcesByDay || {}).forEach(([iso, byDept])=>{
+          if(iso<start || iso>end) return;
+          Object.entries(byDept||{}).forEach(([sourceDept, items])=>{
+            if(dept && sourceDept!==dept) return;
+            (items||[]).filter(item=>item.projectId===pid).forEach(item=>{ sum += Number(item.hours||0); });
+          });
+        });
+      }catch(e){}
+      // If still empty and there is no real source data, fallback deterministic demo (keeps grid filled)
+      const hasDeptHours = (()=>{ try{ return (state().projects?.deptHours||[]).some(r=>r.projectId===pid); }catch(_){ return false; } })();
+      if(sum<=0 && !hasDeptHours){
+        const p = state().projects?.byId?.[pid];
+        const base = 20 + (hash(pid+String(dept||'')+wkStr)%120);
+        const mult = (p?.status==='In uitvoering') ? 1.25 : (p?.status==='Ingepland') ? 1.05 : 0.85;
+        return Math.round(base*mult);
+      }
+      return Math.round(sum);
+    }
+
+    // --- render table ---
+    function renderHeader(ws){
+      const head = document.getElementById('headRow');
+      head.innerHTML='';
+      const th = (txt, cls='')=>{ const e=document.createElement('th'); e.textContent=txt; if(cls) e.className=cls; return e; };
+      head.appendChild(th('Project', 'stickyL'));
+      head.appendChild(th('Opdrachtgever'));
+      ws.forEach(w=> head.appendChild(th(`W${String(w.week).padStart(2,'0')} ${w.year}`)));
+      head.appendChild(th('Totaal'));
+    }
+
+    function rowCell(v, cls=''){
+      const td=document.createElement('td');
+      td.className='cap5-cell'+(cls?(' '+cls):'');
+      td.textContent = (v==null?'':String(v));
+      return td;
+    }
+
+    function makeTreeRow(label, sublabel, isDept, level, toggleable, isOpen){
+      const td=document.createElement('td');
+      td.className='stickyL cap5-rowhead';
+      const wrap=document.createElement('div');
+      wrap.className='cap5-tree';
+
+      // indent
+      for(let i=0;i<level;i++){
+        const ind=document.createElement('span');
+        ind.className='cap5-indent';
+        wrap.appendChild(ind);
+      }
+
+      if(toggleable){
+        const t=document.createElement('span');
+        t.className='cap5-toggle';
+        t.textContent = isOpen ? '–' : '+';
+        t.dataset.toggle='1';
+        wrap.appendChild(t);
+      }else{
+        const spacer=document.createElement('span');
+        spacer.style.width='18px';
+        wrap.appendChild(spacer);
+      }
+
+      const main=document.createElement('span');
+      main.textContent=label;
+      main.style.fontWeight = isDept?800:900;
+      wrap.appendChild(main);
+
+      if(sublabel){
+        const sm=document.createElement('span');
+        sm.className='smallmuted';
+        sm.textContent=sublabel;
+        wrap.appendChild(sm);
+      }
+
+      td.appendChild(wrap);
+      return td;
+    }
+
+    function classFor(val, cap){
+      const v = Number(val||0);
+      const c = Math.max(0, Number(cap||0));
+      if(!c) return (v>0) ? 'cap5-warn' : '';
+      if(v>c) return 'cap5-bad';
+      if(v>c*0.85) return 'cap5-warn';
+      return 'cap5-ok';
+    }
+
+    function renderBody(ws){
+      const tb=document.getElementById('bodyRows');
+      tb.innerHTML='';
+
+      const DEPTS = getDepts();
+
+      const ids = projectIds();
+      const st=state();
+
+      // open/close state
+      const open = window.__capOpen || (window.__capOpen = {});
+
+      // totals across all projects (per dept) like SSOT top rows
+      const totals = {};
+      DEPTS.forEach(d=> totals[d] = ws.map(w=>0));
+
+      // compute totals
+      ids.forEach(pid=>{
+        DEPTS.forEach(d=>{
+          ws.forEach((w,ix)=>{ totals[d][ix]+=plannedHoursFor(pid,d,w); });
+        });
+      });
+
+      // helper to add summary rows
+      function addSummaryRow(title, dept, mode){
+        const tr=document.createElement('tr');
+        tr.appendChild(makeTreeRow(title, dept?dept:'', true, 0, false, false));
+        tr.appendChild(rowCell(''));
+        let rowTotal=0;
+        ws.forEach((w,ix)=>{
+          const v = totals[dept]?.[ix] ?? 0;
+          let out=v;
+          const wkStr = weekKey(w.year, w.week);
+          const cap = capPerWeekDept(dept, wkStr);
+          if(mode==='saldo') out = Math.round(cap - v);
+          rowTotal += out;
+          const cls = mode==='saldo' ? ((out<0)?'cap5-bad cap5-neg':'cap5-ok') : classFor(v, cap);
+          tr.appendChild(rowCell(mode==='saldo'?out:v, cls));
+        });
+        tr.appendChild(rowCell(rowTotal, 'cap5-rowhead'));
+        tb.appendChild(tr);
+      }
+
+      // Show summary lines for the first few visible depts (keep SSOT look)
+      if(DEPTS[0]){ addSummaryRow(`Totaal ${DEPTS[0]}`, DEPTS[0], 'totaal'); addSummaryRow(`Saldo ${DEPTS[0]}`, DEPTS[0], 'saldo'); }
+      if(DEPTS[1]){ addSummaryRow(`Totaal ${DEPTS[1]}`, DEPTS[1], 'totaal'); }
+      if(DEPTS[2]){ addSummaryRow(`Saldo ${DEPTS[2]}`, DEPTS[2], 'saldo'); }
+
+      // cap row (like SSOT “cap 200.0”)
+      {
+        const capTotal = capPerWeekTotal(weekKey(ws[0]?.year||cur.year, ws[0]?.week||cur.week));
+        const tr=document.createElement('tr');
+        tr.appendChild(makeTreeRow('cap', 'per week', true, 0, false, false));
+        tr.appendChild(rowCell(''));
+        ws.forEach((w)=>{
+          const td=document.createElement('td');
+          td.className='cap5-cell cap5-cap';
+          const t = capPerWeekTotal(weekKey(w.year,w.week));
+          td.textContent = `cap ${Number(t||0).toFixed(1)}`;
+          tr.appendChild(td);
+        });
+        tr.appendChild(rowCell('', 'cap5-cap'));
+        tb.appendChild(tr);
+      }
+
+      // projects
+      ids.forEach(pid=>{
+        const p = st.projects.byId[pid];
+        const projLabel = `${p.code || pid} | ${p.name || 'Project'} | ${p.client || p.customer || p.opdrachtgever || 'Opdrachtgever'}`;
+        const isOpen = open[pid] !== false; // default open
+
+        // project row
+        {
+          const tr=document.createElement('tr');
+          const left = makeTreeRow(projLabel, '', false, 0, true, isOpen);
+          left.querySelector('[data-toggle]')?.addEventListener('click', ()=>{
+            open[pid] = !(open[pid]!==false);
+            render();
+          });
+          tr.appendChild(left);
+          tr.appendChild(rowCell(p.client || p.customer || p.opdrachtgever || ''));
+          let tot=0;
+          ws.forEach(w=>{ const v = plannedHoursFor(pid, null, w); tot+=v; tr.appendChild(rowCell(v, classFor(v))); });
+          tr.appendChild(rowCell(tot,'cap5-rowhead'));
+          tb.appendChild(tr);
+        }
+
+        if(isOpen){
+          DEPTS.forEach(dept=>{
+            const tr=document.createElement('tr');
+            tr.appendChild(makeTreeRow(dept,'',true,1,false,false));
+            tr.appendChild(rowCell(''));
+            let tot=0;
+            ws.forEach(w=>{ const v = plannedHoursFor(pid, dept, w); tot+=v; tr.appendChild(rowCell(v, classFor(v))); });
+            tr.appendChild(rowCell(tot,'cap5-rowhead'));
+            tb.appendChild(tr);
+          });
+        }
+      });
+
+      // bottom total hours row
+      {
+        const tr=document.createElement('tr');
+        tr.appendChild(makeTreeRow('Totaal uren','',false,0,false,false));
+        tr.appendChild(rowCell(''));
+        let grand=0;
+        ws.forEach((w,ix)=>{
+          const v = DEPTS.reduce((s,d)=> s + (totals[d]?.[ix]||0), 0);
+          grand+=v;
+          tr.appendChild(rowCell(v, classFor(v)));
+        });
+        tr.appendChild(rowCell(grand,'cap5-rowhead'));
+        tb.appendChild(tr);
+      }
+
+      // bottom saldo row
+      {
+        const tr=document.createElement('tr');
+        tr.appendChild(makeTreeRow('Saldo','',false,0,false,false));
+        tr.appendChild(rowCell(''));
+        let grand=0;
+        ws.forEach((w,ix)=>{
+          const v = DEPTS.reduce((s,d)=> s + (totals[d]?.[ix]||0), 0);
+          const wkStr = weekKey(w.year, w.week);
+          const saldo = Math.round(capPerWeekTotal(wkStr) - v);
+          grand += saldo;
+          tr.appendChild(rowCell(saldo, saldo<0?'cap5-bad cap5-neg':'cap5-ok'));
+        });
+        tr.appendChild(rowCell(grand,'cap5-rowhead'));
+        tb.appendChild(tr);
+      }
+    }
+
+    function updateTop(ws){
+      // total planned across all projects vs available (cap * weeks)
+      const ids = projectIds();
+      const planned = ws.reduce((sum,w)=> sum + ids.reduce((s2,pid)=> s2 + plannedHoursFor(pid,null,w),0), 0);
+      const available = ws.reduce((sum,w)=> sum + capPerWeekTotal(weekKey(w.year,w.week)), 0);
+      const pct = available ? Math.round((planned/available)*100) : 0;
+
+      document.getElementById('totalPill').textContent = `Totaal uren: ${planned} / ${available}`;
+      document.getElementById('pctLabel').textContent = `${pct}%`;
+      const fill = document.getElementById('progFill');
+      fill.style.width = `${Math.min(100, pct)}%`;
+      fill.style.background = (pct>100) ? '#dc2626' : (pct>85) ? 'var(--st-teplannen)' : 'var(--st-uitvoering)';
+
+      document.getElementById('weekLabel').textContent = `W${String(cur.week).padStart(2,'0')} ${cur.year}`;
+    }
+
+    function render(){
+      renderPills();
+      const ws = weeksRange(cur, weeksCount);
+      renderHeader(ws);
+      renderBody(ws);
+      updateTop(ws);
+    }
+
+    // --- button wiring ("not dead") ---
+    function toast(msg){ try{ UI.toast(msg); }catch(e){} }
+
+    document.getElementById('btnNieuw').addEventListener('click', ()=> toast('Nieuw ▾ (Taak/Fase/Mijlpaal) – nog te koppelen'));
+    document.getElementById('btnImport').addEventListener('click', ()=> toast('Import – nog te koppelen'));
+    document.getElementById('btnFilters').addEventListener('click', ()=> toast('Filters ▾ – nog te koppelen'));
+
+    function doExport(){
+      // export current grid to CSV
+      const rows=[];
+      const ths=[...document.querySelectorAll('#capTable thead th')].map(th=>th.textContent.trim());
+      rows.push(ths);
+      [...document.querySelectorAll('#capTable tbody tr')].forEach(tr=>{
+        const tds=[...tr.querySelectorAll('td')].map(td=>td.textContent.trim());
+        rows.push(tds);
+      });
+      UI.downloadCSV('capaciteit_matrix.csv', rows);
+      toast('Export gereed');
+    }
+
+    document.getElementById('btnExportTop').addEventListener('click', doExport);
+    document.getElementById('btnExportMid').addEventListener('click', doExport);
+
+    document.getElementById('btnPrint').addEventListener('click', ()=>{
+      const html = document.getElementById('capTable').outerHTML;
+      UI.printA3('CAPACITEIT', document.getElementById('weekLabel').textContent, html);
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', ()=>{ toast('Vernieuwd'); render(); });
+
+    document.getElementById('btnPrev').addEventListener('click', ()=>{ cur = addWeeks(cur.year, cur.week, -1); render(); });
+    document.getElementById('btnNext').addEventListener('click', ()=>{ cur = addWeeks(cur.year, cur.week, +1); render(); });
+    document.getElementById('btnWeeks').addEventListener('click', ()=>{
+      weeksCount = (weeksCount===6)?8:(weeksCount===8)?4:6;
+      toast(`Weergave: ${weeksCount} weken`);
+      render();
+    });
+
+    document.getElementById('btnKolommen').addEventListener('click', ()=> toast('Kolommen ▾ – wizard volgt SSOT (volgende stap)'));
+    document.getElementById('btnDag').addEventListener('click', ()=> toast('Dag ▾ – SSOT toggle (volgende stap)'));
+    document.getElementById('btnCal').addEventListener('click', ()=> toast('Kalender – SSOT picker (volgende stap)'));
+    document.getElementById('btnSearch').addEventListener('click', ()=> toast('Search – koppelen aan matrixfilter (volgende stap)'));
+
+    // boot
+    try{ render(); }catch(e){ console.error(e); }
+
+  })();
+  </script>
+</body>
+</html>

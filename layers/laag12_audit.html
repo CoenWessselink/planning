@@ -1,0 +1,57 @@
+
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8"/>
+  <title>CWS – Audit log</title>
+  <link rel="stylesheet" href="../css/theme.css"/>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Audit log</h1>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Tijd</th><th>Gebruiker</th><th>Rol</th><th>Actie</th><th>Details</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script src="../js/core/ui.js"></script>
+<script>
+async function render(){
+  const rows = document.getElementById("rows");
+  rows.innerHTML="";
+  let log = CWS.getState().auditLog || [];
+  if(CWS.storageStatus?.mode === "api"){
+    try{
+      const response = await fetch("/api/audit", { headers:{ "Accept":"application/json" } });
+      const data = await response.json();
+      if(response.ok && data.ok){
+        log = data.items.map(item => ({
+          ts:item.created_at,
+          user:item.actor_email,
+          role:"",
+          action:item.action,
+          meta:item.metadata
+        })).reverse();
+      }
+    }catch(_){}
+  }
+  log.slice().reverse().forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td>${r.ts}</td><td>${r.user}</td><td>${r.role}</td><td>${r.action}</td><td>${JSON.stringify(r.meta||{})}</td>`;
+    rows.appendChild(tr);
+  });
+}
+render();
+</script>
+</body>
+</html>
