@@ -1,4 +1,4 @@
-import { ensureSeedState, json, verifyRequiredSchema } from "./_shared.js";
+import { ensureSchema, json, verifyRequiredSchema } from "./_shared.js";
 
 export async function onRequestGet(context) {
   if (!context.env?.DB) {
@@ -6,19 +6,23 @@ export async function onRequestGet(context) {
   }
   try {
     await context.env.DB.prepare("SELECT 1 AS ok").first();
+    await ensureSchema(context.env.DB);
     const schema = await verifyRequiredSchema(context.env.DB);
-    if (schema.ok) await ensureSeedState(context.env.DB);
     return json({
       ok: schema.ok,
       service: "cws-planning",
       storage: "d1",
-      version: "internal-test-v9",
+      version: "internal-test-v10",
       schemaOk: schema.ok,
       schemaErrors: schema.errors
     }, schema.ok ? 200 : 500);
   } catch (error) {
-    return json({ ok: false, service: "cws-planning", storage: "d1", error: error.message }, 500);
+    return json({ ok: false, service: "cws-planning", storage: "d1", error: error.message, stack: error.stack || null }, 500);
   }
+}
+
+export function onRequestOptions() {
+  return json({ ok: true });
 }
 
 export function onRequest() {

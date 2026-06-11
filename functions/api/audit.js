@@ -1,7 +1,7 @@
 import {
   canViewAudit,
   canWriteState,
-  ensureSeedState,
+  ensureSchema,
   getOrCreateUser,
   json,
   requireActorEmail,
@@ -10,10 +10,8 @@ import {
 } from "./_shared.js";
 
 async function prepareDb(db) {
-  const schema = await verifyRequiredSchema(db);
-  if (!schema.ok) return schema;
-  await ensureSeedState(db);
-  return schema;
+  await ensureSchema(db);
+  return verifyRequiredSchema(db);
 }
 
 export async function onRequestGet(context) {
@@ -25,7 +23,7 @@ export async function onRequestGet(context) {
 
   try {
     const schema = await prepareDb(db);
-    if (!schema.ok) return json({ ok: false, error: "D1-schema onjuist. Voer migrations/0002_reconcile_schema.sql uit.", schemaErrors: schema.errors }, 500);
+    if (!schema.ok) return json({ ok: false, error: "D1-schema kon niet automatisch worden hersteld.", schemaErrors: schema.errors }, 500);
 
     const user = await getOrCreateUser(db, email);
     if (!canViewAudit(user)) return json({ ok: false, error: "Geen rechten voor audit." }, 403);
@@ -56,7 +54,7 @@ export async function onRequestPost(context) {
 
   try {
     const schema = await prepareDb(db);
-    if (!schema.ok) return json({ ok: false, error: "D1-schema onjuist. Voer migrations/0002_reconcile_schema.sql uit.", schemaErrors: schema.errors }, 500);
+    if (!schema.ok) return json({ ok: false, error: "D1-schema kon niet automatisch worden hersteld.", schemaErrors: schema.errors }, 500);
 
     const user = await getOrCreateUser(db, email);
     if (!canWriteState(user)) return json({ ok: false, error: "Geen schrijfrechten." }, 403);

@@ -1,8 +1,9 @@
-import { getOrCreateUser, json, requireActorEmail, verifyRequiredSchema } from "./_shared.js";
+import { ensureSchema, getOrCreateUser, json, requireActorEmail, verifyRequiredSchema } from "./_shared.js";
 
 async function requireAdmin(context) {
   const db = context.env?.DB;
   if (!db) return { error: json({ ok:false, error:"D1-binding DB ontbreekt." }, 500) };
+  await ensureSchema(db);
   const schema = await verifyRequiredSchema(db);
   if (!schema.ok) return { error: json({ ok:false, error:"D1-schema onjuist.", schemaErrors:schema.errors }, 500) };
   const email = requireActorEmail(context.request);
