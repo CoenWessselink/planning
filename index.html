@@ -19,6 +19,7 @@
     <div class="right">
       <span class="pill" id="storagePill">Opslag detecteren...</span>
       <span class="pill">Gebruiker: <span id="userPill">local-dev@cws.test</span></span>
+      <button class="btn" id="importExcel">Import Excel</button>
       <button class="btn" id="resetDemo">Demo data</button>
       <button class="btn" id="clearData">Data leegmaken</button>
     </div>
@@ -52,6 +53,7 @@
   <script src="js/core/router.js"></script>
   <script src="js/core/apps_menu.js"></script>
   <script src="js/core/export.js"></script>
+  <script src="js/core/import_excel.js"></script>
   <script>
     (async()=>{
       try{
@@ -76,6 +78,7 @@
         CWS.subscribe(refreshStatus);
         AppsMenu.render();
         AppsMenu.bind();
+        CWS_ExcelImport.bind();
         Router.boot();
         document.body.dataset.cwsReady = "true";
 

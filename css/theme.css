@@ -1039,3 +1039,12 @@ tbody tr:hover{background:var(--hover)}
   .headerbar{justify-content:flex-start;align-items:flex-start;}
   #moduleTitle{order:3;flex-basis:100%;text-align:left;font-size:18px !important;}
 }
+
+/* Excel import modal */
+.excel-import-modal{width:min(1100px, calc(100% - 24px));}
+.excel-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+.excel-label{display:block;font-weight:800;margin-bottom:6px;color:#111827;}
+.excel-import-ok{border:1px solid #86efac;background:#f0fdf4;color:#166534;border-radius:8px;padding:10px 12px;font-size:13px;}
+.excel-preview-table{min-width:900px;}
+.excel-preview-table th,.excel-preview-table td{max-width:360px;overflow:hidden;text-overflow:ellipsis;}
+@media(max-width:860px){.excel-grid{grid-template-columns:1fr}.excel-preview-table{min-width:720px}}

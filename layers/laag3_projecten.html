@@ -8,6 +8,7 @@
       <button class="btn" id="newProject">Nieuw project</button>
       <button class="btn" id="openBron">Brondata</button>
       <button class="btn" id="openDeptHours">Uren per afdeling</button>
+      <button class="btn" id="importExcelBtn">Import Excel</button>
       <input class="input" id="search" placeholder="Zoeken (project, opdrachtgever, status)…" />
       <span class="kbd">CTRL</span><span class="kbd">K</span>
     </div>
@@ -146,6 +147,15 @@
         return s;
       });
     }catch(_){ }
+  }
+
+
+  const __importExcelBtn = document.getElementById('importExcelBtn');
+  if(__importExcelBtn){
+    __importExcelBtn.addEventListener('click', ()=>{
+      try{ window.parent?.CWS_ExcelImport?.open?.(); }
+      catch(e){ try{ window.parent?.postMessage?.({type:'cws_import_excel'}, '*'); }catch(_e){} }
+    });
   }
 
   // Phase 21: Open brondata tables (opdrachtgevers / contactpersonen) from Projects.
