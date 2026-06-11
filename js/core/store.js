@@ -949,6 +949,18 @@ window.CWS = window.CWS || {};
     return target.gantt;
   };
 
+  const recalculateGanttHoursIfChanged = () => {
+    const before = JSON.stringify(state.gantt || { hoursByDay:{}, sourcesByDay:{} });
+    const next = deepClone(state);
+    rebuildGanttHoursByDay(next);
+    const after = JSON.stringify(next.gantt || { hoursByDay:{}, sourcesByDay:{} });
+    if(before === after){
+      return { changed:false, state, gantt:state.gantt };
+    }
+    const updated = setState(() => next);
+    return { changed:true, state:updated, gantt:updated.gantt };
+  };
+
   const ganttApi = {
     getProjectGantt(projectId){
       return deepClone(state.ganttV2?.byProject?.[projectId] || { rows:[], sched:{} });
@@ -988,7 +1000,7 @@ window.CWS = window.CWS || {};
       });
     },
     recalculateHours(){
-      return setState(draft => { rebuildGanttHoursByDay(draft); return draft; });
+      return recalculateGanttHoursIfChanged();
     },
     validateDependencies(projectId){
       const model = state.ganttV2?.byProject?.[projectId] || { rows:[] };
@@ -1055,7 +1067,7 @@ window.CWS = window.CWS || {};
     canRedo,
     validateState,
     getLastValidation: () => lastValidation,
-    rebuildGanttHoursByDay: () => setState(s => { rebuildGanttHoursByDay(s); return s; }),
+    rebuildGanttHoursByDay: () => recalculateGanttHoursIfChanged().gantt,
     gantt: ganttApi,
     storage: storageAdapter,
     storageStatus,

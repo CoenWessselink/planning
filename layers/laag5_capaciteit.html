@@ -43,7 +43,46 @@
     function availableByDeptWeek(dept,wk){ try{ const x=CWS?.capacity?.computeDeptCapacityForWeek?.(weekKey(wk.year,wk.week)); if(x?.byDept) return Math.round(Number(x.byDept[dept]||0)*10)/10; }catch(e){} const st=state(); const emps=st.settings?.tables?.employees||[]; if(Array.isArray(emps)&&emps.length){ return emps.filter(e=>(e.dept||"")===dept && (e.active??true)!==false).reduce((s,e)=>s+["ma","di","wo","do","vr","za","zo"].reduce((a,k)=>a+(Number(e[k])||0),0),0); } return (st.resources?.order||[]).map(id=>st.resources.byId[id]).filter(r=>r?.dept===dept).reduce((s,r)=>s+(Number(r.daily)||0)*5,0); }
     function availableTotalWeek(wk){ return deptList().reduce((s,d)=>s+availableByDeptWeek(d,wk),0); }
     function dateRangeForWeek(wk){ const start=weekStartUTC(wk.year,wk.week); return {start:iso(start), end:iso(addDays(start,6))}; }
-    function plannedFor({projectId=null, dept=null, wk}){ const st=state(), range=dateRangeForWeek(wk); let total=0, items=[]; Object.entries(st.gantt?.sourcesByDay||{}).forEach(([date,byDept])=>{ if(date<range.start||date>range.end) return; Object.entries(byDept||{}).forEach(([d,arr])=>{ if(dept && d!==dept) return; (arr||[]).forEach(item=>{ if(projectId && item.projectId!==projectId) return; const h=Number(item.hours||0); total+=h; items.push({date,dept:d,projectId:item.projectId,hours:h}); }); }); }); return {hours:Math.round(total*10)/10,items}; }
+    let planCache = null;
+    function buildPlanCache(ws){
+      const st=state();
+      const cache={total:{},dept:{},project:{},projectDept:{}};
+      const ranges=ws.map(w=>({key:weekKey(w.year,w.week),...dateRangeForWeek(w)}));
+      const ensure=(bucket,key)=> bucket[key] || (bucket[key]={hours:0,items:[]});
+      const roundAll=(bucket)=>Object.values(bucket).forEach(v=>{ v.hours=Math.round((Number(v.hours)||0)*10)/10; });
+      Object.entries(st.gantt?.sourcesByDay||{}).forEach(([date,byDept])=>{
+        const wk=ranges.find(r=>date>=r.start && date<=r.end);
+        if(!wk) return;
+        Object.entries(byDept||{}).forEach(([d,arr])=>{
+          (Array.isArray(arr)?arr:[]).forEach(item=>{
+            const projectId=item?.projectId;
+            const h=Number(item?.hours||0);
+            if(!h) return;
+            const row={date,dept:d,projectId,hours:h};
+            const total=ensure(cache.total,wk.key); total.hours+=h; total.items.push(row);
+            const byDept=ensure(cache.dept,`${d}|${wk.key}`); byDept.hours+=h; byDept.items.push(row);
+            const byProject=ensure(cache.project,`${projectId}|${wk.key}`); byProject.hours+=h; byProject.items.push(row);
+            const byProjectDept=ensure(cache.projectDept,`${projectId}|${d}|${wk.key}`); byProjectDept.hours+=h; byProjectDept.items.push(row);
+          });
+        });
+      });
+      roundAll(cache.total); roundAll(cache.dept); roundAll(cache.project); roundAll(cache.projectDept);
+      return cache;
+    }
+    function plannedFor({projectId=null, dept=null, wk}){
+      const key=weekKey(wk.year,wk.week);
+      if(planCache){
+        let hit;
+        if(projectId && dept) hit=planCache.projectDept[`${projectId}|${dept}|${key}`];
+        else if(projectId) hit=planCache.project[`${projectId}|${key}`];
+        else if(dept) hit=planCache.dept[`${dept}|${key}`];
+        else hit=planCache.total[key];
+        return hit ? {hours:hit.hours,items:hit.items} : {hours:0,items:[]};
+      }
+      const st=state(), range=dateRangeForWeek(wk); let total=0, items=[];
+      Object.entries(st.gantt?.sourcesByDay||{}).forEach(([date,byDept])=>{ if(date<range.start||date>range.end) return; Object.entries(byDept||{}).forEach(([d,arr])=>{ if(dept && d!==dept) return; (Array.isArray(arr)?arr:[]).forEach(item=>{ if(projectId && item.projectId!==projectId) return; const h=Number(item.hours||0); total+=h; items.push({date,dept:d,projectId:item.projectId,hours:h}); }); }); });
+      return {hours:Math.round(total*10)/10,items};
+    }
     function cls(planned, available){ if(!available) return planned>0?"warn":""; if(planned>available) return "bad"; if(planned>available*.85) return "warn"; return "ok"; }
     function cell(content, clsName="", why=null){ const td=document.createElement("td"); td.textContent=content; td.className=clsName+(why?" why":""); if(why) td.addEventListener("click",()=>showWhy(why)); return td; }
     function sticky(content, clsName=""){ const td=cell("",`sticky ${clsName}`); td.innerHTML=content; return td; }
@@ -52,10 +91,60 @@
     function renderBody(ws){ const st=state(), tb=$("#bodyRows"); tb.innerHTML=""; const depts=deptList(st).filter(d=>!UI.dept||d===UI.dept); addDeptSummaryRows(tb,ws,depts); projects(st).forEach(p=>{ const pid=p.id; const open=UI.open[pid]!==false; const tr=document.createElement("tr"); tr.append(sticky(`<button class="toggle" data-toggle="${esc(pid)}">${open?"−":"+"}</button><span class="rowhead">${esc(p.nr||p.code||pid)} | ${esc(p.name||"Project")}</span>`), cell(p.status||"")); let total=0; ws.forEach(w=>{ const x=plannedFor({projectId:pid,wk:w}); total+=x.hours; tr.append(cell(x.hours,cls(x.hours,availableTotalWeek(w)),{type:"project",projectId:pid,wk:w})); }); tr.append(cell(Math.round(total*10)/10,"rowhead")); tb.append(tr); if(open){ depts.forEach(dept=>{ const sr=document.createElement("tr"); sr.className="subrow"; sr.append(sticky(esc(dept)),cell("")); let sub=0; ws.forEach(w=>{ const x=plannedFor({projectId:pid,dept,wk:w}); sub+=x.hours; sr.append(cell(x.hours,cls(x.hours,availableByDeptWeek(dept,w)),{type:"projectDept",projectId:pid,dept,wk:w})); }); sr.append(cell(Math.round(sub*10)/10,"rowhead")); tb.append(sr); }); } }); $$('[data-toggle]').forEach(b=>b.onclick=()=>{ UI.open[b.dataset.toggle]=!(UI.open[b.dataset.toggle]!==false); render(); }); const trT=document.createElement("tr"); trT.append(sticky(`<span class="rowhead">Totaal gepland</span>`,"rowhead"),cell("")); let grand=0; ws.forEach(w=>{ const v=plannedFor({wk:w}).hours; grand+=v; trT.append(cell(v,cls(v,availableTotalWeek(w)),{type:"total",wk:w})); }); trT.append(cell(Math.round(grand*10)/10,"rowhead")); tb.append(trT); const trS=document.createElement("tr"); trS.append(sticky(`<span class="rowhead">Saldo totaal</span>`,"rowhead"),cell("")); let saldoGrand=0; ws.forEach(w=>{ const saldo=availableTotalWeek(w)-plannedFor({wk:w}).hours; saldoGrand+=saldo; trS.append(cell(Math.round(saldo*10)/10,saldo<0?"bad neg":"ok")); }); trS.append(cell(Math.round(saldoGrand*10)/10,"rowhead")); tb.append(trS); }
     function updateTop(ws){ const planned=ws.reduce((s,w)=>s+plannedFor({wk:w}).hours,0); const available=ws.reduce((s,w)=>s+availableTotalWeek(w),0); const pct=available?Math.round(planned/available*100):0; $("#totalPill").textContent=`Totaal uren: ${Math.round(planned*10)/10} / ${Math.round(available*10)/10}`; $("#pctPill").textContent=`${pct}%`; $("#progressFill").style.width=Math.min(100,pct)+"%"; $("#progressFill").style.background=pct>100?"#dc2626":pct>85?"#f59e0b":"#16a34a"; $("#weekLabel").textContent=`W${pad(UI.week)} ${UI.year}`; const status=CWS?.storageStatus; $("#storagePill").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale data"; }
     function showWhy(why){ const st=state(); const wk=why.wk; const titleParts=[`W${pad(wk.week)} ${wk.year}`]; if(why.dept) titleParts.push(why.dept); if(why.projectId) titleParts.push(st.projects?.byId?.[why.projectId]?.name||why.projectId); $("#modalTitle").textContent="WHY — " + titleParts.join(" / "); let x; if(why.type==="dept") x=plannedFor({dept:why.dept,wk}); else if(why.type==="project") x=plannedFor({projectId:why.projectId,wk}); else if(why.type==="projectDept") x=plannedFor({projectId:why.projectId,dept:why.dept,wk}); else x=plannedFor({wk}); const rows=x.items.map(i=>`<tr><td>${esc(i.date)}</td><td>${esc(i.dept)}</td><td>${esc(st.projects?.byId?.[i.projectId]?.nr||i.projectId)}</td><td>${esc(st.projects?.byId?.[i.projectId]?.name||"")}</td><td>${Math.round(i.hours*10)/10}</td></tr>`).join(""); $("#modalBody").innerHTML= rows?`<table class="detail-table"><thead><tr><th>Datum</th><th>Afdeling</th><th>Project</th><th>Naam</th><th>Uren</th></tr></thead><tbody>${rows}</tbody></table>`:`<p class="muted">Geen Gantt-bronregels gevonden. Genereer of controleer eerst de Gantt-planning.</p>`; $("#modalBack").classList.add("show"); }
-    function render(){ if(!CWS?.getState){ $("#notice").textContent="CWS Store is niet geladen."; $("#notice").classList.remove("hidden"); return; } if(CWS?.gantt?.recalculateHours) CWS.gantt.recalculateHours(); const st=state(); const depts=deptList(st); $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+depts.map(d=>`<option value="${esc(d)}" ${UI.dept===d?"selected":""}>${esc(d)}</option>`).join(""); $("#statusSel").value=UI.status; const ws=weeks(); renderHead(ws); renderBody(ws); updateTop(ws); const hasSource=Object.keys(st.gantt?.sourcesByDay||{}).length>0; const n=$("#notice"); if(!hasSource){ n.textContent="Nog geen Gantt-urenverdeling gevonden. Open Laag 4, klik 'Genereer fasen' en daarna 'Herbereken uren'."; n.classList.remove("hidden"); } else n.classList.add("hidden"); }
+    let rendering = false;
+    let queuedRender = false;
+    let lastRenderError = null;
+    let firstRenderDone = false;
+    function showError(error){
+      const n=$("#notice");
+      if(!n) return;
+      lastRenderError = String(error?.message || error || "Onbekende fout");
+      n.textContent = "Capaciteit kon niet volledig tekenen: " + lastRenderError + ". Probeer Herbereken of laad Demo data opnieuw.";
+      n.classList.remove("hidden");
+      try{ console.error("[CWS Capaciteit]", error); }catch(_e){}
+    }
+    function safeRender(){
+      if(rendering){ queuedRender = true; return; }
+      rendering = true;
+      try{
+        if(!CWS?.getState){
+          $("#notice").textContent="CWS Store is niet geladen.";
+          $("#notice").classList.remove("hidden");
+          return;
+        }
+        const st=state();
+        const depts=deptList(st);
+        $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+depts.map(d=>`<option value="${esc(d)}" ${UI.dept===d?"selected":""}>${esc(d)}</option>`).join("");
+        $("#statusSel").value=UI.status;
+        const ws=weeks();
+        planCache = buildPlanCache(ws);
+        renderHead(ws);
+        renderBody(ws);
+        updateTop(ws);
+        const hasSource=Object.keys(st.gantt?.sourcesByDay||{}).length>0;
+        const n=$("#notice");
+        if(!hasSource){
+          n.textContent="Nog geen Gantt-urenverdeling gevonden. Open Laag 4, klik 'Genereer fasen' en daarna 'Herbereken uren'.";
+          n.classList.remove("hidden");
+        } else if(!lastRenderError) {
+          n.classList.add("hidden");
+        }
+        firstRenderDone = true;
+      }catch(error){
+        showError(error);
+      }finally{
+        rendering = false;
+        if(queuedRender){
+          queuedRender = false;
+          requestAnimationFrame(safeRender);
+        }
+      }
+    }
+    function render(){ safeRender(); }
+    function scheduleRender(){ requestAnimationFrame(safeRender); }
     function exportCsv(){ const lines=[]; lines.push($$("#matrix thead th").map(th=>th.textContent.trim())); $$("#matrix tbody tr").forEach(tr=>lines.push($$("td",tr).map(td=>td.textContent.trim()))); if(window.UI?.downloadCSV) UI.downloadCSV("capaciteit.csv",lines); else { const csv=lines.map(r=>r.map(c=>`"${String(c).replaceAll('"','""')}"`).join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="capaciteit.csv"; a.click(); URL.revokeObjectURL(a.href);} }
-    function bind(){ const st=state(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); UI.year=x.year; UI.week=x.week; render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); UI.year=x.year; UI.week=x.week; render(); }; $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#refreshBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Capaciteit herberekend"); render();}; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=()=>window.print(); $("#modalClose").onclick=$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>render()); }
-    bind(); render();
+    function bind(){ const st=state(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); UI.year=x.year; UI.week=x.week; render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); UI.year=x.year; UI.week=x.week; render(); }; $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#refreshBtn").onclick=()=>{ try{ CWS?.gantt?.recalculateHours?.(); lastRenderError=null; toast("Capaciteit herberekend"); }catch(error){ showError(error); } render();}; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=()=>window.print(); $("#modalClose").onclick=$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>scheduleRender()); }
+    try{ bind(); render(); }catch(error){ showError(error); }
   })();
   </script>
 </body>
