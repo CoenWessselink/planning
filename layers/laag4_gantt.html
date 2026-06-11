@@ -100,6 +100,17 @@
       .print-legend{display:block!important;break-inside:avoid;page-break-inside:avoid}
     }
 
+
+    /* V17 — tabelkolommen exact passend op zichtbare inhoud */
+    .gantt-table{table-layout:fixed!important;width:var(--leftW)!important;min-width:var(--leftW)!important;max-width:var(--leftW)!important}
+    .table-pane{width:var(--leftW)!important;min-width:var(--leftW)!important;max-width:var(--leftW)!important;overflow:hidden!important}
+    .gantt-table th[data-col],.gantt-table td[data-col]{max-width:none!important;box-sizing:border-box!important;overflow:hidden!important;text-overflow:clip!important;white-space:nowrap!important}
+    .gantt-table input,.gantt-table select{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+    .gantt-table .taskcell{min-width:0!important;width:100%!important;overflow:hidden!important}
+    .gantt-table .taskname{min-width:0!important;width:100%!important;text-overflow:clip!important}
+    .gantt-table th:nth-child(n),.gantt-table td:nth-child(n){width:auto}
+    .modal .form-grid#colsGrid{grid-template-columns:repeat(2,minmax(220px,1fr))}
+
   </style>
 </head>
 <body>
@@ -134,23 +145,32 @@
     const colorMap = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
     const colorNames = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
     const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false };
-    const COL_KEY = "cws.gantt.visibleColumns.v14";
+    const COL_KEY = "cws.gantt.visibleColumns.v17";
     const ALL_COLUMNS = [
-      {id:"id",label:"ID",min:78,max:160},
-      {id:"name",label:"Taak",min:120,max:520},
-      {id:"start",label:"Start",min:90,max:125},
-      {id:"end",label:"Einde",min:90,max:125},
-      {id:"duration",label:"Duur",min:56,max:78},
-      {id:"progress",label:"Voortgang",min:82,max:110},
-      {id:"predecessor",label:"Voorganger",min:90,max:150},
-      {id:"department",label:"Afdeling",min:90,max:170},
-      {id:"resource",label:"Resource",min:74,max:170},
-      {id:"color",label:"Kleur",min:66,max:100},
-      {id:"locked",label:"Lock",min:48,max:60}
+      {id:"id",label:"ID",min:72,control:"text"},
+      {id:"name",label:"Taak",min:118,control:"task"},
+      {id:"start",label:"Start",min:82,control:"date"},
+      {id:"end",label:"Einde",min:82,control:"date"},
+      {id:"duration",label:"Duur",min:54,control:"text"},
+      {id:"progress",label:"Voortgang",min:78,control:"number"},
+      {id:"predecessor",label:"Voorganger",min:82,control:"input"},
+      {id:"department",label:"Afdeling",min:78,control:"select"},
+      {id:"resource",label:"Resource",min:70,control:"select"},
+      {id:"color",label:"Kleur",min:62,control:"select"},
+      {id:"locked",label:"Lock",min:46,control:"checkbox"}
     ];
+    const DEFAULT_COLS = ["id","name","start","end","duration","progress","predecessor","department","resource","color","locked"];
+    const BASIC_COLS = ["id","name","start","end","duration","predecessor"];
     function loadVisibleCols(){
-      try{ const arr=JSON.parse(localStorage.getItem(COL_KEY)||"null"); if(Array.isArray(arr)&&arr.length) return new Set(arr); }catch(e){}
-      return new Set(ALL_COLUMNS.map(c=>c.id));
+      try{
+        const arr=JSON.parse(localStorage.getItem(COL_KEY)||"null");
+        if(Array.isArray(arr)&&arr.length){
+          const allowed=new Set(ALL_COLUMNS.map(c=>c.id));
+          const clean=arr.filter(id=>allowed.has(id));
+          if(clean.length) return new Set(clean);
+        }
+      }catch(e){}
+      return new Set(DEFAULT_COLS);
     }
     function saveVisibleCols(set){ try{ localStorage.setItem(COL_KEY, JSON.stringify(Array.from(set))); }catch(e){} }
     function visibleColumns(){ const set=loadVisibleCols(); return ALL_COLUMNS.filter(c=>set.has(c.id)); }
@@ -163,20 +183,44 @@
       if(col.id==="duration") return `${d} d`;
       if(col.id==="progress") return `${Number(row.progress||0)} %`;
       if(col.id==="predecessor") return row.predecessor||"";
-      if(col.id==="department") return row.department||"";
+      if(col.id==="department") { const st=state(); const d=departments(st).find(x=>String(x.id||x.name)===String(row.department)||String(x.name)===String(row.department)); return d?(d.name||d.id):(row.department||""); }
       if(col.id==="resource") { const st=state(); const r=(st.resources?.byId||{})[row.resourceId]; return r?(r.name||r.id):(row.resourceId||"—"); }
       if(col.id==="color") return colorNames[row.colorKey]||"Blauw";
       if(col.id==="locked") return row.locked?"ja":"nee";
       return "";
     }
+    function textMeasure(){
+      if(textMeasure.ctx) return textMeasure.ctx;
+      const canvas=document.createElement("canvas");
+      const ctx=canvas.getContext("2d");
+      ctx.font='600 13px Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif';
+      textMeasure.ctx=ctx;
+      return ctx;
+    }
+    function measurePx(value, weight){
+      const ctx=textMeasure();
+      ctx.font=`${weight||600} 13px Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif`;
+      return Math.ceil(ctx.measureText(String(value ?? "")).width);
+    }
+    function columnPadding(col){
+      if(col.control==="task") return 64;       // celpadding + twisty + inspringruimte
+      if(col.control==="select") return 42;     // celpadding + dropdownpijl
+      if(col.control==="checkbox") return 24;
+      if(col.control==="number") return 34;
+      if(col.control==="input" || col.control==="date") return 30;
+      return 24;
+    }
     function columnWidths(cols, rows){
-      const charPx=7.2, padPx=28;
       return cols.map(col=>{
-        let len=String(col.label).length;
-        rows.forEach(({row,sc})=>{ len=Math.max(len, String(textForCol(col,row,sc)||"").length); });
-        let w=Math.ceil(len*charPx + padPx);
-        if(col.id==="name") w+=28;
-        return Math.max(col.min, Math.min(col.max, w));
+        let width = measurePx(col.label, 800) + 22;
+        rows.forEach(({row,sc})=>{
+          const content = textForCol(col,row,sc);
+          const indent = col.id==="name" ? Math.max(0,Number(row.level||0))*18 : 0;
+          const weight = (col.id==="name" && row.type==="summary") ? 900 : 600;
+          width = Math.max(width, measurePx(content, weight) + columnPadding(col) + indent);
+        });
+        // Exact passend op inhoud: geen kunstmatige max-width. Alleen afronden op hele pixels.
+        return Math.ceil(Math.max(col.min, width));
       });
     }
     function buildCell(col,row,sc,st,indent){
@@ -196,10 +240,33 @@
     }
     function openColumns(){
       const set=loadVisibleCols();
-      $("#modalTitle").textContent="Gantt kolommen";
-      $("#modalBody").innerHTML=`<p style="margin-top:0;color:#64748b">Zet tabelkolommen aan of uit. De tabelbreedte wordt daarna automatisch opnieuw passend gemaakt op de zichtbare inhoud.</p><div class="form-grid">${ALL_COLUMNS.map(c=>`<label class="field" style="flex-direction:row;align-items:center;color:#0f172a"><input type="checkbox" data-col="${c.id}" ${set.has(c.id)?"checked":""} style="width:18px;height:18px"> ${esc(c.label)}</label>`).join("")}</div>`;
+      $("#modalTitle").textContent="Gantt tabelkolommen";
+      $("#modalBody").innerHTML=`
+        <p style="margin-top:0;color:#64748b;line-height:1.45">
+          Kies welke kolommen zichtbaar zijn in de linker Gantt-tabel. Na opslaan wordt elke zichtbare kolom automatisch exact op de inhoud berekend: niet smaller dan de tekst, en niet breder dan nodig.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px 0">
+          <button class="btn" type="button" id="colsAll">Alles aan</button>
+          <button class="btn" type="button" id="colsBasic">Basis</button>
+          <button class="btn" type="button" id="colsDefault">Standaard</button>
+        </div>
+        <div class="form-grid" id="colsGrid">
+          ${ALL_COLUMNS.map(c=>`<label class="field" style="flex-direction:row;align-items:center;color:#0f172a;border:1px solid #e2e8f0;border-radius:10px;padding:9px 10px;background:#f8fafc"><input type="checkbox" data-col="${c.id}" ${set.has(c.id)?"checked":""} style="width:18px;height:18px;flex:0 0 auto"> <span>${esc(c.label)}</span></label>`).join("")}
+        </div>
+      `;
+      const applyPreset=(ids)=>{ const use=new Set(ids); $$("#modalBody input[data-col]").forEach(x=>x.checked=use.has(x.dataset.col)); };
+      $("#colsAll").onclick=()=>applyPreset(ALL_COLUMNS.map(c=>c.id));
+      $("#colsBasic").onclick=()=>applyPreset(BASIC_COLS);
+      $("#colsDefault").onclick=()=>applyPreset(DEFAULT_COLS);
       $("#modalBack").classList.add("show");
-      $("#modalSave").onclick=()=>{ const next=new Set($$("#modalBody input[data-col]:checked").map(x=>x.dataset.col)); if(!next.size) next.add("name"); saveVisibleCols(next); $("#modalBack").classList.remove("show"); render(); };
+      $("#modalSave").onclick=()=>{
+        const next=new Set($$("#modalBody input[data-col]:checked").map(x=>x.dataset.col));
+        if(!next.size) next.add("name");
+        saveVisibleCols(next);
+        $("#modalBack").classList.remove("show");
+        toast("Kolommen bijgewerkt");
+        render();
+      };
     }
 
 
@@ -306,7 +373,24 @@
     function setBaseline(){ const pid=currentProjectId(), model=getModel(pid); model.rows.forEach(row=>{ const sc=model.sched[row.id]; if(sc?.start&&sc?.end){ row.baselineStart=sc.start; row.baselineEnd=sc.end; }}); saveModel(pid,model,"Baseline ingesteld"); render(); }
     function indent(delta){ const pid=currentProjectId(), model=getModel(pid); const row=model.rows.find(r=>r.id===UI.selected); if(!row||row.type==="summary"||row.locked){toast("Selecteer een ontgrendelde taak","warn");return;} row.level=Math.max(1,Number(row.level||1)+delta); saveModel(pid,model); render(); }
     function openEdit(rowId){ const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId), sc=model.sched[rowId]||{}; if(!row) return; $("#modalTitle").textContent="Taak bewerken"; $("#modalBody").innerHTML=`<div class="form-grid"><label class="field">Taak<input id="mName" value="${esc(row.name)}"></label><label class="field">Afdeling<input id="mDept" value="${esc(row.department||"")}"></label><label class="field">Start<input id="mStart" value="${esc(toNL(sc.start))}"></label><label class="field">Einde<input id="mEnd" value="${esc(toNL(sc.end))}"></label><label class="field">Voortgang<input id="mProg" type="number" min="0" max="100" value="${Number(row.progress||0)}"></label><label class="field">Voorganger<input id="mPred" value="${esc(row.predecessor||"")}"></label><label class="field">Kleur<select id="mColor">${Object.keys(colorMap).map(k=>`<option value="${k}" ${row.colorKey===k?"selected":""}>${colorNames[k]}</option>`).join("")}</select></label><label class="field">Lock<select id="mLock"><option value="0" ${!row.locked?"selected":""}>Nee</option><option value="1" ${row.locked?"selected":""}>Ja</option></select></label><label class="field" style="grid-column:1/-1">WHY / notitie<textarea id="mWhy">${esc(row.why||"")}</textarea></label></div>`; $("#modalBack").classList.add("show"); $("#modalSave").onclick=()=>{ row.name=$("#mName").value.trim()||row.name; row.department=$("#mDept").value.trim()||row.department; row.progress=Math.max(0,Math.min(100,Number($("#mProg").value)||0)); row.predecessor=$("#mPred").value.trim(); row.colorKey=$("#mColor").value; row.locked=$("#mLock").value==="1"; row.why=$("#mWhy").value.trim(); if(row.type!=="summary"){ model.sched[rowId]={start:toIso($("#mStart").value)||sc.start,end:toIso($("#mEnd").value)||sc.end}; } saveModel(pid,model); $("#modalBack").classList.remove("show"); render(); }; }
-    function exportCsv(){ const lines=[["ID","Taak","Start","Einde","Duur","Voortgang","Voorganger","Afdeling","Resource","Lock"]]; const pid=currentProjectId(), model=getModel(pid); model.rows.forEach((r,i)=>{ const sc=rowSchedule(model,r,i); lines.push([r.id,r.name,toNL(sc.start),toNL(sc.end),duration(sc.start,sc.end),r.progress||0,r.predecessor||"",r.department||"",r.resourceId||"",r.locked?"ja":"nee"]); }); if(window.UI?.downloadCSV) UI.downloadCSV("gantt.csv",lines); else { const csv=lines.map(r=>r.map(c=>`"${String(c).replaceAll('"','""')}"`).join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="gantt.csv"; a.click(); URL.revokeObjectURL(a.href);} }
+    function exportCsv(){
+      const cols=visibleColumns();
+      const lines=[cols.map(c=>c.label)];
+      const pid=currentProjectId(), model=getModel(pid);
+      model.rows.forEach((r,i)=>{
+        const sc=rowSchedule(model,r,i);
+        lines.push(cols.map(c=>textForCol(c,r,sc)));
+      });
+      if(window.UI?.downloadCSV) UI.downloadCSV("gantt.csv",lines);
+      else {
+        const csv=lines.map(r=>r.map(c=>`"${String(c).replaceAll('"','""')}"`).join(",")).join("\n");
+        const a=document.createElement("a");
+        a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+        a.download="gantt.csv";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    }
     function printA3(){ const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW; UI.printMode=true; UI.view="diagram"; UI.zoom="print"; document.body.classList.add("printing"); render(); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(UI.printMode) restore(); },8000); }
     function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen gegenereerd"); render();}; $("#recalcBtn").onclick=applyPredecessors; $("#hoursBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Uren herberekend voor Capaciteit"); render(); }; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; window.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modalBack").classList.remove("show"); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
     bind(); render();
