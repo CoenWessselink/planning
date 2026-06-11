@@ -43,6 +43,38 @@
     .bar{z-index:6;min-width:18px;contain:layout paint}.bar-label{min-width:0;max-width:100%;display:block;pointer-events:none;text-shadow:0 1px 1px rgba(15,23,42,.25)}.bar.summary{z-index:5}.baseline{z-index:4}.dep-svg{z-index:3}.handle{z-index:8}
     .board-wrap{scrollbar-gutter:stable both-edges}.timeline{z-index:4}.gantt-table thead th{z-index:13}
     @media (max-width: 1280px){:root{--leftW:1040px}.gantt-table th:nth-child(2),.gantt-table td:nth-child(2){width:220px}.gantt-table th:nth-child(7),.gantt-table td:nth-child(7){width:95px}.gantt-table th:nth-child(8),.gantt-table td:nth-child(8){width:95px}.gantt-table th:nth-child(9),.gantt-table td:nth-child(9){width:80px}.gantt-table th:nth-child(10),.gantt-table td:nth-child(10){width:65px}}
+  
+
+    /* V14 Gantt table/diagram/print refinements */
+    :root{--print-scale:1;--print-chart-w:1000px}
+    .toolbar-group.columns-group{border-right:1px solid var(--line)}
+    .gantt-table{table-layout:fixed}
+    .gantt-table th,.gantt-table td{box-sizing:border-box}
+    .gantt-table th[data-col],.gantt-table td[data-col]{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .gantt-table input,.gantt-table select{max-width:100%;min-width:0}
+    .taskcell{min-width:0;width:100%;overflow:hidden}
+    .taskname{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .lane{background-image:repeating-linear-gradient(to right, rgba(15,23,42,.13) 0 1px, transparent 1px var(--dayW)), repeating-linear-gradient(to right, rgba(15,23,42,.28) 0 2px, transparent 2px calc(var(--dayW) * 7));}
+    .tl-cell{border-right-color:#d0d7e2;border-bottom-color:#d0d7e2}
+    .bar{z-index:6;font-size:14px;line-height:1.1;text-shadow:0 1px 1px rgba(0,0,0,.26)}
+    .bar-label{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bar.summary{height:45px;overflow:visible;text-shadow:none;z-index:5}
+    .bar.summary:before{top:28px;border-top-width:4px}
+    .bar.summary:after{top:36px;border-top-width:2px}
+    .bar.summary .bar-label{position:absolute;left:0;top:3px;max-width:min(420px,100%);padding:2px 7px;border:1px solid #111827;border-radius:4px;background:#fff;color:#111827;font-size:13px;line-height:16px;font-weight:900;box-shadow:0 1px 0 rgba(255,255,255,.95);}
+    .dep-svg{z-index:3}.dep-svg path{vector-effect:non-scaling-stroke}.baseline{z-index:4}.today-line{position:absolute;top:0;bottom:0;width:2px;background:#dc2626;z-index:12;pointer-events:none;box-shadow:0 0 0 1px rgba(220,38,38,.20)}
+    .today-line::before{content:"Vandaag";position:absolute;top:3px;left:4px;background:#dc2626;color:#fff;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:900;white-space:nowrap}
+    .print-legend{display:none;margin:0 18px 18px;border:1px solid #111827;background:#fff;color:#111827;font-size:11px}.print-legend .legend-title{font-weight:900;padding:6px 8px;border-bottom:1px solid #111827}.legend-items{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:6px 12px;padding:7px 8px}.legend-item{display:flex;align-items:center;gap:6px;min-width:0}.legend-swatch{width:30px;height:12px;border:1px solid #111827;flex:0 0 auto}.legend-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.legend-diamond{width:10px;height:10px;border:1px solid #111827;transform:rotate(45deg);background:#fff;margin-left:10px;margin-right:10px;flex:0 0 auto}
+    @media print{
+      @page{size:A3 landscape;margin:8mm}
+      html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+      body{padding:0!important;color:#000!important}
+      .gantt-shell{border:0!important;border-radius:0!important;box-shadow:none!important;overflow:visible!important}
+      .module-head{padding:4px 6px 8px 6px!important;border-bottom:0!important;background:#fff!important;text-align:center!important}
+      .module-head h1{font-size:12px!important;margin:0!important}.module-head p{font-size:8px!important;color:#000!important}.module-head .status,.toolbar,.notice,.context,.table-pane{display:none!important}
+      .meta-line{font-size:7px!important;padding:2px 0 4px!important;color:#000!important}.board-wrap{margin:0!important;border:0!important;border-radius:0!important;overflow:visible!important;background:#fff!important}.board{display:block!important;min-width:0!important}.board.diagram-only{display:block!important}.chart-pane{display:block!important;min-width:0!important;overflow:visible!important;background:#fff!important}.timeline{position:relative!important;top:auto!important;height:54px!important;grid-template-rows:18px 18px 18px!important;background:#fff!important}.tl-cell{font-size:6px!important;color:#000!important;border-color:#777!important}.lane{height:30px!important;border-bottom:1px solid #bbb!important;background-image:repeating-linear-gradient(to right,#777 0 1px,transparent 1px var(--dayW)),repeating-linear-gradient(to right,#000 0 2px,transparent 2px calc(var(--dayW) * 7))!important}.bar{top:4px!important;height:18px!important;border-radius:2px!important;font-size:6px!important;padding:0 3px!important;box-shadow:none!important;text-shadow:none!important;border:1px solid #111!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.bar.summary{height:28px!important;border:0!important}.bar.summary:before{top:13px!important;border-top:2px solid #111!important}.bar.summary:after{top:18px!important;border-top:1px solid #111!important}.bar.summary .bar-label{top:0!important;font-size:6px!important;line-height:8px!important;padding:0 2px!important;border:1px solid #111!important}.handle{display:none!important}.dep-svg{top:54px!important;height:calc(100% - 54px)!important}.dep-svg path{stroke:#777!important;stroke-width:.8!important}.today-line{width:1.5px!important;background:#dc2626!important}.today-line::before{display:none!important}.print-legend{display:block!important;margin:6px 0 0!important;break-inside:avoid;page-break-inside:avoid}.legend-title{font-size:8px!important;padding:3px 4px!important}.legend-items{grid-template-columns:repeat(6,minmax(95px,1fr))!important;gap:3px 6px!important;padding:4px!important}.legend-item{font-size:7px!important}.legend-swatch{width:22px!important;height:8px!important}.legend-diamond{width:7px!important;height:7px!important;margin-left:5px;margin-right:5px}
+    }
+
   </style>
 </head>
 <body>
@@ -57,11 +89,11 @@
       <div class="toolbar-group"><button class="btn primary" id="generateBtn">Genereer fasen</button><button class="btn" id="recalcBtn">Herbereken planning</button><button class="btn" id="hoursBtn">Herbereken uren</button></div>
       <div class="toolbar-group"><button class="btn active" id="depsBtn">Afhankelijkheden</button><button class="btn" id="criticalBtn">Kritiek pad</button><button class="btn" id="baselineBtn">Baseline</button><button class="btn" id="setBaselineBtn">Baseline = actueel</button></div>
       <div class="toolbar-group"><button class="btn" id="indentBtn">Inspringen</button><button class="btn" id="outdentBtn">Uitspringen</button><button class="btn" id="undoBtn">Undo</button><button class="btn" id="redoBtn">Redo</button></div>
-      <div class="toolbar-group"><button class="btn" data-view="table">Tabel</button><button class="btn active" data-view="both">Beide</button><button class="btn" data-view="diagram">Diagram</button><button class="btn" id="printBtn">Print A3</button><button class="btn" id="exportBtn">Export</button></div>
+      <div class="toolbar-group columns-group"><button class="btn" id="columnsBtn">Kolommen</button></div><div class="toolbar-group"><button class="btn" data-view="table">Tabel</button><button class="btn active" data-view="both">Beide</button><button class="btn" data-view="diagram">Diagram</button><button class="btn" id="printBtn">Print A3</button><button class="btn" id="exportBtn">Export</button></div>
     </div>
     <div class="notice hidden" id="notice"></div>
     <div class="meta-line" id="metaLine">—</div>
-    <div class="board-wrap" id="boardWrap"><div class="board" id="board"><div class="table-pane"><table class="gantt-table"><thead><tr><th>ID</th><th>Taak</th><th>Start</th><th>Einde</th><th>Duur</th><th>Voortgang</th><th>Voorganger</th><th>Afdeling</th><th>Resource</th><th>Kleur</th><th>Lock</th></tr></thead><tbody id="tableRows"></tbody></table></div><div class="chart-pane"><div class="timeline" id="timeline"></div><div id="lanes"></div><svg class="dep-svg" id="depSvg"></svg></div></div></div>
+    <div class="board-wrap" id="boardWrap"><div class="board" id="board"><div class="table-pane"><table class="gantt-table" id="ganttTable"><thead><tr id="ganttHead"></tr></thead><tbody id="tableRows"></tbody></table></div><div class="chart-pane" id="chartPane"><div class="timeline" id="timeline"></div><div id="lanes"></div><svg class="dep-svg" id="depSvg"></svg><div class="today-line" id="todayLine" aria-hidden="true"></div></div></div></div><div class="print-legend" id="printLegend"></div>
     <div class="context"><div class="context-head">Context / WHY</div><div class="context-body" id="contextBody">Selecteer een taak of balk om details te zien.</div></div>
   </div>
   <div class="modalback" id="modalBack"><div class="modal"><div class="modal-head"><b id="modalTitle">Taak bewerken</b><button class="btn" id="modalClose">Sluiten</button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot"><button class="btn primary" id="modalSave">Opslaan</button></div></div></div>
@@ -76,7 +108,75 @@
     const cssEsc = (v) => (window.CSS && CSS.escape) ? CSS.escape(String(v)) : String(v).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
     const colorMap = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
     const colorNames = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
-    const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null };
+    const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false };
+    const COL_KEY = "cws.gantt.visibleColumns.v14";
+    const ALL_COLUMNS = [
+      {id:"id",label:"ID",min:78,max:160},
+      {id:"name",label:"Taak",min:120,max:520},
+      {id:"start",label:"Start",min:90,max:125},
+      {id:"end",label:"Einde",min:90,max:125},
+      {id:"duration",label:"Duur",min:56,max:78},
+      {id:"progress",label:"Voortgang",min:82,max:110},
+      {id:"predecessor",label:"Voorganger",min:90,max:150},
+      {id:"department",label:"Afdeling",min:90,max:170},
+      {id:"resource",label:"Resource",min:74,max:170},
+      {id:"color",label:"Kleur",min:66,max:100},
+      {id:"locked",label:"Lock",min:48,max:60}
+    ];
+    function loadVisibleCols(){
+      try{ const arr=JSON.parse(localStorage.getItem(COL_KEY)||"null"); if(Array.isArray(arr)&&arr.length) return new Set(arr); }catch(e){}
+      return new Set(ALL_COLUMNS.map(c=>c.id));
+    }
+    function saveVisibleCols(set){ try{ localStorage.setItem(COL_KEY, JSON.stringify(Array.from(set))); }catch(e){} }
+    function visibleColumns(){ const set=loadVisibleCols(); return ALL_COLUMNS.filter(c=>set.has(c.id)); }
+    function textForCol(col,row,sc){
+      const d=duration(sc.start,sc.end);
+      if(col.id==="id") return row.id;
+      if(col.id==="name") return row.name;
+      if(col.id==="start") return toNL(sc.start);
+      if(col.id==="end") return toNL(sc.end);
+      if(col.id==="duration") return `${d} d`;
+      if(col.id==="progress") return `${Number(row.progress||0)} %`;
+      if(col.id==="predecessor") return row.predecessor||"";
+      if(col.id==="department") return row.department||"";
+      if(col.id==="resource") { const st=state(); const r=(st.resources?.byId||{})[row.resourceId]; return r?(r.name||r.id):(row.resourceId||"—"); }
+      if(col.id==="color") return colorNames[row.colorKey]||"Blauw";
+      if(col.id==="locked") return row.locked?"ja":"nee";
+      return "";
+    }
+    function columnWidths(cols, rows){
+      const charPx=7.2, padPx=28;
+      return cols.map(col=>{
+        let len=String(col.label).length;
+        rows.forEach(({row,sc})=>{ len=Math.max(len, String(textForCol(col,row,sc)||"").length); });
+        let w=Math.ceil(len*charPx + padPx);
+        if(col.id==="name") w+=28;
+        return Math.max(col.min, Math.min(col.max, w));
+      });
+    }
+    function buildCell(col,row,sc,st,indent){
+      const dis=row.locked?"disabled":"";
+      if(col.id==="id") return esc(row.id);
+      if(col.id==="name") return `<div class="taskcell"><span class="twisty">${row.type==="summary"?"▾":""}</span><span style="width:${indent}px"></span><input class="taskname" data-k="name" value="${esc(row.name)}" ${dis}></div>`;
+      if(col.id==="start") return `<input class="cellinput" data-k="start" value="${esc(toNL(sc.start))}" ${row.type==="summary"||row.locked?"disabled":""}>`;
+      if(col.id==="end") return `<input class="cellinput" data-k="end" value="${esc(toNL(sc.end))}" ${row.type==="summary"||row.locked?"disabled":""}>`;
+      if(col.id==="duration") return `${duration(sc.start,sc.end)} d`;
+      if(col.id==="progress") return `<input class="cellinput smallinput" data-k="progress" value="${Number(row.progress||0)}" ${dis}>%`;
+      if(col.id==="predecessor") return `<input class="cellinput" data-k="predecessor" value="${esc(row.predecessor||"")}" ${dis}>`;
+      if(col.id==="department") return `<select class="dept-select" data-k="department" ${dis}>${departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("")}</select>`;
+      if(col.id==="resource") return `<select class="resource-select" data-k="resourceId" ${dis}><option value="">—</option>${resources(st).map(r=>`<option value="${esc(r.id)}" ${row.resourceId===r.id?"selected":""}>${esc(r.name||r.id)}</option>`).join("")}</select>`;
+      if(col.id==="color") return `<select class="color-select" data-k="colorKey" ${dis}>${Object.keys(colorMap).map(k=>`<option value="${k}" ${row.colorKey===k?"selected":""}>${colorNames[k]}</option>`).join("")}</select>`;
+      if(col.id==="locked") return `<input class="lockbox" type="checkbox" data-k="locked" ${row.locked?"checked":""}>`;
+      return esc(textForCol(col,row,sc));
+    }
+    function openColumns(){
+      const set=loadVisibleCols();
+      $("#modalTitle").textContent="Gantt kolommen";
+      $("#modalBody").innerHTML=`<p style="margin-top:0;color:#64748b">Zet tabelkolommen aan of uit. De tabelbreedte wordt daarna automatisch opnieuw passend gemaakt op de zichtbare inhoud.</p><div class="form-grid">${ALL_COLUMNS.map(c=>`<label class="field" style="flex-direction:row;align-items:center;color:#0f172a"><input type="checkbox" data-col="${c.id}" ${set.has(c.id)?"checked":""} style="width:18px;height:18px"> ${esc(c.label)}</label>`).join("")}</div>`;
+      $("#modalBack").classList.add("show");
+      $("#modalSave").onclick=()=>{ const next=new Set($$("#modalBody input[data-col]:checked").map(x=>x.dataset.col)); if(!next.size) next.add("name"); saveVisibleCols(next); $("#modalBack").classList.remove("show"); render(); };
+    }
+
 
     function toast(msg, type){ const el=$("#toast"); el.textContent=msg; el.style.background=type==="bad"?"#991b1b":type==="warn"?"#92400e":"#172033"; el.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove("show"),2200); }
     function setNotice(msg, kind="warn"){ const n=$("#notice"); if(!msg){ n.classList.add("hidden"); return; } n.textContent=msg; n.className="notice"; if(kind==="bad"){ n.style.borderColor="#fecaca"; n.style.background="#fef2f2"; n.style.color="#991b1b"; } else { n.style.borderColor="#fed7aa"; n.style.background="#fff7ed"; n.style.color="#9a3412"; } }
@@ -109,17 +209,59 @@
     function parsePred(raw){ const s=String(raw||"").trim(); if(!s) return []; return s.split(/[;,]+/).map(x=>x.trim()).filter(Boolean).map(x=>{ const m=x.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i); return m?{id:m[1],type:m[2].toUpperCase(),lag:Number(m[3]||0)}:null; }).filter(Boolean); }
     function filteredRows(model){ const dept=UI.dept, res=UI.resource, q=String($("#searchInput")?.value||"").toLowerCase(); return model.rows.map((row,index)=>({row,index,sc:rowSchedule(model,row,index)})).filter(x=>{ const r=x.row; const matchSelf=(!dept||r.department===dept)&&(!res||r.resourceId===res)&&(!q||[r.id,r.name,r.department].join(" ").toLowerCase().includes(q)); if(r.type!=="summary") return matchSelf; // keep summary if any direct/desc child visible
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
-    function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const min=dates.sort()[0]; const max=dates.sort().at(-1); const start=startOfWeek(addDays(min,-7)); let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
-    function pxPerDay(){ return UI.zoom==="day"?34:UI.zoom==="week"?22:10; }
+    function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const sorted=dates.slice().sort(); const min=sorted[0]; const max=sorted.at(-1); const start=startOfWeek(addDays(min,-7)); if(UI.printMode){ const endPad=startOfWeek(addDays(max,7)); return {start,days:Math.max(14,dayDiff(start,endPad)+7)}; } let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
+    function pxPerDay(){ if(UI.printMode) return 8; return UI.zoom==="day"?34:UI.zoom==="week"?22:10; }
     function buildTimeline(range){ const w=pxPerDay(); document.documentElement.style.setProperty("--dayW",w+"px"); const days=[]; for(let i=0;i<range.days;i++) days.push(addDays(range.start,i)); const groups=(kind)=>{ const out=[]; days.forEach((iso,i)=>{ const d=parseDate(iso); const key=kind==="month"?`${d.getUTCFullYear()}-${d.getUTCMonth()}`:`${isoWeek(d).year}-W${isoWeek(d).week}`; const label=kind==="month"?d.toLocaleDateString("nl-NL",{month:"short",year:"numeric",timeZone:"UTC"}):`W${String(isoWeek(d).week).padStart(2,"0")}`; let g=out[out.length-1]; if(!g||g.key!==key) out.push({key,label,count:1}); else g.count++; }); return out; };
       const months=groups("month").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const weeks=groups("week").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const today=toIso(new Date()); const dayHtml=days.map(iso=>{ const d=parseDate(iso), wknd=[0,6].includes(d.getUTCDay()); return `<div class="tl-cell day ${wknd?"weekend":""} ${iso===today?"today":""}">${d.toLocaleDateString("nl-NL",{weekday:"short",timeZone:"UTC"})} ${pad(d.getUTCDate())}</div>`; }).join(""); $("#timeline").innerHTML=`<div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${months}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${weeks}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${dayHtml}</div>`; return days; }
     function xFor(iso, range){ return Math.max(0,dayDiff(range.start,iso)*pxPerDay()); }
     function criticalIds(model){ const ids=new Set(); model.rows.forEach(r=>{ if(r.type==="task"&&parsePred(r.predecessor).length) ids.add(r.id); }); const maxEnd=Object.values(model.sched||{}).map(s=>s.end).filter(Boolean).sort().at(-1); model.rows.forEach(r=>{ if(model.sched[r.id]?.end===maxEnd) ids.add(r.id); }); return ids; }
     function renderFilters(){ const st=state(); const pid=currentProjectId(); const projectSel=$("#projectSel"); projectSel.innerHTML=projects(st).filter(p=>p.status!=="Gereed").map(p=>`<option value="${esc(p.id)}">${esc(projectLabel(p))}</option>`).join(""); if(pid) projectSel.value=pid; $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+departments(st).map(d=>`<option value="${esc(d.id||d.name)}">${esc(d.name||d.id)}</option>`).join(""); $("#deptSel").value=UI.dept||""; $("#resourceSel").innerHTML='<option value="">Alle resources</option>'+resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)} (${esc(r.dept||"")})</option>`).join(""); $("#resourceSel").value=UI.resource||""; const status=CWS?.storageStatus; $("#storageBadge").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale browserdata"; $("#storageBadge").className="badge "+(status?.mode==="api"?"ok":"warn"); }
-    function render(){ if(!CWS?.getState){ setNotice("CWS Store is niet geladen.","bad"); return; } renderFilters(); const st=state(), pid=currentProjectId(); UI.projectId=pid; if(!pid){ $("#tableRows").innerHTML=""; $("#lanes").innerHTML='<div class="empty">Geen projecten beschikbaar.</div>'; return; } const model=ensureModel(pid); const rows=filteredRows(model); const range=timelineRange(rows,st,pid); UI.originStart=range.start; const days=buildTimeline(range); const cids=UI.showCritical?criticalIds(model):new Set();
-      $("#tableRows").innerHTML=rows.map(({row,index,sc})=>{ const d=duration(sc.start,sc.end), indent=Math.max(0,Number(row.level||0))*18; return `<tr data-id="${esc(row.id)}" class="${row.id===UI.selected?"selected":""} ${row.type==="summary"?"summary":""}"><td>${esc(row.id)}</td><td><div class="taskcell"><span class="twisty">${row.type==="summary"?"▾":""}</span><span style="width:${indent}px"></span><input class="taskname" data-k="name" value="${esc(row.name)}" ${row.locked?"disabled":""}></div></td><td><input class="cellinput" data-k="start" value="${esc(toNL(sc.start))}" ${row.type==="summary"||row.locked?"disabled":""}></td><td><input class="cellinput" data-k="end" value="${esc(toNL(sc.end))}" ${row.type==="summary"||row.locked?"disabled":""}></td><td>${d} d</td><td><input class="cellinput smallinput" data-k="progress" value="${Number(row.progress||0)}" ${row.locked?"disabled":""}>%</td><td><input class="cellinput" data-k="predecessor" value="${esc(row.predecessor||"")}" ${row.locked?"disabled":""}></td><td><select class="dept-select" data-k="department" ${row.locked?"disabled":""}>${departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("")}</select></td><td><select class="resource-select" data-k="resourceId" ${row.locked?"disabled":""}><option value="">—</option>${resources(st).map(r=>`<option value="${esc(r.id)}" ${row.resourceId===r.id?"selected":""}>${esc(r.name||r.id)}</option>`).join("")}</select></td><td><select class="color-select" data-k="colorKey" ${row.locked?"disabled":""}>${Object.keys(colorMap).map(k=>`<option value="${k}" ${row.colorKey===k?"selected":""}>${colorNames[k]}</option>`).join("")}</select></td><td><input class="lockbox" type="checkbox" data-k="locked" ${row.locked?"checked":""}></td></tr>`; }).join("");
-      $("#lanes").style.width=(days.length*pxPerDay())+"px"; $("#lanes").innerHTML=rows.map(({row,index,sc})=>{ const left=xFor(sc.start||range.start,range), width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay()); const isCritical=cids.has(row.id); const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),duration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:""; return `<div class="lane" data-id="${esc(row.id)}">${base}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorMap[row.colorKey]||colorMap.c1)}"><span class="handle left"></span><span class="bar-label" title="${esc(row.name)}">${esc(row.name)}</span><span class="handle right"></span></div></div>`; }).join("");
-      $("#board").className="board "+(UI.view==="table"?"table-only":UI.view==="diagram"?"diagram-only":""); $("#metaLine").textContent=`${rows.length} regels | zoom ${UI.zoom} | urenbron: Projecturen per afdeling | dagen: ${days.length}`; wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range); renderContext(model); setNotice(CWS.storageStatus?.mode==="api"?"":"Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.","warn"); updateButtons(); }
+    function render(){
+      if(!CWS?.getState){ setNotice("CWS Store is niet geladen.","bad"); return; }
+      renderFilters();
+      const st=state(), pid=currentProjectId();
+      UI.projectId=pid;
+      if(!pid){ $("#ganttHead").innerHTML=""; $("#tableRows").innerHTML=""; $("#lanes").innerHTML='<div class="empty">Geen projecten beschikbaar.</div>'; return; }
+      const model=ensureModel(pid);
+      const rows=filteredRows(model);
+      const range=timelineRange(rows,st,pid);
+      UI.originStart=range.start;
+      const days=buildTimeline(range);
+      const cids=UI.showCritical?criticalIds(model):new Set();
+      const cols=visibleColumns();
+      const widths=columnWidths(cols, rows);
+      const leftW=widths.reduce((a,b)=>a+b,0);
+      document.documentElement.style.setProperty("--leftW", leftW+"px");
+      $("#ganttTable").style.width=leftW+"px";
+      $("#ganttHead").innerHTML=cols.map((c,i)=>`<th data-col="${c.id}" style="width:${widths[i]}px">${esc(c.label)}</th>`).join("");
+      $("#tableRows").innerHTML=rows.map(({row,index,sc})=>{
+        const indent=Math.max(0,Number(row.level||0))*18;
+        const tds=cols.map((c,i)=>`<td data-col="${c.id}" style="width:${widths[i]}px">${buildCell(c,row,sc,st,indent)}</td>`).join("");
+        return `<tr data-id="${esc(row.id)}" class="${row.id===UI.selected?"selected":""} ${row.type==="summary"?"summary":""}">${tds}</tr>`;
+      }).join("");
+      const chartW=days.length*pxPerDay();
+      $("#lanes").style.width=chartW+"px";
+      $("#lanes").innerHTML=rows.map(({row,index,sc})=>{
+        const left=xFor(sc.start||range.start,range), width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay());
+        const isCritical=cids.has(row.id);
+        const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),duration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:"";
+        return `<div class="lane" data-id="${esc(row.id)}">${base}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorMap[row.colorKey]||colorMap.c1)}"><span class="handle left"></span><span class="bar-label" title="${esc(row.name)}">${esc(row.name)}</span><span class="handle right"></span></div></div>`;
+      }).join("");
+      const today=toIso(new Date()), todayX=xFor(today,range);
+      const tl=$("#todayLine");
+      if(tl){ tl.style.display=(todayX>=0&&todayX<=chartW)?"block":"none"; tl.style.left=todayX+"px"; tl.style.height=`calc(var(--headH) + ${rows.length*(UI.printMode?30:48)}px)`; }
+      $("#board").className="board "+(UI.view==="table"?"table-only":UI.view==="diagram"?"diagram-only":"");
+      $("#metaLine").textContent=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | dagen: ${days.length}`;
+      renderLegend(rows);
+      wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range); renderContext(model);
+      setNotice(CWS.storageStatus?.mode==="api"?"":"Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.","warn");
+      updateButtons();
+    }
+    function renderLegend(rows){
+      const seen=new Set(), items=[];
+      rows.forEach(({row})=>{ const key=(row.colorKey||"c1")+"|"+(row.name||""); if(!seen.has(key)){ seen.add(key); items.push({name:row.name||row.id,color:colorMap[row.colorKey]||colorMap.c1}); } });
+      $("#printLegend").innerHTML=`<div class="legend-title">Legenda</div><div class="legend-items">${items.slice(0,24).map(it=>`<div class="legend-item"><span class="legend-swatch" style="background:${esc(it.color)}"></span><span class="legend-text">${esc(it.name)}</span></div>`).join("")}<div class="legend-item"><span class="legend-diamond"></span><span class="legend-text">Mijlpaal</span></div></div>`;
+    }
     function updateButtons(){ $$('[data-zoom]').forEach(b=>b.classList.toggle('active',b.dataset.zoom===UI.zoom)); $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===UI.view)); $('#depsBtn').classList.toggle('active',UI.showDeps); $('#criticalBtn').classList.toggle('active',UI.showCritical); $('#baselineBtn').classList.toggle('active',UI.showBaseline); $('#undoBtn').disabled=!(CWS?.canUndo?.()); $('#redoBtn').disabled=!(CWS?.canRedo?.()); }
     function updateRow(model,rowId,patch){ const row=model.rows.find(r=>r.id===rowId); if(!row) return; Object.assign(row,patch); saveModel(currentProjectId(),model); render(); }
     function wireRows(model,pid){ $$("#tableRows tr").forEach(tr=>{ const rowId=tr.dataset.id; tr.addEventListener("click",()=>{UI.selected=rowId; render();}); tr.addEventListener("dblclick",()=>openEdit(rowId)); tr.querySelectorAll("input,select").forEach(el=>{ el.addEventListener("change",()=>{ const row=model.rows.find(r=>r.id===rowId); if(!row) return; const k=el.dataset.k; if(k==="start"||k==="end"){ const iso=toIso(el.value); if(!iso){toast("Ongeldige datum","bad");render();return;} model.sched[rowId]=model.sched[rowId]||{}; model.sched[rowId][k]=iso; } else if(k==="progress"){ row.progress=Math.max(0,Math.min(100,Number(el.value)||0)); } else if(k==="locked"){ row.locked=el.checked; } else if(k==="predecessor"){ const v=el.value.trim(); if(parsePred(v).some(p=>p.id===rowId)){toast("Circulaire afhankelijkheid geweigerd","bad");render();return;} row.predecessor=v; } else { row[k]=el.value; } saveModel(pid,model); render(); }); }); }); }
@@ -133,7 +275,8 @@
     function indent(delta){ const pid=currentProjectId(), model=getModel(pid); const row=model.rows.find(r=>r.id===UI.selected); if(!row||row.type==="summary"||row.locked){toast("Selecteer een ontgrendelde taak","warn");return;} row.level=Math.max(1,Number(row.level||1)+delta); saveModel(pid,model); render(); }
     function openEdit(rowId){ const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId), sc=model.sched[rowId]||{}; if(!row) return; $("#modalTitle").textContent="Taak bewerken"; $("#modalBody").innerHTML=`<div class="form-grid"><label class="field">Taak<input id="mName" value="${esc(row.name)}"></label><label class="field">Afdeling<input id="mDept" value="${esc(row.department||"")}"></label><label class="field">Start<input id="mStart" value="${esc(toNL(sc.start))}"></label><label class="field">Einde<input id="mEnd" value="${esc(toNL(sc.end))}"></label><label class="field">Voortgang<input id="mProg" type="number" min="0" max="100" value="${Number(row.progress||0)}"></label><label class="field">Voorganger<input id="mPred" value="${esc(row.predecessor||"")}"></label><label class="field">Kleur<select id="mColor">${Object.keys(colorMap).map(k=>`<option value="${k}" ${row.colorKey===k?"selected":""}>${colorNames[k]}</option>`).join("")}</select></label><label class="field">Lock<select id="mLock"><option value="0" ${!row.locked?"selected":""}>Nee</option><option value="1" ${row.locked?"selected":""}>Ja</option></select></label><label class="field" style="grid-column:1/-1">WHY / notitie<textarea id="mWhy">${esc(row.why||"")}</textarea></label></div>`; $("#modalBack").classList.add("show"); $("#modalSave").onclick=()=>{ row.name=$("#mName").value.trim()||row.name; row.department=$("#mDept").value.trim()||row.department; row.progress=Math.max(0,Math.min(100,Number($("#mProg").value)||0)); row.predecessor=$("#mPred").value.trim(); row.colorKey=$("#mColor").value; row.locked=$("#mLock").value==="1"; row.why=$("#mWhy").value.trim(); if(row.type!=="summary"){ model.sched[rowId]={start:toIso($("#mStart").value)||sc.start,end:toIso($("#mEnd").value)||sc.end}; } saveModel(pid,model); $("#modalBack").classList.remove("show"); render(); }; }
     function exportCsv(){ const lines=[["ID","Taak","Start","Einde","Duur","Voortgang","Voorganger","Afdeling","Resource","Lock"]]; const pid=currentProjectId(), model=getModel(pid); model.rows.forEach((r,i)=>{ const sc=rowSchedule(model,r,i); lines.push([r.id,r.name,toNL(sc.start),toNL(sc.end),duration(sc.start,sc.end),r.progress||0,r.predecessor||"",r.department||"",r.resourceId||"",r.locked?"ja":"nee"]); }); if(window.UI?.downloadCSV) UI.downloadCSV("gantt.csv",lines); else { const csv=lines.map(r=>r.map(c=>`"${String(c).replaceAll('"','""')}"`).join(",")).join("\n"); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="gantt.csv"; a.click(); URL.revokeObjectURL(a.href);} }
-    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen gegenereerd"); render();}; $("#recalcBtn").onclick=applyPredecessors; $("#hoursBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Uren herberekend voor Capaciteit"); render(); }; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=()=>window.print(); $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; window.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modalBack").classList.remove("show"); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); }
+    function printA3(){ const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode; UI.printMode=true; UI.view="diagram"; UI.zoom="week"; document.body.classList.add("printing"); render(); setTimeout(()=>window.print(),80); const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; document.body.classList.remove("printing"); render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(UI.printMode) restore(); },3500); }
+    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen gegenereerd"); render();}; $("#recalcBtn").onclick=applyPredecessors; $("#hoursBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Uren herberekend voor Capaciteit"); render(); }; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; window.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modalBack").classList.remove("show"); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); }
     bind(); render();
   })();
   </script>
