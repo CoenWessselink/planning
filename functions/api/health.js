@@ -12,7 +12,7 @@ export async function onRequestGet(context) {
       ok: schema.ok,
       service: "cws-planning",
       storage: "d1",
-      version: "internal-test-v10",
+      version: "internal-test-v11",
       schemaOk: schema.ok,
       schemaErrors: schema.errors
     }, schema.ok ? 200 : 500);

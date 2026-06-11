@@ -1005,3 +1005,37 @@ tbody tr:hover{background:var(--hover)}
 .badge{
   box-shadow: 0 6px 16px rgba(0,0,0,.12);
 }
+
+/* V11: responsive hoofdheader. Voorkomt overlap tussen titel, rol/afdeling, opslagstatus en gebruiker
+   wanneer Cloudflare/DevTools of kleinere schermbreedtes de viewport versmallen. */
+.headerbar{
+  height:auto;
+  min-height:64px;
+  justify-content:space-between;
+  gap:10px;
+  padding:8px 12px;
+  flex-wrap:wrap;
+}
+.headerbar .left,
+.headerbar .right{
+  position:static;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  max-width:100%;
+}
+#moduleTitle{
+  flex:1 1 280px;
+  min-width:220px;
+  text-align:center;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:20px !important;
+  line-height:1.2;
+}
+@media (max-width: 1100px){
+  .headerbar{justify-content:flex-start;align-items:flex-start;}
+  #moduleTitle{order:3;flex-basis:100%;text-align:left;font-size:18px !important;}
+}

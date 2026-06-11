@@ -63,43 +63,53 @@ window.CWS = window.CWS || {};
     ganttV2: { expanded:{}, byProject:{}, ui:{ showCritical:false } }
   });
 
+  const mergeDefaults = (target, defaults) => {
+    const out = (target && typeof target === "object" && !Array.isArray(target)) ? target : {};
+    Object.keys(defaults || {}).forEach(k => {
+      const dv = defaults[k];
+      const tv = out[k];
+      if(tv === undefined || tv === null){
+        out[k] = deepClone(dv);
+      }else if(dv && typeof dv === "object" && !Array.isArray(dv) && tv && typeof tv === "object" && !Array.isArray(tv)){
+        mergeDefaults(tv, dv);
+      }
+    });
+    return out;
+  };
+
   const load = () => {
     const raw = localStorage.getItem(KEY_TENANT) || localStorage.getItem(KEY_GLOBAL);
-    if(!raw) return defaultState();
+    if(!raw) return normalizeState(defaultState());
     try{
       const st = JSON.parse(raw);
-      // merge with defaults (plain state only)
-      const base = defaultState();
-      const merged = (function merge(dst, src){
-        Object.keys(src||{}).forEach(k=>{
-          const v = src[k];
-          if(v && typeof v==="object" && !Array.isArray(v) && dst[k] && typeof dst[k]==="object" && !Array.isArray(dst[k])){
-            merge(dst[k], v);
-          }else{
-            dst[k]=v;
-          }
-        });
-        return dst;
-      })(base, st);
-      // harden critical ui defaults
-      merged.ui = merged.ui || {};
-      merged.ui.week = merged.ui.week || base.ui.week;
-      merged.ui.scroll = merged.ui.scroll || {};
-      merged.settings = merged.settings || base.settings;
-      merged.settings.datasets = merged.settings.datasets || base.settings.datasets;
-      normalizeState(merged);
-      return merged;
+      return normalizeState(st);
     }catch(_){
-      return defaultState();
+      return normalizeState(defaultState());
     }
   };
 
   const normalizeState = (st) => {
+    // Hard reconcile against the full local schema. This is intentionally defensive,
+    // because older D1 test rows may only contain a tiny partial object
+    // ({schemaVersion, projects, settings, gantt, ...}) without ui/user/roles.
+    st = mergeDefaults(st, defaultState());
     st.schemaVersion = SCHEMA_VERSION;
     st.meta = st.meta || { dirty:false, updatedAt:null, lastAction:null };
     st.globalState = st.globalState || { auditLog:[] };
     st.sessionState = st.sessionState || { filters:{}, selections:{}, scroll:{} };
     st.uiState = st.uiState || { modals:{}, focus:null };
+    st.ui = st.ui || deepClone(defaultState().ui);
+    st.ui.week = st.ui.week || { year:2026, week:15 };
+    st.ui.scroll = st.ui.scroll || {};
+    st.ui.role = st.ui.role || "Admin";
+    st.ui.lastApp = st.ui.lastApp || "projecten";
+    st.user = st.user || { name:"Gebruiker", role:"admin", dept:"" };
+    st.user.name = st.user.name || "Gebruiker";
+    st.user.role = st.user.role || "admin";
+    st.roles = st.roles && typeof st.roles === "object" && !Array.isArray(st.roles) ? st.roles : deepClone(DEFAULT_ROLES);
+    Object.entries(DEFAULT_ROLES).forEach(([roleId, role]) => {
+      if(!st.roles[roleId]) st.roles[roleId] = deepClone(role);
+    });
     st.auditLog = Array.isArray(st.auditLog) ? st.auditLog : [];
     st.globalState.auditLog = st.auditLog;
     st.projects = st.projects || { order:[], byId:{} };
@@ -114,10 +124,19 @@ window.CWS = window.CWS || {};
     st.departments.byId = st.departments.byId && typeof st.departments.byId === "object" ? st.departments.byId : {};
     st.settings = st.settings || {};
     st.settings.tables = st.settings.tables && typeof st.settings.tables === "object" ? st.settings.tables : {};
+    st.settings.datasets = st.settings.datasets && typeof st.settings.datasets === "object" ? st.settings.datasets : {};
     st.allocations = st.allocations || { byWeek:{} };
     st.allocations.byWeek = st.allocations.byWeek && typeof st.allocations.byWeek === "object" ? st.allocations.byWeek : {};
+    st.tasks = st.tasks || { byProject:{} };
+    st.tasks.byProject = st.tasks.byProject && typeof st.tasks.byProject === "object" ? st.tasks.byProject : {};
+    st.planbord = st.planbord || { byDeptWeek:{} };
+    st.planbord.byDeptWeek = st.planbord.byDeptWeek && typeof st.planbord.byDeptWeek === "object" ? st.planbord.byDeptWeek : {};
     st.projectOverview = st.projectOverview || { notesByProject:{}, statusByProject:{} };
+    st.projectOverview.notesByProject = st.projectOverview.notesByProject || {};
+    st.projectOverview.statusByProject = st.projectOverview.statusByProject || {};
     st.projectPlanning = st.projectPlanning || { byWeek:{}, columns:[] };
+    st.projectPlanning.byWeek = st.projectPlanning.byWeek || {};
+    st.projectPlanning.columns = Array.isArray(st.projectPlanning.columns) ? st.projectPlanning.columns : [];
     st.transport = st.transport || { vehicles:[], drivers:[], locations:[], trips:[] };
     ["vehicles","drivers","locations","trips"].forEach(k => {
       st.transport[k] = Array.isArray(st.transport[k]) ? st.transport[k] : [];
@@ -125,6 +144,12 @@ window.CWS = window.CWS || {};
     st.gantt = st.gantt || { hoursByDay:{}, sourcesByDay:{} };
     st.gantt.hoursByDay = st.gantt.hoursByDay || {};
     st.gantt.sourcesByDay = st.gantt.sourcesByDay || {};
+    st.ganttV2 = st.ganttV2 || { expanded:{}, byProject:{}, ui:{ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" } };
+    st.ganttV2.expanded = st.ganttV2.expanded || {};
+    st.ganttV2.byProject = st.ganttV2.byProject || {};
+    st.ganttV2.ui = st.ganttV2.ui || { showCritical:false, showDeps:true, viewMode:"both", zoom:"week" };
+    st.templates = st.templates || { taskSets: [ { id:"default", name:"Standaard", phases:[] } ] };
+    st.reports = st.reports || { active:"cap_week", templates:[] };
     return st;
   };
 
@@ -1004,8 +1029,11 @@ window.CWS = window.CWS || {};
         storageStatus.lastError = error.message;
       }
     }
+    state = normalizeState(state);
     state.user = state.user || {};
     state.user.email = currentUser.email;
+    state.ui = state.ui || deepClone(defaultState().ui);
+    state.roles = state.roles && typeof state.roles === "object" && !Array.isArray(state.roles) ? state.roles : deepClone(DEFAULT_ROLES);
     if(storageStatus.mode === "api"){
       state.user.role = currentUser.role;
       state.ui.role = state.roles?.[currentUser.role]?.name || currentUser.role;
