@@ -111,6 +111,16 @@
     .gantt-table th:nth-child(n),.gantt-table td:nth-child(n){width:auto}
     .modal .form-grid#colsGrid{grid-template-columns:repeat(2,minmax(220px,1fr))}
 
+
+    /* V19 — centrale kleurweergave, template-kleuren en taakeditor */
+    .color-pick{display:flex;align-items:center;gap:6px;width:100%;min-width:0;}
+    .color-swatch{width:18px;height:18px;border-radius:5px;border:1px solid rgba(15,23,42,.25);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);flex:0 0 auto;}
+    .color-pick select{flex:1 1 auto;min-width:0;}
+    .modal .color-pick{min-height:38px;}
+    .modal .color-pick select{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;padding:0 10px;}
+    .bar[data-openable="1"]{cursor:pointer;}
+    .bar[data-openable="1"]:active{cursor:grabbing;}
+
   </style>
 </head>
 <body>
@@ -144,6 +154,31 @@
     const cssEsc = (v) => (window.CSS && CSS.escape) ? CSS.escape(String(v)) : String(v).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
     const colorMap = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
     const colorNames = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
+    function normalizeColorKey(value, fallback="c1"){
+      const raw = String(value ?? "").trim();
+      if(colorMap[raw]) return raw;
+      const lower = raw.toLowerCase();
+      const byName = Object.entries(colorNames).find(([,name])=>String(name).toLowerCase()===lower);
+      if(byName) return byName[0];
+      const byHex = Object.entries(colorMap).find(([,hex])=>String(hex).toLowerCase()===lower);
+      if(byHex) return byHex[0];
+      return colorMap[fallback] ? fallback : "c1";
+    }
+    function colorHex(value){ return colorMap[normalizeColorKey(value)] || colorMap.c1; }
+    function colorLabel(value){ const key=normalizeColorKey(value); return colorNames[key] || colorNames.c1; }
+    function colorOptions(selected){
+      const sel = normalizeColorKey(selected);
+      return Object.keys(colorMap).map(k=>`<option value="${k}" ${sel===k?"selected":""}>● ${colorNames[k]}</option>`).join("");
+    }
+    function colorPickerHtml(dataK, value, disabled=""){
+      const key = normalizeColorKey(value);
+      return `<div class="color-pick"><span class="color-swatch" style="background:${esc(colorMap[key])}"></span><select class="color-select" data-k="${esc(dataK)}" ${disabled}>${colorOptions(key)}</select></div>`;
+    }
+    function setColorPickerPreview(selectEl){
+      const wrap = selectEl && selectEl.closest ? selectEl.closest(".color-pick") : null;
+      const sw = wrap ? wrap.querySelector(".color-swatch") : null;
+      if(sw) sw.style.background = colorHex(selectEl.value);
+    }
     const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false };
     const COL_KEY = "cws.gantt.visibleColumns.v17";
     const ALL_COLUMNS = [
@@ -185,7 +220,7 @@
       if(col.id==="predecessor") return row.predecessor||"";
       if(col.id==="department") { const st=state(); const d=departments(st).find(x=>String(x.id||x.name)===String(row.department)||String(x.name)===String(row.department)); return d?(d.name||d.id):(row.department||""); }
       if(col.id==="resource") { const st=state(); const r=(st.resources?.byId||{})[row.resourceId]; return r?(r.name||r.id):(row.resourceId||"—"); }
-      if(col.id==="color") return colorNames[row.colorKey]||"Blauw";
+      if(col.id==="color") return colorLabel(row.colorKey);
       if(col.id==="locked") return row.locked?"ja":"nee";
       return "";
     }
@@ -234,7 +269,7 @@
       if(col.id==="predecessor") return `<input class="cellinput" data-k="predecessor" value="${esc(row.predecessor||"")}" ${dis}>`;
       if(col.id==="department") return `<select class="dept-select" data-k="department" ${dis}>${departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("")}</select>`;
       if(col.id==="resource") return `<select class="resource-select" data-k="resourceId" ${dis}><option value="">—</option>${resources(st).map(r=>`<option value="${esc(r.id)}" ${row.resourceId===r.id?"selected":""}>${esc(r.name||r.id)}</option>`).join("")}</select>`;
-      if(col.id==="color") return `<select class="color-select" data-k="colorKey" ${dis}>${Object.keys(colorMap).map(k=>`<option value="${k}" ${row.colorKey===k?"selected":""}>${colorNames[k]}</option>`).join("")}</select>`;
+      if(col.id==="color") return colorPickerHtml("colorKey", row.colorKey, dis);
       if(col.id==="locked") return `<input class="lockbox" type="checkbox" data-k="locked" ${row.locked?"checked":""}>`;
       return esc(textForCol(col,row,sc));
     }
@@ -291,10 +326,102 @@
     function getModel(projectId){ const m = CWS?.gantt?.getProjectGantt ? CWS.gantt.getProjectGantt(projectId) : (state().ganttV2?.byProject?.[projectId] || {rows:[],sched:{}}); m.rows = Array.isArray(m.rows)?m.rows:[]; m.sched = m.sched || {}; return m; }
     function saveModel(projectId, model, msg="Opgeslagen"){ if(!projectId) return; if(CWS?.gantt?.saveProjectGantt){ CWS.gantt.saveProjectGantt(projectId, model); } else if(CWS?.setState){ CWS.setState(s=>{ s.ganttV2=s.ganttV2||{byProject:{},ui:{}}; s.ganttV2.byProject[projectId]=model; return s; }); } setSave(msg,"ok"); }
     function firstProjectStart(st, pid){ const p=st.projects?.byId?.[pid]||{}; return toIso(p.startDate||p.start||p.date)||toIso(new Date()); }
-    function generateModel(projectId){ const st=state(), p=st.projects.byId[projectId]; if(!p) return {rows:[],sched:{}}; const pack=st.tasks?.byProject?.[projectId]; let phaseData = pack?.phases || [];
-      if(!phaseData.length){ const rows=(st.projects?.deptHours||[]).filter(r=>r.projectId===projectId); phaseData = rows.length ? rows.map((r,i)=>({ id:`PH-${i+1}`, name:r.deptId||"Afdeling", tasks:[{id:`T-${i+1}`,name:r.deptId||"Werkzaamheden"}] })) : [{id:"PH-E",name:"Engineering",tasks:[{id:"T-1",name:"Voorbereiding"},{id:"T-2",name:"Uitvoering"}]}]; }
-      const model={rows:[],sched:{}}; let cursor=firstProjectStart(st,projectId); let taskSeq=1;
-      phaseData.forEach((ph,pi)=>{ const summaryId=`${projectId}-${ph.id||`PH-${pi+1}`}`; const dept=ph.name||"Afdeling"; model.rows.push({id:summaryId,name:dept,type:"summary",level:0,department:dept,progress:0,predecessor:"",locked:false,colorKey:`c${(pi%8)+1}`}); const tasks=(ph.tasks&&ph.tasks.length?ph.tasks:[{id:`T-${pi+1}`,name:dept}]); tasks.forEach((t,ti)=>{ const id=`${projectId}-${t.id||`T-${taskSeq++}`}`; const prev=ti>0?`${projectId}-${tasks[ti-1].id||`T-${taskSeq-2}`}FS`:""; model.rows.push({id,name:t.name||"Taak",type:"task",level:1,parent:summaryId,department:dept,resourceId:"",progress:ti===0?25:0,predecessor:prev,locked:false,colorKey:`c${(pi%8)+1}`}); model.sched[id]={start:cursor,end:addDays(cursor,4)}; cursor=addDays(cursor,5); }); }); return model; }
+    function sanitizeIdPart(value, fallback){
+      const s=String(value ?? fallback ?? "ID").trim().replace(/[^a-zA-Z0-9_-]+/g,"-").replace(/^-+|-+$/g,"");
+      return s || String(fallback || "ID");
+    }
+    function chooseTaskSet(st, project){
+      const sets = (st.templates?.taskSets || []).filter(t=>t && Array.isArray(t.phases) && t.phases.length);
+      if(!sets.length) return null;
+      const wanted = project?.templateId || project?.taskSetId || st.templates?.activeTaskSetId || "default";
+      return sets.find(t=>String(t.id)===String(wanted)) || sets.find(t=>(t.name||"").toLowerCase()==="standaard") || sets.find(t=>String(t.id)==="default") || sets[0];
+    }
+    function normalizeTemplatePredecessor(raw, projectId, idMap){
+      const s=String(raw||"").trim();
+      if(!s) return "";
+      return s.split(/[;,]+/).map(part=>{
+        const x=part.trim();
+        const m=x.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i);
+        if(!m) return x;
+        const sourceId=m[1].trim();
+        const targetId=idMap.get(sourceId) || idMap.get(sanitizeIdPart(sourceId, sourceId)) || (sourceId.includes(projectId) ? sourceId : `${projectId}-${sanitizeIdPart(sourceId, sourceId)}`);
+        return `${targetId}${m[2].toUpperCase()}${m[3]||""}`;
+      }).join(",");
+    }
+    function generateModel(projectId){
+      const st=state(), p=st.projects.byId[projectId];
+      if(!p) return {rows:[],sched:{}};
+      const template = chooseTaskSet(st, p);
+      let phaseData = template?.phases || [];
+      // Fallback for older/imported states without templates.
+      if(!phaseData.length){
+        const pack=st.tasks?.byProject?.[projectId];
+        phaseData = pack?.phases || [];
+      }
+      if(!phaseData.length){
+        const rows=(st.projects?.deptHours||[]).filter(r=>r.projectId===projectId);
+        phaseData = rows.length ? rows.map((r,i)=>({ id:`PH-${i+1}`, name:r.deptId||"Afdeling", tasks:[{id:`T-${i+1}`,name:r.deptId||"Werkzaamheden", days:5, colorKey:`c${(i%8)+1}`}]})) : [{id:"PH-E",name:"Engineering",tasks:[{id:"T-1",name:"Voorbereiding",days:5,colorKey:"c1"},{id:"T-2",name:"Uitvoering",days:5,colorKey:"c1"}]}];
+      }
+      const model={rows:[],sched:{}};
+      let cursor=firstProjectStart(st,projectId);
+      let taskSeq=1;
+      phaseData.forEach((ph,pi)=>{
+        const phIdRaw = ph.id || ph.name || `PH-${pi+1}`;
+        const phaseIdPart = sanitizeIdPart(phIdRaw, `PH-${pi+1}`);
+        const summaryId=`${projectId}-${phaseIdPart}`;
+        const phaseName=String(ph.name || ph.title || `Fase ${pi+1}`).trim() || `Fase ${pi+1}`;
+        const phaseDept=ph.dept || ph.department || ph.afdeling || phaseName;
+        const tasks=(ph.tasks&&ph.tasks.length?ph.tasks:[{id:`T-${pi+1}`,name:phaseName,days:Number(ph.days||5)||5,colorKey:ph.colorKey||ph.color}]);
+        const phaseColor=normalizeColorKey(ph.colorKey||ph.color||tasks[0]?.colorKey||tasks[0]?.color||`c${(pi%8)+1}`);
+        model.rows.push({id:summaryId,name:phaseName,type:"summary",level:0,department:phaseDept,progress:0,predecessor:"",locked:false,colorKey:phaseColor,templateId:template?.id||""});
+        const idMap=new Map();
+        tasks.forEach((t,ti)=>{
+          const rawId = t.id || t.code || `T-${taskSeq}`;
+          const idPart=sanitizeIdPart(rawId, `T-${taskSeq}`);
+          idMap.set(String(rawId), `${projectId}-${idPart}`);
+          idMap.set(idPart, `${projectId}-${idPart}`);
+          taskSeq++;
+        });
+        tasks.forEach((t,ti)=>{
+          const rawId=t.id || t.code || `T-${ti+1}`;
+          const id=idMap.get(String(rawId)) || `${projectId}-${sanitizeIdPart(rawId,`T-${ti+1}`)}`;
+          const taskDays=Math.max(1, Number(t.days ?? t.duration ?? t.duur ?? 5) || 5);
+          const explicitStart=toIso(t.start||t.startDate||"");
+          const explicitEnd=toIso(t.end||t.endDate||"");
+          const start=explicitStart || cursor;
+          const end=explicitEnd || addDays(start, taskDays-1);
+          let pred = t.pred || t.predecessor || t.predecessors || "";
+          pred = normalizeTemplatePredecessor(pred, projectId, idMap);
+          if(!pred && ti>0){
+            const prevRaw=tasks[ti-1].id || tasks[ti-1].code || `T-${ti}`;
+            const prev=idMap.get(String(prevRaw));
+            if(prev) pred=`${prev}FS`;
+          }
+          const taskColor=normalizeColorKey(t.colorKey||t.color||ph.colorKey||ph.color||phaseColor);
+          const dept=t.dept || t.department || t.afdeling || phaseDept;
+          const resourceId=t.resourceId || t.resource || "";
+          model.rows.push({
+            id,
+            name:String(t.name||t.title||"Taak"),
+            type:"task",
+            level:1,
+            parent:summaryId,
+            department:dept,
+            resourceId,
+            progress:Math.max(0,Math.min(100,Number(t.progress||0))),
+            predecessor:pred,
+            locked:!!t.locked,
+            colorKey:taskColor,
+            hours:Math.max(0,Number(t.hours||0)),
+            why:t.why||t.note||"",
+            templateId:template?.id||""
+          });
+          model.sched[id]={start,end};
+          cursor=addDays(end,1);
+        });
+      });
+      return model;
+    }
     function ensureModel(projectId){ let m=getModel(projectId); if(!m.rows.length && projectId){ m=generateModel(projectId); saveModel(projectId,m,"Fasen gegenereerd"); } return m; }
     function summarySchedule(model, index){ const row=model.rows[index]; const children=[]; for(let i=index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(row.level||0);i++){ const sc=model.sched[model.rows[i].id]; if(sc?.start&&sc?.end) children.push(sc); } if(!children.length) return {}; return { start:children.map(x=>x.start).sort()[0], end:children.map(x=>x.end).sort().at(-1) }; }
     function rowSchedule(model, row, index){ return row.type==="summary" ? summarySchedule(model,index) : (model.sched[row.id]||{}); }
@@ -344,7 +471,7 @@
         const left=xFor(sc.start||range.start,range), width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay());
         const isCritical=cids.has(row.id);
         const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),duration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:"";
-        return `<div class="lane" data-id="${esc(row.id)}">${base}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorMap[row.colorKey]||colorMap.c1)}"><span class="handle left"></span><span class="bar-label" title="${esc(row.name)}">${esc(row.name)}</span><span class="handle right"></span></div></div>`;
+        return `<div class="lane" data-id="${esc(row.id)}">${base}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span><span class="bar-label" title="${esc(row.name)}">${esc(row.name)}</span><span class="handle right"></span></div></div>`;
       }).join("");
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");
@@ -358,13 +485,65 @@
     }
     function renderLegend(rows){
       const seen=new Set(), items=[];
-      rows.forEach(({row})=>{ const key=(row.colorKey||"c1")+"|"+(row.name||""); if(!seen.has(key)){ seen.add(key); items.push({name:row.name||row.id,color:colorMap[row.colorKey]||colorMap.c1}); } });
+      rows.forEach(({row})=>{ const key=(row.colorKey||"c1")+"|"+(row.name||""); if(!seen.has(key)){ seen.add(key); items.push({name:row.name||row.id,color:colorHex(row.colorKey)}); } });
       $("#printLegend").innerHTML=`<div class="legend-title">Legenda</div><div class="legend-items">${items.slice(0,24).map(it=>`<div class="legend-item"><span class="legend-swatch" style="background:${esc(it.color)}"></span><span class="legend-text">${esc(it.name)}</span></div>`).join("")}<div class="legend-item"><span class="legend-diamond"></span><span class="legend-text">Mijlpaal</span></div></div>`;
     }
     function updateButtons(){ $$('[data-zoom]').forEach(b=>b.classList.toggle('active',b.dataset.zoom===UI.zoom)); $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===UI.view)); $('#depsBtn').classList.toggle('active',UI.showDeps); $('#criticalBtn').classList.toggle('active',UI.showCritical); $('#baselineBtn').classList.toggle('active',UI.showBaseline); $('#undoBtn').disabled=!(CWS?.canUndo?.()); $('#redoBtn').disabled=!(CWS?.canRedo?.()); }
     function updateRow(model,rowId,patch){ const row=model.rows.find(r=>r.id===rowId); if(!row) return; Object.assign(row,patch); saveModel(currentProjectId(),model); render(); }
-    function wireRows(model,pid){ $$("#tableRows tr").forEach(tr=>{ const rowId=tr.dataset.id; tr.addEventListener("click",()=>{UI.selected=rowId; render();}); tr.addEventListener("dblclick",()=>openEdit(rowId)); tr.querySelectorAll("input,select").forEach(el=>{ el.addEventListener("change",()=>{ const row=model.rows.find(r=>r.id===rowId); if(!row) return; const k=el.dataset.k; if(k==="start"||k==="end"){ const iso=toIso(el.value); if(!iso){toast("Ongeldige datum","bad");render();return;} model.sched[rowId]=model.sched[rowId]||{}; model.sched[rowId][k]=iso; } else if(k==="progress"){ row.progress=Math.max(0,Math.min(100,Number(el.value)||0)); } else if(k==="locked"){ row.locked=el.checked; } else if(k==="predecessor"){ const v=el.value.trim(); if(parsePred(v).some(p=>p.id===rowId)){toast("Circulaire afhankelijkheid geweigerd","bad");render();return;} row.predecessor=v; } else { row[k]=el.value; } saveModel(pid,model); render(); }); }); }); }
-    function wireBars(model,pid,range){ $$(".bar").forEach(bar=>{ const id=bar.dataset.id; const row=model.rows.find(r=>r.id===id); if(!row||row.type==="summary"||row.locked) return; bar.addEventListener("pointerdown",e=>{ const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move"; UI.drag={id,handle,startX:e.clientX,orig:{...(model.sched[id]||{})}}; bar.setPointerCapture(e.pointerId); e.preventDefault(); }); }); }
+    function wireRows(model,pid){
+      $$("#tableRows tr").forEach(tr=>{
+        const rowId=tr.dataset.id;
+        tr.addEventListener("click",()=>{UI.selected=rowId; render();});
+        tr.addEventListener("dblclick",()=>openEdit(rowId));
+        tr.querySelectorAll("select.color-select").forEach(sel=>{
+          setColorPickerPreview(sel);
+          sel.addEventListener("input",()=>setColorPickerPreview(sel));
+        });
+        tr.querySelectorAll("input,select").forEach(el=>{
+          el.addEventListener("change",()=>{
+            const row=model.rows.find(r=>r.id===rowId);
+            if(!row) return;
+            const k=el.dataset.k;
+            if(k==="start"||k==="end"){
+              const iso=toIso(el.value);
+              if(!iso){toast("Ongeldige datum","bad");render();return;}
+              model.sched[rowId]=model.sched[rowId]||{};
+              model.sched[rowId][k]=iso;
+            } else if(k==="progress"){
+              row.progress=Math.max(0,Math.min(100,Number(el.value)||0));
+            } else if(k==="locked"){
+              row.locked=el.checked;
+            } else if(k==="predecessor"){
+              const v=el.value.trim();
+              if(parsePred(v).some(p=>p.id===rowId)){toast("Circulaire afhankelijkheid geweigerd","bad");render();return;}
+              row.predecessor=v;
+            } else if(k==="colorKey"){
+              row.colorKey=normalizeColorKey(el.value,row.colorKey||"c1");
+            } else {
+              row[k]=el.value;
+            }
+            saveModel(pid,model);
+            render();
+          });
+        });
+      });
+    }
+    function wireBars(model,pid,range){
+      $$(".bar").forEach(bar=>{
+        const id=bar.dataset.id;
+        const row=model.rows.find(r=>r.id===id);
+        if(!row) return;
+        bar.dataset.openable="1";
+        bar.addEventListener("dblclick",e=>{ e.preventDefault(); e.stopPropagation(); UI.selected=id; openEdit(id); });
+        if(row.type==="summary"||row.locked) return;
+        bar.addEventListener("pointerdown",e=>{
+          const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move";
+          UI.drag={id,handle,startX:e.clientX,orig:{...(model.sched[id]||{})}};
+          bar.setPointerCapture(e.pointerId);
+          e.preventDefault();
+        });
+      });
+    }
     window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc.start=addDays(UI.drag.orig.start,d); sc.end=addDays(UI.drag.orig.end,d); } else if(UI.drag.handle==="left"){ sc.start=addDays(UI.drag.orig.start,d); if(dayDiff(sc.start,sc.end)<0) sc.start=sc.end; } else { sc.end=addDays(UI.drag.orig.end,d); if(dayDiff(sc.start,sc.end)<0) sc.end=sc.start; } const bar=$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); if(bar){ bar.style.left=xFor(sc.start,{start:UI.originStart})+"px"; bar.style.width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay())+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
     window.addEventListener("pointerup",()=>{ if(!UI.drag) return; const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]={start:bar.dataset.tmpStart,end:bar.dataset.tmpEnd}; saveModel(pid,model,"Balk bijgewerkt"); } UI.drag=null; render(); });
     function drawDeps(model,rows,range){ const svg=$("#depSvg"); svg.innerHTML=""; if(!UI.showDeps) return; const rowH=UI.printMode?22:48; const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i])); const w=pxPerDay(); svg.setAttribute("width",Math.max(900,(range.days*w))); svg.setAttribute("height",rows.length*rowH); model.rows.forEach(row=>{ const i=rowIndex.get(row.id); if(i==null) return; parsePred(row.predecessor).forEach(p=>{ const pi=rowIndex.get(p.id); if(pi==null) return; const predSc=model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id)); const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id)); if(!predSc?.end||!sc?.start) return; const x1=xFor(predSc.end,range)+duration(predSc.start,predSc.end)*w, y1=pi*rowH+(rowH/2), x2=xFor(sc.start,range)+2, y2=i*rowH+(rowH/2); const mid=x1+Math.max(14,(x2-x1)/2); const path=document.createElementNS("http://www.w3.org/2000/svg","path"); path.setAttribute("d",`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`); path.setAttribute("fill","none"); path.setAttribute("stroke","rgba(15,23,42,.45)"); path.setAttribute("stroke-width",UI.printMode?"0.55":"1.1"); svg.appendChild(path); }); }); }
@@ -372,7 +551,51 @@
     function applyPredecessors(){ const pid=currentProjectId(), model=getModel(pid); let changed=0; model.rows.forEach(row=>{ if(row.type!=="task"||row.locked) return; parsePred(row.predecessor).forEach(p=>{ const pred=model.sched[p.id]; const cur=model.sched[row.id]; if(!pred||!cur) return; const min=addDays(pred.end,1+(p.lag||0)); if(cur.start<min){ const dur=duration(cur.start,cur.end); cur.start=min; cur.end=addDays(min,dur-1); changed++; } }); }); saveModel(pid,model,changed?"Planning herberekend":"Planning ongewijzigd"); toast(changed?`${changed} taak/taken verschoven`:"Planning al geldig"); render(); }
     function setBaseline(){ const pid=currentProjectId(), model=getModel(pid); model.rows.forEach(row=>{ const sc=model.sched[row.id]; if(sc?.start&&sc?.end){ row.baselineStart=sc.start; row.baselineEnd=sc.end; }}); saveModel(pid,model,"Baseline ingesteld"); render(); }
     function indent(delta){ const pid=currentProjectId(), model=getModel(pid); const row=model.rows.find(r=>r.id===UI.selected); if(!row||row.type==="summary"||row.locked){toast("Selecteer een ontgrendelde taak","warn");return;} row.level=Math.max(1,Number(row.level||1)+delta); saveModel(pid,model); render(); }
-    function openEdit(rowId){ const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId), sc=model.sched[rowId]||{}; if(!row) return; $("#modalTitle").textContent="Taak bewerken"; $("#modalBody").innerHTML=`<div class="form-grid"><label class="field">Taak<input id="mName" value="${esc(row.name)}"></label><label class="field">Afdeling<input id="mDept" value="${esc(row.department||"")}"></label><label class="field">Start<input id="mStart" value="${esc(toNL(sc.start))}"></label><label class="field">Einde<input id="mEnd" value="${esc(toNL(sc.end))}"></label><label class="field">Voortgang<input id="mProg" type="number" min="0" max="100" value="${Number(row.progress||0)}"></label><label class="field">Voorganger<input id="mPred" value="${esc(row.predecessor||"")}"></label><label class="field">Kleur<select id="mColor">${Object.keys(colorMap).map(k=>`<option value="${k}" ${row.colorKey===k?"selected":""}>${colorNames[k]}</option>`).join("")}</select></label><label class="field">Lock<select id="mLock"><option value="0" ${!row.locked?"selected":""}>Nee</option><option value="1" ${row.locked?"selected":""}>Ja</option></select></label><label class="field" style="grid-column:1/-1">WHY / notitie<textarea id="mWhy">${esc(row.why||"")}</textarea></label></div>`; $("#modalBack").classList.add("show"); $("#modalSave").onclick=()=>{ row.name=$("#mName").value.trim()||row.name; row.department=$("#mDept").value.trim()||row.department; row.progress=Math.max(0,Math.min(100,Number($("#mProg").value)||0)); row.predecessor=$("#mPred").value.trim(); row.colorKey=$("#mColor").value; row.locked=$("#mLock").value==="1"; row.why=$("#mWhy").value.trim(); if(row.type!=="summary"){ model.sched[rowId]={start:toIso($("#mStart").value)||sc.start,end:toIso($("#mEnd").value)||sc.end}; } saveModel(pid,model); $("#modalBack").classList.remove("show"); render(); }; }
+    function openEdit(rowId){
+      const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId), rowIndex=model.rows.findIndex(r=>r.id===rowId), sc=rowSchedule(model,row||{},rowIndex)||{};
+      if(!row) return;
+      const st=state();
+      const deptOptions=departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("");
+      const resOptions=`<option value="">—</option>`+resources(st).map(r=>`<option value="${esc(r.id)}" ${String(row.resourceId||"")===String(r.id)?"selected":""}>${esc(r.name||r.id)}</option>`).join("");
+      $("#modalTitle").textContent=row.type==="summary" ? "Fase bewerken" : "Taak bewerken";
+      $("#modalBody").innerHTML=`<div class="form-grid">
+        <label class="field">Naam<input id="mName" value="${esc(row.name)}"></label>
+        <label class="field">Type<input value="${row.type==="summary"?"Fase / samenvatting":"Taak"}" disabled></label>
+        <label class="field">Afdeling<select id="mDept">${deptOptions}${row.department?`<option value="${esc(row.department)}" selected>${esc(row.department)}</option>`:""}</select></label>
+        <label class="field">Resource<select id="mResource">${resOptions}</select></label>
+        <label class="field">Start<input id="mStart" value="${esc(toNL(sc.start))}" ${row.type==="summary"?"disabled":""}></label>
+        <label class="field">Einde<input id="mEnd" value="${esc(toNL(sc.end))}" ${row.type==="summary"?"disabled":""}></label>
+        <label class="field">Duur<input id="mDur" value="${duration(sc.start,sc.end)} d" disabled></label>
+        <label class="field">Voortgang<input id="mProg" type="number" min="0" max="100" value="${Number(row.progress||0)}"></label>
+        <label class="field">Voorganger<input id="mPred" value="${esc(row.predecessor||"")}" placeholder="P-1001-T1FS, P-1001-T2SS+2"></label>
+        <label class="field">Kleur${colorPickerHtml("mColor", row.colorKey, "")}</label>
+        <label class="field">Uren<input id="mHours" type="number" min="0" step="0.25" value="${Number(row.hours||0)}"></label>
+        <label class="field">Lock<select id="mLock"><option value="0" ${!row.locked?"selected":""}>Nee</option><option value="1" ${row.locked?"selected":""}>Ja</option></select></label>
+        <label class="field" style="grid-column:1/-1">WHY / notitie<textarea id="mWhy">${esc(row.why||"")}</textarea></label>
+      </div>`;
+      $("#modalBack").classList.add("show");
+      const colorSel=$("#modalBody select[data-k='mColor']");
+      if(colorSel){ setColorPickerPreview(colorSel); colorSel.addEventListener("input",()=>setColorPickerPreview(colorSel)); }
+      $("#modalSave").onclick=()=>{
+        row.name=$("#mName").value.trim()||row.name;
+        row.department=$("#mDept").value.trim()||row.department;
+        row.resourceId=$("#mResource").value.trim();
+        row.progress=Math.max(0,Math.min(100,Number($("#mProg").value)||0));
+        row.predecessor=$("#mPred").value.trim();
+        row.colorKey=normalizeColorKey(colorSel?.value||row.colorKey);
+        row.hours=Math.max(0,Number($("#mHours").value)||0);
+        row.locked=$("#mLock").value==="1";
+        row.why=$("#mWhy").value.trim();
+        if(row.type!=="summary"){
+          const start=toIso($("#mStart").value)||sc.start;
+          const end=toIso($("#mEnd").value)||sc.end;
+          model.sched[rowId]={start,end};
+        }
+        saveModel(pid,model,"Taak bijgewerkt");
+        $("#modalBack").classList.remove("show");
+        render();
+      };
+    }
     function exportCsv(){
       const cols=visibleColumns();
       const lines=[cols.map(c=>c.label)];
@@ -392,7 +615,7 @@
       }
     }
     function printA3(){ const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW; UI.printMode=true; UI.view="diagram"; UI.zoom="print"; document.body.classList.add("printing"); render(); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(UI.printMode) restore(); },8000); }
-    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen gegenereerd"); render();}; $("#recalcBtn").onclick=applyPredecessors; $("#hoursBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Uren herberekend voor Capaciteit"); render(); }; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; window.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modalBack").classList.remove("show"); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
+    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen uit standaardtemplate gegenereerd"); toast("Fasen uit standaardtemplate gegenereerd"); render();}; $("#recalcBtn").onclick=applyPredecessors; $("#hoursBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Uren herberekend voor Capaciteit"); render(); }; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; window.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modalBack").classList.remove("show"); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
     bind(); render();
   })();
   </script>

@@ -15,6 +15,18 @@ window.CWS = window.CWS || {};
   };
 
   const deepClone = (x) => JSON.parse(JSON.stringify(x));
+  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
+  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
+  const normalizeColorKey = (value, fallback="c1") => {
+    const raw = String(value ?? "").trim();
+    if(CWS_COLOR_MAP[raw]) return raw;
+    const lower = raw.toLowerCase();
+    const byName = Object.entries(CWS_COLOR_NAMES).find(([,name]) => String(name).toLowerCase() === lower);
+    if(byName) return byName[0];
+    const byHex = Object.entries(CWS_COLOR_MAP).find(([,hex]) => String(hex).toLowerCase() === lower);
+    if(byHex) return byHex[0];
+    return CWS_COLOR_MAP[fallback] ? fallback : "c1";
+  };
 
   const defaultState = () => ({
     schemaVersion: SCHEMA_VERSION,
@@ -233,6 +245,29 @@ window.CWS = window.CWS || {};
     st.ganttV2.byProject = st.ganttV2.byProject || {};
     st.ganttV2.ui = st.ganttV2.ui || { showCritical:false, showDeps:true, viewMode:"both", zoom:"week" };
     st.templates = st.templates || { taskSets: [ { id:"default", name:"Standaard", phases:[] } ] };
+    st.templates.taskSets = Array.isArray(st.templates.taskSets) ? st.templates.taskSets : [];
+    if(!st.templates.taskSets.length) st.templates.taskSets.push({ id:"default", name:"Standaard", phases:[] });
+    st.templates.taskSets.forEach((set, setIndex) => {
+      set.id = set.id || (setIndex === 0 ? "default" : `tpl_${setIndex+1}`);
+      set.name = set.name || "Template";
+      set.phases = Array.isArray(set.phases) ? set.phases : [];
+      set.phases.forEach((phase, phaseIndex) => {
+        phase.id = phase.id || `PH-${phaseIndex+1}`;
+        phase.name = phase.name || `Fase ${phaseIndex+1}`;
+        phase.colorKey = normalizeColorKey(phase.colorKey || phase.color || "c1");
+        phase.color = phase.colorKey;
+        phase.tasks = Array.isArray(phase.tasks) ? phase.tasks : [];
+        phase.tasks.forEach((task, taskIndex) => {
+          task.id = task.id || `T-${taskIndex+1}`;
+          task.name = task.name || "Taak";
+          task.days = Math.max(1, Number(task.days || task.duration || 5) || 5);
+          task.hours = Math.max(0, Number(task.hours || 0) || 0);
+          task.colorKey = normalizeColorKey(task.colorKey || task.color || phase.colorKey || "c1");
+          task.color = task.colorKey;
+        });
+      });
+    });
+    st.templates.activeTaskSetId = st.templates.activeTaskSetId || st.templates.taskSets.find(t=>String(t.id)==="default")?.id || st.templates.taskSets[0]?.id || "default";
     st.reports = st.reports || { active:"cap_week", templates:[] };
     return st;
   };
@@ -1162,6 +1197,7 @@ window.CWS = window.CWS || {};
     clearAll,
     audit,
     hasPermission,
-    setUserRole
+    setUserRole,
+    colors: { map:CWS_COLOR_MAP, names:CWS_COLOR_NAMES, normalize:normalizeColorKey }
   };
 })();

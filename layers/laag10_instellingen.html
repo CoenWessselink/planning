@@ -1,6 +1,12 @@
 <!doctype html><html lang="nl"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<link rel="stylesheet" href="../css/theme.css"/></head>
+<link rel="stylesheet" href="../css/theme.css"/>
+<style>
+/* V19 — centrale kleurkeuze voor standaard fasen/taken */
+.color-pick{display:flex;align-items:center;gap:8px;min-width:170px;}
+.color-pick .color-swatch{width:20px;height:20px;border-radius:6px;border:1px solid rgba(15,23,42,.25);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);flex:0 0 auto;}
+.color-pick select{min-width:130px;}
+</style></head>
 <body style="background:transparent">
 <div class="panel">
   <div class="panel-head">
@@ -221,6 +227,31 @@
   // Phase 14: Template Manager
   let tplCtx = { activeId: null };
 
+  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
+  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
+  function normalizeTplColor(value, fallback="c1"){
+    const raw=String(value??"").trim();
+    if(CWS_COLOR_MAP[raw]) return raw;
+    const lower=raw.toLowerCase();
+    const byName=Object.entries(CWS_COLOR_NAMES).find(([,name])=>String(name).toLowerCase()===lower);
+    if(byName) return byName[0];
+    const byHex=Object.entries(CWS_COLOR_MAP).find(([,hex])=>String(hex).toLowerCase()===lower);
+    if(byHex) return byHex[0];
+    return CWS_COLOR_MAP[fallback] ? fallback : "c1";
+  }
+  function colorSelectHtml(k, pi, ti, value){
+    const key=normalizeTplColor(value);
+    const opts=Object.keys(CWS_COLOR_MAP).map(c=>`<option value="${c}" ${key===c?"selected":""}>● ${CWS_COLOR_NAMES[c]}</option>`).join("");
+    return `<div class="color-pick"><span class="color-swatch" style="background:${CWS_COLOR_MAP[key]}"></span><select class="input" data-k="${k}" data-pi="${pi}" data-ti="${ti}">${opts}</select></div>`;
+  }
+  function bindColorPreviews(root){
+    (root||document).querySelectorAll(".color-pick select[data-k]").forEach(sel=>{
+      const update=()=>{ const sw=sel.closest(".color-pick")?.querySelector(".color-swatch"); if(sw) sw.style.background=CWS_COLOR_MAP[normalizeTplColor(sel.value)]||CWS_COLOR_MAP.c1; };
+      update();
+      sel.addEventListener("input",update);
+    });
+  }
+
   
   // Phase 18: Rights & Audit modals
   let rightsCtx = { activeId: "planner" };
@@ -344,7 +375,7 @@ function openTplModal(open){
       renderTplList();
       if(!tplCtx.activeId){
         const st=CWS.getState();
-        tplCtx.activeId = (st.templates?.taskSets?.[0]?.id) || "default";
+        tplCtx.activeId = st.templates?.activeTaskSetId || (st.templates?.taskSets?.[0]?.id) || "default";
       }
       renderTplEditor();
     }
@@ -365,10 +396,14 @@ function openTplModal(open){
         ts.phases.forEach(ph=>{
           ph.name = ph.name || "Fase";
           ph.tasks = ph.tasks || [];
+          ph.colorKey = normalizeTplColor(ph.colorKey || ph.color || "c1");
+          ph.color = ph.colorKey;
           ph.tasks.forEach(t=>{
             t.name = t.name || "Taak";
             t.hours = Number(t.hours||0);
             if(!t.dept) t.dept = "";
+            t.colorKey = normalizeTplColor(t.colorKey || t.color || ph.colorKey || "c1");
+            t.color = t.colorKey;
           });
         });
       });
@@ -391,7 +426,7 @@ function openTplModal(open){
       const d=document.createElement("div");
       d.className="pitem" + (t.id===tplCtx.activeId ? " active":"");
       d.innerHTML = `<div style="font-weight:900;">${t.name}</div><div class="pmeta">${t.phases?.length||0} fasen</div>`;
-      d.addEventListener("click", ()=>{ tplCtx.activeId=t.id; renderTplEditor(); renderTplList(); });
+      d.addEventListener("click", ()=>{ tplCtx.activeId=t.id; CWS.setState(s=>{ s.templates=s.templates||{taskSets:[]}; s.templates.activeTaskSetId=t.id; return s; }); renderTplEditor(); renderTplList(); });
       root.appendChild(d);
     });
   }
@@ -426,7 +461,7 @@ function openTplModal(open){
           <td><input class="input" data-k="end" data-pi="${pi}" data-ti="${ti}" type="date" value="${t.end||t.endDate||""}"/></td>
           <td><input class="input" data-k="days" data-pi="${pi}" data-ti="${ti}" type="number" min="1" step="1" style="width:86px" value="${Number(t.days||1)}"/></td>
           <td><input class="input" data-k="hours" data-pi="${pi}" data-ti="${ti}" type="number" min="0" step="0.25" style="width:100px" value="${Number(t.hours||0)}"/></td>
-          <td><input class="input" data-k="color" data-pi="${pi}" data-ti="${ti}" placeholder="c1" style="width:72px" value="${t.colorKey||t.color||"c1"}"/></td>
+          <td>${colorSelectHtml("color", pi, ti, t.colorKey||t.color||"c1")}</td>
           <td style="text-align:right; display:flex; justify-content:flex-end; gap:8px;">
             <button class="smallbtn" data-act="delt" data-pi="${pi}" data-ti="${ti}">Verwijder taak</button>
           </td>`;
@@ -435,8 +470,9 @@ function openTplModal(open){
     });
 
     // bind input updates
-    tbody.querySelectorAll("input[data-k]").forEach(inp=>{
-      inp.addEventListener("blur", ()=>{
+    bindColorPreviews(tbody);
+    tbody.querySelectorAll("input[data-k], select[data-k]").forEach(inp=>{
+      const commit = ()=>{
         const k=inp.getAttribute("data-k");
         const pi=Number(inp.getAttribute("data-pi"));
         const ti=Number(inp.getAttribute("data-ti"));
@@ -447,10 +483,14 @@ function openTplModal(open){
           const tk = ph?.tasks?.[ti];
           if(!tk) return s;
           if(k==="hours") tk.hours = Math.max(0, Number(inp.value||0));
+          else if(k==="days") tk.days = Math.max(1, Number(inp.value||1));
+          else if(k==="color") { tk.colorKey = normalizeTplColor(inp.value); tk.color = tk.colorKey; }
           else tk[k==="tname"?"name":k] = inp.value;
           return s;
         });
-      });
+      };
+      inp.addEventListener("change", commit);
+      inp.addEventListener("blur", commit);
       inp.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); inp.blur(); } });
     });
 
@@ -1657,7 +1697,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
     ensureTemplatesInState();
     CWS.setState(s=>{
       const id = "tpl_" + Math.random().toString(16).slice(2,8);
-      s.templates.taskSets.unshift({ id, name:"Nieuw template", phases:[{ name:"Fase 1", tasks:[{ name:"Taak 1", hours:8, dept:"" }]}] });
+      s.templates.taskSets.unshift({ id, name:"Nieuw template", phases:[{ name:"Fase 1", colorKey:"c1", color:"c1", tasks:[{ name:"Taak 1", hours:8, dept:"", colorKey:"c1", color:"c1", days:5 }]}] });
       return s;
     });
     tplCtx.activeId = CWS.getState().templates.taskSets[0].id;
@@ -1694,9 +1734,17 @@ let editCtx = { mode:"new", sec:"", id:"" };
 
   const __tplApply = document.getElementById("tplApply");
   if(__tplApply) __tplApply.onclick = ()=>{
-    try{ requirePerm("edit_projects", ()=>{ CWS.applyTemplateToProjects })(tplCtx.activeId); }catch(e){}
+    CWS.setState(s=>{
+      s.templates = s.templates || { taskSets: [] };
+      s.templates.activeTaskSetId = tplCtx.activeId;
+      // Koppel dit template aan bestaande projecten zodat Gantt → Genereer fasen exact dit standaardtemplate gebruikt.
+      (s.projects?.order || []).forEach(pid=>{
+        if(s.projects.byId?.[pid]) s.projects.byId[pid].templateId = tplCtx.activeId;
+      });
+      return s;
+    });
     CWS.audit("template_changed");
-      UI.toast("Toegepast op projecten met dit template");
+    UI.toast("Template gekoppeld aan projecten en ingesteld voor Gantt");
   };
 
   const __phAdd = document.getElementById("phAdd");
@@ -1704,7 +1752,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
     CWS.setState(s=>{
       const ts = s.templates.taskSets.find(x=>x.id===tplCtx.activeId);
       if(!ts) return s;
-      ts.phases.push({ name:"Nieuwe fase", tasks:[] });
+      ts.phases.push({ name:"Nieuwe fase", colorKey:"c1", color:"c1", tasks:[] });
       return s;
     });
     renderTplList(); renderTplEditor();
@@ -1715,8 +1763,8 @@ let editCtx = { mode:"new", sec:"", id:"" };
     CWS.setState(s=>{
       const ts = s.templates.taskSets.find(x=>x.id===tplCtx.activeId);
       if(!ts) return s;
-      if(!ts.phases.length) ts.phases.push({ name:"Fase 1", tasks:[] });
-      ts.phases[0].tasks.push({ name:"Nieuwe taak", hours:8, dept:"" });
+      if(!ts.phases.length) ts.phases.push({ name:"Fase 1", colorKey:"c1", color:"c1", tasks:[] });
+      ts.phases[0].tasks.push({ name:"Nieuwe taak", hours:8, dept:"", days:5, colorKey:"c1", color:"c1" });
       return s;
     });
     renderTplList(); renderTplEditor();
