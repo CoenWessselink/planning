@@ -1,4 +1,5 @@
 import fs from "node:fs";
+function read(file){ return fs.readFileSync(file, "utf8"); }
 const required = [
   "index.html",
   "layers/laag3_projecten.html",
@@ -85,5 +86,8 @@ check("V47 zet parent document title voor PDF-bestandsnaam", gantt.includes("win
 check("V47 printkolommen passen op inhoud", gantt.includes("--v47-print-left-w"));
 check("V47 lichtere daglijnen en donkerdere niet-werkbare dagen", gantt.includes("--v47-print-grid:.18px") && gantt.includes("--v47-print-nonwork:#dfe4ea"));
 check("V47 afhankelijkheidslijnen hebben halo en duidelijke lijn", gantt.includes("dep-halo") && gantt.includes("dep-line"));
+
+
+check("V48 print fine-tune aanwezig", read("layers/laag4_gantt.html").includes("V48 — final small Gantt print fine-tune") && read("layers/laag4_gantt.html").includes("max-width:203px"));
 
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");

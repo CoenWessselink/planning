@@ -595,6 +595,54 @@
     .dep-svg path.dep-halo{stroke:#fff!important;stroke-width:4.8!important;fill:none!important;vector-effect:non-scaling-stroke!important;stroke-linejoin:round!important;stroke-linecap:round!important;}
     .dep-svg path.dep-line{stroke:#334155!important;stroke-width:2.15!important;fill:none!important;vector-effect:non-scaling-stroke!important;stroke-linejoin:round!important;stroke-linecap:round!important;}
 
+
+    /* V48 — final small Gantt print fine-tune
+       - table/diagram row grid uses one thin weight
+       - diagram typography equals table typography
+       - non-working days stay subtly visible
+       - Tasche logo is 1.5x larger than V47
+       - table/diagram separator remains exact while inner grid stays light */
+    :root{
+      --v48-print-row-h:24px;
+      --v48-print-head-h:58px;
+      --v48-print-inner-line:.18px;
+      --v48-print-inner-color:#d4dbe4;
+      --v48-print-outer-line:.32px;
+      --v48-print-outer-color:#111827;
+      --v48-print-nonwork:#e6eaef;
+    }
+    @media print{
+      .printing .print-logo{max-width:203px!important;max-height:57px!important;object-fit:contain!important;}
+      .printing .print-header{min-height:58px!important;}
+      .printing .board,.printing .board.diagram-only,.printing .board.table-only{align-items:start!important;}
+      .printing .print-task-table{border-right:var(--v48-print-outer-line) solid var(--v48-print-outer-color)!important;}
+      .printing .print-task-table table,
+      .printing .print-task-table th,
+      .printing .print-task-table td,
+      .printing .chart-pane,
+      .printing .chart-pane *,
+      .printing .timeline,
+      .printing .timeline *,
+      .printing #lanes,
+      .printing #lanes *{font-family:Arial,Helvetica,sans-serif!important;}
+      .printing .print-task-table th,.printing .print-task-table td{height:var(--v48-print-row-h)!important;min-height:var(--v48-print-row-h)!important;max-height:var(--v48-print-row-h)!important;line-height:1.05!important;}
+      .printing .print-task-table thead th{height:var(--v48-print-head-h)!important;min-height:var(--v48-print-head-h)!important;max-height:var(--v48-print-head-h)!important;}
+      .printing .chart-pane{border-left:0!important;}
+      .printing .timeline{height:var(--v48-print-head-h)!important;min-height:var(--v48-print-head-h)!important;max-height:var(--v48-print-head-h)!important;border-bottom:var(--v48-print-outer-line) solid var(--v48-print-outer-color)!important;}
+      .printing .tl-cell{border-right:var(--v48-print-inner-line) solid var(--v48-print-inner-color)!important;border-bottom:var(--v48-print-inner-line) solid var(--v48-print-inner-color)!important;font-family:Arial,Helvetica,sans-serif!important;font-weight:900!important;}
+      .printing .tl-cell.day.weekend,.printing .tl-cell.day.nonwork{background:var(--v48-print-nonwork)!important;}
+      .printing .lane{height:var(--v48-print-row-h)!important;min-height:var(--v48-print-row-h)!important;max-height:var(--v48-print-row-h)!important;border-bottom:var(--v48-print-inner-line) solid var(--v48-print-inner-color)!important;box-sizing:border-box!important;background-color:#fff!important;}
+      .printing .lane:nth-child(even){background-color:#f4f4f4!important;}
+      .printing .summary-lane{background:#ffd400!important;}
+      .printing .day-grid-line{width:var(--v48-print-inner-line)!important;background:var(--v48-print-inner-color)!important;opacity:1!important;}
+      .printing .nonwork-shade{background:var(--v48-print-nonwork)!important;opacity:1!important;border:0!important;}
+      .printing .bar,
+      .printing .bar .bar-label,
+      .printing .bar-text-before,
+      .printing .bar-text-after{font-family:Arial,Helvetica,sans-serif!important;font-weight:900!important;}
+      .printing .bar{border:var(--v48-print-outer-line) solid var(--v48-print-outer-color)!important;}
+    }
+
   </style>
 </head>
 <body>
