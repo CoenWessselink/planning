@@ -425,7 +425,66 @@
     #tplBackdrop thead th{z-index:6!important;background:#eef2f7!important;}
 
   /* V38 compatibility markers for preflight: border:.35px solid #111827 stroke-width",UI.printMode?"0.55" */
-</style>
+
+
+    /* V44 — definitive Gantt print raster, alignment and typography hardening
+       Fixes: every day line visible, table/diagram rows 100% aligned, single separator,
+       calendar fills print width, and diagram font equals table font. */
+    .day-grid-line{display:none;}
+    @media print{
+      :root{--v44-print-row-h:24px;--v44-print-head-h:58px;--v44-print-line:#111827;--v44-print-thin:.55px;}
+      html,body,.gantt-shell,.board-wrap,.board,.chart-pane,.timeline,.lane,.print-task-table,.print-task-table *{
+        font-family:Arial,Helvetica,sans-serif!important;
+        box-sizing:border-box!important;
+      }
+      .printing .toolbar,.printing .notice,.printing .context,.printing .mobile-toolbar,.printing .v37-mobile-action-dock,.printing .gantt-context-menu,.printing .modalback{display:none!important;}
+      .printing .print-header{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;border:var(--v44-print-thin) solid var(--v44-print-line)!important;border-bottom:0!important;padding:4px 6px!important;margin:0!important;background:#fff!important;break-inside:avoid!important;}
+      .printing .print-title{font-family:Arial,Helvetica,sans-serif!important;font-weight:900!important;font-size:13px!important;line-height:1.05!important;color:#000!important;}
+      .printing .print-sub{font-family:Arial,Helvetica,sans-serif!important;font-size:7px!important;line-height:1.15!important;color:#000!important;}
+      .printing .print-logo{display:block!important;max-width:96px!important;max-height:36px!important;object-fit:contain!important;}
+      .printing .module-head,.printing .meta-line{display:none!important;}
+      .printing .board-wrap{margin:0!important;border:var(--v44-print-thin) solid var(--v44-print-line)!important;border-radius:0!important;overflow:visible!important;background:#fff!important;width:100%!important;}
+      .printing .board,.printing .board.diagram-only,.printing .board.table-only{display:grid!important;grid-template-columns:250px minmax(0,1fr)!important;gap:0!important;align-items:start!important;width:100%!important;min-width:0!important;}
+      .printing .print-task-table{display:block!important;width:250px!important;min-width:250px!important;max-width:250px!important;border-right:var(--v44-print-thin) solid var(--v44-print-line)!important;background:#fff!important;overflow:hidden!important;}
+      .printing .print-task-table table{width:250px!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:7px!important;line-height:1.05!important;color:#000!important;}
+      .printing .print-task-table col:nth-child(1){width:42px!important;}
+      .printing .print-task-table col:nth-child(2){width:138px!important;}
+      .printing .print-task-table col:nth-child(3){width:48px!important;}
+      .printing .print-task-table col:nth-child(4){width:22px!important;}
+      .printing .print-task-table th,.printing .print-task-table td{height:var(--v44-print-row-h)!important;min-height:var(--v44-print-row-h)!important;max-height:var(--v44-print-row-h)!important;border:var(--v44-print-thin) solid var(--v44-print-line)!important;border-left:0!important;padding:1px 3px!important;vertical-align:middle!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+      .printing .print-task-table thead th{height:var(--v44-print-head-h)!important;min-height:var(--v44-print-head-h)!important;max-height:var(--v44-print-head-h)!important;background:#fff!important;vertical-align:bottom!important;font-weight:900!important;}
+      .printing .print-task-table tbody tr:nth-child(even) td{background:#f1f1f1!important;}
+      .printing .print-task-table tbody tr.summary-row td{background:#ffd900!important;font-weight:900!important;text-transform:uppercase!important;}
+      .printing .chart-pane{grid-column:2!important;position:relative!important;display:block!important;min-width:0!important;width:100%!important;overflow:visible!important;background:#fff!important;border-left:0!important;}
+      .printing #timeline,.printing #lanes{min-width:100%!important;background:#fff!important;}
+      .printing .timeline{position:relative!important;top:auto!important;height:var(--v44-print-head-h)!important;min-height:var(--v44-print-head-h)!important;max-height:var(--v44-print-head-h)!important;display:grid!important;grid-template-rows:20px 18px 20px!important;border-bottom:var(--v44-print-thin) solid var(--v44-print-line)!important;background:#fff!important;}
+      .printing .tl-row{display:grid!important;min-width:max-content!important;height:auto!important;}
+      .printing .tl-cell{font-family:Arial,Helvetica,sans-serif!important;font-size:6px!important;line-height:1!important;font-weight:900!important;color:#000!important;background:#fff!important;border-right:var(--v44-print-thin) solid var(--v44-print-line)!important;border-bottom:var(--v44-print-thin) solid var(--v44-print-line)!important;}
+      .printing .tl-cell.day.weekend,.printing .tl-cell.day.nonwork{background:#f7f7f7!important;color:#000!important;}
+      .printing .lane{position:relative!important;height:var(--v44-print-row-h)!important;min-height:var(--v44-print-row-h)!important;max-height:var(--v44-print-row-h)!important;border-bottom:var(--v44-print-thin) solid var(--v44-print-line)!important;background:#fff!important;background-image:none!important;overflow:hidden!important;}
+      .printing .lane:nth-child(even){background:#f1f1f1!important;}
+      .printing .summary-lane{background:#ffd900!important;}
+      .printing .day-grid-line{display:block!important;position:absolute!important;top:0!important;bottom:0!important;width:var(--v44-print-thin)!important;background:var(--v44-print-line)!important;opacity:1!important;pointer-events:none!important;z-index:0!important;}
+      .printing .nonwork-shade{top:0!important;bottom:0!important;background:rgba(148,163,184,.12)!important;border:0!important;z-index:0!important;}
+      .printing .bar{top:4px!important;height:15px!important;min-height:15px!important;max-height:15px!important;border:var(--v44-print-thin) solid var(--v44-print-line)!important;border-radius:2px!important;font-family:Arial,Helvetica,sans-serif!important;font-size:6px!important;font-weight:900!important;line-height:14px!important;padding:0 3px!important;box-shadow:none!important;text-shadow:none!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;z-index:4!important;}
+      .printing .bar .bar-label,.printing .bar-text-before,.printing .bar-text-after{font-family:Arial,Helvetica,sans-serif!important;font-size:6px!important;font-weight:900!important;line-height:14px!important;text-shadow:none!important;}
+      .printing .bar.summary{height:var(--v44-print-row-h)!important;top:0!important;border:0!important;background:transparent!important;color:#111827!important;}
+      .printing .bar.summary:before{top:11px!important;border-top:var(--v44-print-thin) solid var(--v44-print-line)!important;}
+      .printing .bar.summary:after{display:none!important;}
+      .printing .bar.summary .bar-label{top:3px!important;height:14px!important;line-height:14px!important;font-size:6px!important;border:0!important;background:transparent!important;color:#000!important;padding:0 2px!important;}
+      .printing .handle,.printing .bar-feedback-dot{display:none!important;}
+      .printing .today-line{width:1px!important;background:#dc2626!important;top:0!important;bottom:0!important;z-index:12!important;}
+      .printing .today-line::before{display:none!important;}
+      .printing .dep-svg{top:var(--v44-print-head-h)!important;height:calc(100% - var(--v44-print-head-h))!important;}
+      .printing .dep-svg path{stroke:#555!important;stroke-width:.55!important;fill:none!important;}
+      .printing .print-legend{display:block!important;margin:0!important;border:var(--v44-print-thin) solid var(--v44-print-line)!important;border-top:0!important;font-family:Arial,Helvetica,sans-serif!important;font-size:6px!important;line-height:1.1!important;background:#fff!important;break-inside:avoid!important;}
+      .printing .legend-title{font-size:7px!important;font-weight:900!important;border-bottom:var(--v44-print-thin) solid var(--v44-print-line)!important;padding:3px 4px!important;}
+      .printing .legend-items{grid-template-columns:repeat(6,minmax(70px,1fr))!important;gap:2px 6px!important;padding:3px 4px!important;}
+      .printing .legend-swatch{width:22px!important;height:7px!important;border:var(--v44-print-thin) solid var(--v44-print-line)!important;}
+      .printing .legend-text{font-family:Arial,Helvetica,sans-serif!important;font-size:6px!important;color:#000!important;}
+    }
+
+  </style>
 </head>
 <body>
   <div class="print-header" id="printHeader"></div>
@@ -981,8 +1040,12 @@ var CWS = window.CWS;</script>
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
     function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const sorted=dates.slice().sort(); const min=sorted[0]; const max=sorted.at(-1); const start=startOfWeek(addDays(min,-7)); if(UI.printMode){ const endPad=startOfWeek(addDays(max,7)); return {start,days:Math.max(14,dayDiff(start,endPad)+7)}; } let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
     function pxPerDay(){ if(UI.printMode) return Number(UI.printDayW||12); return UI.zoom==="day"?34:UI.zoom==="week"?22:10; }
-    function targetPrintWidth(){ return UI.printMode ? 1240 : Math.max(1120, Math.min(1460, (window.innerWidth||1360)-120)); }
-    function setPrintDayWidth(range){ const target=targetPrintWidth(); UI.printDayW=Math.max(4.8, Math.min(18, Math.floor((target-6)/Math.max(1,range.days)))); document.documentElement.style.setProperty("--dayW", UI.printDayW+"px"); }
+    function targetPrintWidth(){ return UI.printMode ? 1760 : Math.max(1120, Math.min(1460, (window.innerWidth||1360)-120)); }
+    function setPrintDayWidth(range){
+      const target=targetPrintWidth();
+      UI.printDayW=Math.max(4.2, Math.min(18, Number(((target-2)/Math.max(1,range.days)).toFixed(3))));
+      document.documentElement.style.setProperty("--dayW", UI.printDayW+"px");
+    }
     function extendRangeForViewport(range,leftW){ if(UI.printMode||UI.view==="table") return range; const wrap=$("#boardWrap"); const w=pxPerDay(); const visible=Math.max(0,(wrap?.clientWidth||0)-(UI.view==="both"?leftW:0)-2); const minDays=Math.ceil(visible/w); return minDays>range.days ? {...range, days:minDays} : range; }
     function buildTimeline(range){ const w=pxPerDay(); document.documentElement.style.setProperty("--dayW",w+"px"); const days=[]; for(let i=0;i<range.days;i++) days.push(addDays(range.start,i)); const totalW=days.length*w; const groups=(kind)=>{ const out=[]; days.forEach((iso,i)=>{ const d=parseDate(iso); const key=kind==="month"?`${d.getUTCFullYear()}-${d.getUTCMonth()}`:`${isoWeek(d).year}-W${isoWeek(d).week}`; const label=kind==="month"?d.toLocaleDateString("nl-NL",{month:"short",year:"numeric",timeZone:"UTC"}):`W${String(isoWeek(d).week).padStart(2,"0")}`; let g=out[out.length-1]; if(!g||g.key!==key) out.push({key,label,count:1}); else g.count++; }); return out; };
       const stForDays=state();
@@ -1019,6 +1082,7 @@ var CWS = window.CWS;</script>
       UI.originStart=range.start;
       updatePrintHeader(model, range);
       const days=buildTimeline(range);
+      const dayGridLineHtml=UI.printMode?days.map((iso,i)=>`<span class="day-grid-line" style="left:${i*pxPerDay()}px"></span>`).join(""):"";
       const nonWorkShadeHtml=days.map((iso,i)=>isNonWorkingIso(st,iso)?`<span class="nonwork-shade" style="left:${i*pxPerDay()}px;width:${pxPerDay()}px"></span>`:"").join("");
       $("#ganttHead").innerHTML=cols.map((c,i)=>`<th draggable="true" data-col="${c.id}" style="width:${widths[i]}px">${esc(c.label)} <span class="smallmuted" title="Sleep kolom">↔</span></th>`).join("");
       $("#tableRows").innerHTML=rows.map(({row,index,sc})=>{
@@ -1046,7 +1110,7 @@ var CWS = window.CWS;</script>
         const beforeHtml=beforeText&&beforeW>=24?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,left-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
         const afterHtml=afterText&&afterW>=24?`<span class="bar-text-after" title="${esc(afterText)}" style="left:${afterLeft}px;width:${afterW}px">${esc(afterText)}</span>`:"";
         const title=[beforeText,insideText,afterText].filter(Boolean).join(" | ") || row.name;
-        return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${nonWorkShadeHtml}${base}${beforeHtml}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>${(row.feedback||row.why)&&row.type!=="summary"?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>${afterHtml}</div>`;
+        return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${dayGridLineHtml}${nonWorkShadeHtml}${base}${beforeHtml}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>${(row.feedback||row.why)&&row.type!=="summary"?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>${afterHtml}</div>`;
       }).join("");
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");

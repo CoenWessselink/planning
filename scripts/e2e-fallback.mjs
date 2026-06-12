@@ -60,5 +60,11 @@ if(!v42pass) ok = false;
 const v43pass = capacity.includes("V43 capaciteit A0-print") && capacity.includes("capacityPrintWeeks") && capacity.includes(" - Capaciteit - ") && capacity.includes("../assets/tasche-logo.png") && capacity.includes("border:0.45pt solid var(--v43-cap-line)");
 console.log(`${v43pass ? "OK" : "FAIL"} - V43 capaciteit A0 printstijl en PDF-naam`);
 if(!v43pass) ok = false;
+
+
+const v44pass = gantt.includes('V44 — definitive Gantt print raster') && gantt.includes('dayGridLineHtml') && gantt.includes('--v44-print-row-h') && gantt.includes('--v44-print-head-h') && gantt.includes('UI.printMode ? 1760');
+console.log(`${v44pass ? "OK" : "FAIL"} - V44 Gantt print daglijnen, uitlijning en kalenderbreedte`);
+if(!v44pass) ok = false;
+
 if (!ok) process.exit(1);
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");
