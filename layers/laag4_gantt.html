@@ -989,23 +989,41 @@
 
 
 
-    /* V59 — Gantt plant uitsluitend op werkbare dagen
-       - weekenden en niet-werkbare dagen blijven zichtbaar als kalenderachtergrond
-       - taakbalken worden visueel gesegmenteerd en lopen niet door over niet-werkbare dagen
-       - drag/resize/datum/duur snappen naar werkbare dagen */
-    .bar.bar-segment{border-radius:8px;overflow:hidden;}
-    .bar.bar-segment.segment-middle .handle{display:none!important;}
-    .bar.bar-segment.segment-first:not(.segment-last){border-top-right-radius:3px;border-bottom-right-radius:3px;}
-    .bar.bar-segment.segment-last:not(.segment-first){border-top-left-radius:3px;border-bottom-left-radius:3px;}
-    .bar.bar-segment.segment-middle{border-radius:3px;}
-    .bar.bar-segment.segment-empty{display:none!important;}
-    .bar.bar-segment .handle.left{display:none;}
-    .bar.bar-segment.segment-first .handle.left{display:block;}
-    .bar.bar-segment .handle.right{display:none;}
-    .bar.bar-segment.segment-last .handle.right{display:block;}
+    /* V59/V64 — Gantt plant uitsluitend op werkbare dagen.
+       V64 herstelt de gewone bruikbaarheid: één dragbare shell per taak en daarin
+       alleen zichtbare segmenten op werkbare dagen. Hierdoor loopt de taak visueel
+       niet over weekend/niet-werkbare dagen, maar slepen/resize/dubbelklik blijft stabiel. */
+    .bar.bar-workday-shell{
+      background:transparent!important;
+      box-shadow:none!important;
+      color:#fff!important;
+      padding:0!important;
+      overflow:visible!important;
+      min-width:18px!important;
+      contain:layout!important;
+    }
+    .bar.bar-workday-shell.selected{outline:2px solid rgba(37,99,235,.28);outline-offset:2px;border-radius:10px;}
+    .bar.bar-workday-shell .handle{background:rgba(15,23,42,.16);border-radius:5px;z-index:12;}
+    .bar-work-segment{
+      position:absolute;
+      top:0;
+      height:100%;
+      border-radius:8px;
+      overflow:hidden;
+      box-shadow:0 4px 10px rgba(47,111,189,.22);
+      pointer-events:none;
+    }
+    .bar-work-segment.segment-first:not(.segment-last){border-top-right-radius:3px;border-bottom-right-radius:3px;}
+    .bar-work-segment.segment-last:not(.segment-first){border-top-left-radius:3px;border-bottom-left-radius:3px;}
+    .bar-work-segment.segment-middle{border-radius:3px;}
+    .bar-work-segment .bar-label{position:relative;z-index:3;display:block;padding:0 9px;line-height:45px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 1px rgba(15,23,42,.25);}
+    .bar-work-segment .bar-progress{z-index:1;}
+    .bar-work-segment .bar-feedback-dot{pointer-events:auto;}
     .workday-rule-note{display:block;color:#64748b;font-size:11px;font-weight:800;margin-top:3px;}
     @media print{
-      .printing .bar.bar-segment{border-radius:2px!important;}
+      .printing .bar.bar-workday-shell{height:15px!important;box-shadow:none!important;}
+      .printing .bar-work-segment{border-radius:2px!important;box-shadow:none!important;}
+      .printing .bar-work-segment .bar-label{font-size:6px!important;line-height:15px!important;font-weight:900!important;text-shadow:none!important;}
     }
 
   </style>
@@ -1781,13 +1799,24 @@ var CWS = window.CWS;</script>
         const beforeHtml=beforeText&&beforeW>=24?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,firstLeft-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
         const afterHtml=afterText&&afterW>=24?`<span class="bar-text-after" title="${esc(afterText)}" style="left:${afterLeft}px;width:${afterW}px">${esc(afterText)}</span>`:"";
         const title=[beforeText,insideText,afterText].filter(Boolean).join(" | ") || row.name;
-        const barSegments=(segments.length?segments:[{left:fallbackLeft,width:pxPerDay(),start:sc.start,end:sc.start}]).map((seg,segIndex,arr)=>{
-          const first=segIndex===0, last=segIndex===arr.length-1;
-          const segCls=`bar-segment ${first?"segment-first":"segment-middle"} ${last?"segment-last":""}`;
-          const labelHtml=first?`<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>`:`<span class="bar-label" title="${esc(title)}"></span>`;
-          return `<div class="bar ${segCls} ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" data-segment="${segIndex+1}/${arr.length}" style="left:${seg.left}px;width:${seg.width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}${labelHtml}${(row.feedback||row.why)&&row.type!=="summary"&&first?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>`;
-        }).join("");
-        return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${dayGridLineHtml}${nonWorkShadeHtml}${base}${beforeHtml}${barSegments}${afterHtml}</div>`;
+        let barHtml="";
+        if(row.type==="summary"){
+          const summaryLeft=xFor(sc.start||range.start,range);
+          const summaryW=Math.max(pxPerDay(),calendarDuration(sc.start,sc.end)*pxPerDay());
+          barHtml=`<div class="bar summary ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${summaryLeft}px;width:${summaryW}px"><span class="bar-label" title="${esc(title)}">${esc(insideText)}</span></div>`;
+        }else{
+          const renderSegments=segments.length?segments:[{left:fallbackLeft,width:pxPerDay(),start:sc.start,end:sc.start}];
+          const shellLeft=firstLeft;
+          const shellW=Math.max(pxPerDay(), lastRight-firstLeft);
+          const segmentHtml=renderSegments.map((seg,segIndex,arr)=>{
+            const first=segIndex===0, last=segIndex===arr.length-1;
+            const segCls=`bar-work-segment ${first?"segment-first":"segment-middle"} ${last?"segment-last":""}`;
+            const labelHtml=first?`<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>`:`<span class="bar-label" title="${esc(title)}"></span>`;
+            return `<span class="${segCls}" data-segment="${segIndex+1}/${arr.length}" style="left:${Math.max(0,seg.left-shellLeft)}px;width:${seg.width}px;background:${esc(colorHex(row.colorKey))}">${`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`}${labelHtml}${(row.feedback||row.why)&&first?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}</span>`;
+          }).join("");
+          barHtml=`<div class="bar bar-workday-shell ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" data-workday-shell="1" style="left:${shellLeft}px;width:${shellW}px"><span class="handle left"></span>${segmentHtml}<span class="handle right"></span></div>`;
+        }
+        return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${dayGridLineHtml}${nonWorkShadeHtml}${base}${beforeHtml}${barHtml}${afterHtml}</div>`;
       }).join("");
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");

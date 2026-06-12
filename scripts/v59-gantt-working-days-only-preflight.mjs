@@ -12,7 +12,7 @@ check('V59 saveProjectGantt corrigeert voor opslaan/capaciteit', store.includes(
 check('V59 Gantt heeft centrale werkdaghelpers', gantt.includes('function isWeekendIso') && gantt.includes('function isWorkingIso') && gantt.includes('function addWorkingDays') && gantt.includes('function normalizeSchedule'));
 check('V59 Gantt corrigeert bestaande planning bij render', gantt.includes('normalizeModelSchedulesForWorkdays') && gantt.includes('taakdatum(s) naar werkbare dagen gecorrigeerd'));
 check('V59 Gantt genereert en herberekent met werkbare dagen', gantt.includes('normalizeSchedule(st, explicitStart || cursor') && gantt.includes('Planning herberekend op werkbare dagen') && gantt.includes('nextWorkingIso(st,addDays(pred.end'));
-check('V59 Gantt balken zijn werkdagsegmenten', gantt.includes('function workSegments') && gantt.includes('bar-segment') && gantt.includes('segment-first') && gantt.includes('segment-last'));
+check('V59 Gantt balken zijn werkdagsegmenten', gantt.includes('function workSegments') && (gantt.includes('bar-segment') || gantt.includes('bar-workday-shell')) && gantt.includes('segment-first') && gantt.includes('segment-last'));
 check('V59 drag/resize snapt naar werkbare dagen', gantt.includes('shiftScheduleByWorkdays') && gantt.includes('Balk bijgewerkt op werkbare dagen'));
 check('V59 popup/duur meldt werkdagenregel', gantt.includes('Duur telt alleen werkbare dagen') && gantt.includes('Weekend/niet-werkbaar wordt automatisch overgeslagen'));
 check('V59 instellingen default Ma-Vr werkbaar', settings.includes('6:false') && settings.includes('7:false'));

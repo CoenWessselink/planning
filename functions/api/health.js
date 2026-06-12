@@ -17,8 +17,8 @@ export async function onRequestGet(context) {
       ok: true,
       service: "cws-planning",
       storage: "d1",
-      version: "internal-test-v63",
-      healthMode: "v63-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
+      version: "internal-test-v64",
+      healthMode: "v64-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
       schemaOk: schema.ok,
       schemaErrors: schema.errors,
       schemaRepairRequired: !schema.ok
@@ -28,7 +28,7 @@ export async function onRequestGet(context) {
       ok: false,
       service: "cws-planning",
       storage: "d1",
-      healthMode: "v63-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
+      healthMode: "v64-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
       error: error.message
     }, 500);
   }
