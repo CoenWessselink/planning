@@ -19,7 +19,8 @@
     "preflight:v36": "node scripts/v36-functional-preflight.mjs",
     "preflight:v37": "node scripts/v37-mobile-preflight.mjs",
     "preflight:v38": "node scripts/v38-print-gantt-preflight.mjs",
-    "preflight:v39": "node scripts/v39-print-predecessor-preflight.mjs"
+    "preflight:v39": "node scripts/v39-print-predecessor-preflight.mjs",
+    "preflight:v40": "node scripts/v40-print-template-preflight.mjs"
   },
   "devDependencies": {}
 }

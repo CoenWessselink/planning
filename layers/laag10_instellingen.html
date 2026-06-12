@@ -10,7 +10,11 @@
 .logo-preview-box{display:flex;align-items:center;justify-content:center;min-height:120px;border:1px dashed #cbd5e1;border-radius:14px;background:#f8fafc;padding:12px;margin-top:8px}
 .logo-preview-box img{max-width:260px;max-height:110px;object-fit:contain}
 .logo-meta{font-size:12px;color:#64748b;margin-top:6px;line-height:1.4}
-</style></head>
+</style>
+<style id="v40-template-css">
+.tpl-pred-cell{display:flex;align-items:center;gap:6px;min-width:150px}.tpl-pred-nos{font-weight:900;color:#0f172a;min-width:24px}.tpl-pred-pick{height:30px;border:1px solid #d7dee8;border-radius:8px;background:#fff;color:#1d4ed8;font-weight:800;padding:0 8px;cursor:pointer}.tpl-pred-pick:hover{background:#eff6ff;border-color:#93c5fd}.tpl-rowno{font-weight:950;text-align:center;color:#0f172a}.tpl-pred-select{min-height:260px;width:100%;border:1px solid #d7dee8;border-radius:10px;padding:8px}.tpl-pred-help{font-size:12px;color:#64748b;margin-top:7px;line-height:1.4}
+</style>
+</head>
 <body style="background:transparent">
 <div class="panel">
   <div class="panel-head">
@@ -112,9 +116,10 @@
           <table>
             <thead>
               <tr>
+                <th style="width:56px;">Nr</th>
                 <th style="width:160px;">Fase</th>
                 <th>Taak</th>
-                <th style="width:130px;">Voorgangers</th>
+                <th style="width:170px;">Voorgangers</th>
                 <th style="width:140px;">Afdeling</th>
                 <th style="width:140px;">Resource</th>
                 <th style="width:120px;">Start</th>
@@ -481,6 +486,42 @@ function openTplModal(open){
     });
   }
 
+
+  function tplFlatRows(tpl){
+    const out=[]; let nr=1;
+    (tpl?.phases||[]).forEach((ph,pi)=>{
+      (ph.tasks||[]).forEach((task,ti)=>{ out.push({nr:nr++, ph, task, pi, ti}); });
+    });
+    return out;
+  }
+  function tplPredNumbers(tpl, raw){
+    const rows=tplFlatRows(tpl); const vals=String(raw||"").split(/[;,]+/).map(x=>x.trim()).filter(Boolean);
+    if(!vals.length) return "";
+    return vals.map(v=>{
+      const m=v.match(/^(.+?)(FS|SS|FF|SF)?([+-]\d+)?$/i); const src=(m?m[1]:v).trim();
+      const found=rows.find(r=>String(r.task.id||r.task.code||r.nr)===src || String(r.nr)===src || String(r.task.name||"")===src);
+      const suffix=(m&&m[2]&&m[2].toUpperCase()!=="FS"?m[2].toUpperCase():"") + (m&&m[3]?m[3]:"");
+      return `${found?found.nr:src}${suffix}`;
+    }).join(", ");
+  }
+  function tplEncodePredFromNumbers(tpl, currentNr, selectedNrs){
+    const rows=tplFlatRows(tpl); const byNr=new Map(rows.map(r=>[String(r.nr),r]));
+    return (selectedNrs||[]).map(n=>String(n)).filter(n=>Number(n)<Number(currentNr)).map(n=>{
+      const r=byNr.get(n); return `${(r?.task?.id||r?.task?.code||n)}FS`;
+    }).join(",");
+  }
+  function openTplPredPicker(pi,ti){
+    const tpl=activeTpl(); const rows=tplFlatRows(tpl); const cur=rows.find(r=>r.pi===pi&&r.ti===ti); if(!cur) return;
+    const currentRaw=cur.task.pred||cur.task.predecessor||cur.task.predecessors||"";
+    const selected=new Set(tplPredNumbers(tpl,currentRaw).split(/[,;]+/).map(x=>x.trim().match(/^\d+/)?.[0]).filter(Boolean));
+    const opts=rows.filter(r=>r.nr<cur.nr).map(r=>`<option value="${r.nr}" ${selected.has(String(r.nr))?"selected":""}>${r.nr} - ${String(r.task.name||"Taak").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}</option>`).join("");
+    const bd=document.createElement("div"); bd.className="modal-backdrop show"; bd.setAttribute("aria-hidden","false");
+    bd.innerHTML=`<div class="modal modal-sm" role="dialog" aria-modal="true"><div class="modal-head">Voorgangers kiezen - regel ${cur.nr}<button class="close" type="button">✕</button></div><div class="modal-body"><select class="tpl-pred-select" multiple>${opts||'<option disabled>Geen eerdere regels beschikbaar</option>'}</select><div class="tpl-pred-help">Meerdere voorgangers mogelijk. Alleen eerdere regelnummers kunnen gekozen worden. In templates en Gantt worden regelnummers getoond; intern blijven taak-id's bewaard.</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn cancel" type="button">Annuleren</button><button class="btn primary save" type="button">Opslaan</button></div></div></div>`;
+    document.body.appendChild(bd);
+    const close=()=>bd.remove(); bd.querySelector(".close").onclick=close; bd.querySelector(".cancel").onclick=close; bd.addEventListener("click",e=>{ if(e.target===bd) close(); });
+    bd.querySelector(".save").onclick=()=>{ const nums=Array.from(bd.querySelector("select").selectedOptions).map(o=>o.value); CWS.setState(s=>{ const ts=(s.templates?.taskSets||[]).find(x=>x.id===tplCtx.activeId); const tk=ts?.phases?.[pi]?.tasks?.[ti]; if(tk){ tk.pred=tplEncodePredFromNumbers(ts,cur.nr,nums); tk.predecessors=tk.pred; } return s; }); close(); renderTplEditor(); };
+  }
+
   function renderTplEditor(){
     const tpl = activeTpl();
     if(!tpl) return;
@@ -496,15 +537,17 @@ function openTplModal(open){
     (tpl.phases||[]).forEach((ph,pi)=>{
       if(!(ph.tasks||[]).length){
         const tr=document.createElement("tr");
-        tr.innerHTML = `<td><strong>${ph.name}</strong></td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted" style="text-align:center;">—</td><td class="smallmuted" style="text-align:right;">0</td><td class="smallmuted">—</td>
+        tr.innerHTML = `<td class="smallmuted">—</td><td><strong>${ph.name}</strong></td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted">—</td><td class="smallmuted" style="text-align:center;">—</td><td class="smallmuted" style="text-align:right;">0</td><td class="smallmuted">—</td>
           <td style="text-align:right;"><button class="smallbtn" data-act="delph" data-pi="${pi}">Verwijder fase</button></td>`;
         tbody.appendChild(tr);
       }
       (ph.tasks||[]).forEach((t,ti)=>{
         const tr=document.createElement("tr");
-        tr.innerHTML = `<td><strong>${ph.name}</strong></td>
+        const flat = tplFlatRows(tpl).find(x=>x.pi===pi && x.ti===ti) || {nr:""};
+        const predText = tplPredNumbers(tpl, t.pred||t.predecessors||t.predecessor||"") || "—";
+        tr.innerHTML = `<td class="tpl-rowno">${flat.nr}</td><td><strong>${ph.name}</strong></td>
           <td><input class="input" data-k="tname" data-pi="${pi}" data-ti="${ti}" value="${t.name||""}"/></td>
-          <td><input class="input" data-k="pred" data-pi="${pi}" data-ti="${ti}" placeholder="12FS,7SS+2" value="${t.pred||t.predecessors||""}"/></td>
+          <td><div class="tpl-pred-cell"><span class="tpl-pred-nos" title="${t.pred||t.predecessors||""}">${predText}</span><button class="tpl-pred-pick" type="button" data-act="predpick" data-pi="${pi}" data-ti="${ti}">Kies</button></div></td>
           <td><input class="input" data-k="dept" data-pi="${pi}" data-ti="${ti}" value="${t.dept||""}"/></td>
           <td><input class="input" data-k="resource" data-pi="${pi}" data-ti="${ti}" value="${t.resource||""}"/></td>
           <td><input class="input" data-k="start" data-pi="${pi}" data-ti="${ti}" type="date" value="${t.start||t.startDate||""}"/></td>
@@ -549,7 +592,10 @@ function openTplModal(open){
         const act=btn.getAttribute("data-act");
         const pi=Number(btn.getAttribute("data-pi"));
         const ti=Number(btn.getAttribute("data-ti"));
-        if(act==="delph"){
+        if(act==="predpick"){
+          openTplPredPicker(pi,ti);
+          return;
+        } else if(act==="delph"){
           CWS.setState(s=>{
             const ts = (s.templates?.taskSets||[]).find(x=>x.id===tplCtx.activeId);
             if(!ts) return s;

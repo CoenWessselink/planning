@@ -42,6 +42,7 @@ const checks = [
   [gantt.includes('function encodePred') && gantt.includes('predecessorOptionsHtml') && gantt.includes('Voorgangers kiezen'), "V39 meerdere voorgangers selecteerbaar"],
   [gantt.includes('.mobile-toolbar,.v37-mobile-action-dock,.toolbar') && gantt.includes('display:none!important'), "V39 print verwijdert app/mobiele toolbar"],
   [gantt.includes('repeating-linear-gradient(to right, rgba(17,24,39,.45)') && gantt.includes('calc(var(--dayW) * 7)'), "V39 dunne daglijnen blijven zichtbaar in print"],
+  [gantt.includes('id="templateSel"') && settings.includes('openTplPredPicker') && gantt.includes('--v40-print-row'), "V40 print/template hardening aanwezig"],
 ];
 for (const [pass, label] of checks) {
   console.log(`${pass ? "OK" : "FAIL"} - ${label}`);
