@@ -706,6 +706,79 @@
     }
 
 
+    /* V50 — raster dunner + gele samenvattingsbalk alleen in tabel
+       - niet-werkbare dagen blijven zichtbaar lichtgrijs
+       - daglijnen over niet-werkbare dagen blijven zichtbaar maar subtiel/dun
+       - geen dubbele/dikke lijnen door nonwork-overlay + grid tegelijk
+       - gele samenvattingsmarkering blijft uitsluitend in de print-/linkertabel */
+    :root{
+      --v50-nonwork-fill:#e6eaef;
+      --v50-screen-day-line-color:rgba(15,23,42,.20);
+      --v50-print-day-line-color:rgba(17,24,39,.24);
+      --v50-day-line-width-screen:.25px;
+      --v50-day-line-width-print:.10px;
+      --v50-row-line-color:#d8e0ea;
+      --v50-row-line-width-print:.12px;
+    }
+    .lane{
+      background-image:linear-gradient(to right, rgba(15,23,42,.13) .35px, transparent .35px)!important;
+      background-size:var(--dayW) 100%!important;
+    }
+    .nonwork-shade{
+      background:var(--v50-nonwork-fill)!important;
+      border-left:var(--v50-day-line-width-screen) solid var(--v50-screen-day-line-color)!important;
+      border-right:0!important;
+      opacity:.86!important;
+      z-index:1!important;
+    }
+    .nonwork-shade::after{display:none!important;}
+    .tl-cell.day.weekend,.tl-cell.day.nonwork{
+      background:var(--v50-nonwork-fill)!important;
+      color:#111827!important;
+      border-right:var(--v50-day-line-width-screen) solid var(--v50-screen-day-line-color)!important;
+    }
+    .lane.summary-lane{background-color:#fff!important;}
+    .lane.summary-lane:nth-child(even){background-color:#fbfdff!important;}
+    @media print{
+      .printing .tl-cell{
+        border-right:var(--v50-day-line-width-print) solid var(--v50-print-day-line-color)!important;
+        border-bottom:var(--v50-row-line-width-print) solid var(--v50-row-line-color)!important;
+      }
+      .printing .tl-cell.day.weekend,.printing .tl-cell.day.nonwork{
+        background:var(--v50-nonwork-fill)!important;
+        color:#000!important;
+        border-right:var(--v50-day-line-width-print) solid var(--v50-print-day-line-color)!important;
+      }
+      .printing .lane{
+        border-bottom:var(--v50-row-line-width-print) solid var(--v50-row-line-color)!important;
+        background-image:none!important;
+        background-color:#fff!important;
+      }
+      .printing .lane:nth-child(even){background-color:#f7f7f7!important;}
+      .printing .lane.summary-lane,.printing .summary-lane{background-color:#fff!important;}
+      .printing .lane.summary-lane:nth-child(even){background-color:#f7f7f7!important;}
+      .printing .day-grid-line{
+        width:var(--v50-day-line-width-print)!important;
+        background:var(--v50-print-day-line-color)!important;
+        opacity:.72!important;
+        z-index:2!important;
+        display:block!important;
+      }
+      .printing .nonwork-shade{
+        background:var(--v50-nonwork-fill)!important;
+        border:0!important;
+        opacity:.96!important;
+        z-index:1!important;
+      }
+      .printing .nonwork-shade::after{display:none!important;}
+      .printing .print-task-table tbody tr.summary-row td{
+        background:#ffd400!important;
+        font-weight:900!important;
+        text-transform:uppercase!important;
+      }
+    }
+
+
   </style>
 </head>
 <body>

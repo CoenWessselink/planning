@@ -93,4 +93,6 @@ check("V48 print fine-tune aanwezig", read("layers/laag4_gantt.html").includes("
 
 check("V49 niet-werkbare daglijnen blijven zichtbaar", gantt.includes("V49 — niet-werkbare dagen met zichtbare dunne daglijnen") && gantt.includes("--v49-nonwork-line-print:rgba(0,0,0,.68)") && gantt.includes(".printing .day-grid-line") && gantt.includes("z-index:2!important") && gantt.includes(".nonwork-shade::after"));
 
+check("V50 dunner raster en geel alleen in tabel", gantt.includes("V50 — raster dunner + gele samenvattingsbalk alleen in tabel") && gantt.includes("--v50-day-line-width-print:.10px") && gantt.includes("--v50-print-day-line-color:rgba(17,24,39,.24)") && gantt.includes(".nonwork-shade::after{display:none!important;}") && gantt.includes(".lane.summary-lane{background-color:#fff!important;}") && gantt.includes(".printing .print-task-table tbody tr.summary-row td") && gantt.includes("background:#ffd400!important"));
+
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");
