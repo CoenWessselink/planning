@@ -1,8 +1,46 @@
 <!doctype html><html lang="nl"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<link rel="stylesheet" href="../css/theme.css"/></head>
+<link rel="stylesheet" href="../css/theme.css"/>
+<style>
+  /* V55 — Projecten: alles op één pagina met infinite scroll, zonder paginering */
+  .projects-infinite-panel{
+    min-height:calc(100vh - 16px);
+    display:flex;
+    flex-direction:column;
+    overflow:visible;
+  }
+  .projects-infinite-panel .table-wrap{
+    max-height:calc(100vh - 260px);
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+  }
+  .projects-infinite-panel .table-wrap table{
+    min-width:max(1500px,100%);
+  }
+  .projects-infinite-panel .footerbar{
+    position:sticky;
+    bottom:0;
+    z-index:7;
+    box-shadow:0 -8px 18px rgba(15,23,42,.10);
+  }
+  .projects-infinite-panel .pagination,
+  .projects-infinite-panel #prev,
+  .projects-infinite-panel #next{
+    display:none!important;
+  }
+  .projects-infinite-panel tbody tr{
+    content-visibility:auto;
+    contain-intrinsic-size:52px;
+  }
+  @media (max-width:720px){
+    .projects-infinite-panel .table-wrap{max-height:calc(100vh - 300px);}
+  }
+</style></head>
 <body style="background:transparent">
-<div class="panel">
+<div class="panel projects-infinite-panel" data-projects-mode="infinite-scroll">
   <div class="panel-head">
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <button class="btn" id="newProject" onclick="window.CWS_Projecten_OpenNew&&window.CWS_Projecten_OpenNew()">Nieuw project</button>
@@ -42,11 +80,11 @@
   </div>
 
   <div class="footerbar">
-    <div id="count">0 projecten • Pagina 1 van 1</div>
+    <div id="count">0 projecten • Alles op 1 pagina • Infinite scroll</div>
     <div class="pagination">
       <button class="pagebtn" id="prev">‹</button>
       <button class="pagebtn" id="next">›</button>
-      <span class="smallmuted" id="ver">v6 build-26</span>
+      <span class="smallmuted" id="ver">v55 infinite-scroll</span>
     </div>
   </div>
 </div>
@@ -269,8 +307,9 @@ var CWS = window.CWS;</script>
 
   let sortKey = "nr";
   let sortDir = "asc";
+  // V55: Projecten heeft geen paginering meer. Alle gefilterde projecten worden op één pagina weergegeven.
+  const PROJECTS_INFINITE_SCROLL = true;
   let page = 1;
-  const pageSize = 10;
 
   function norm(s){ return (s||"").toString().toLowerCase().trim(); }
 
@@ -642,13 +681,15 @@ function bindNP(){
     const q = document.getElementById("search").value;
     const idsAll = filteredIds(st, active, q);
 
-    const pages = Math.max(1, Math.ceil(idsAll.length / pageSize));
-    page = Math.min(page, pages);
-    const startIdx = (page-1)*pageSize;
-    const ids = idsAll.slice(startIdx, startIdx+pageSize);
+    // V55: alles op één pagina, dus geen slice/paginering meer.
+    const pages = 1;
+    page = 1;
+    const ids = idsAll;
 
     const tbody = document.getElementById("rows");
     tbody.innerHTML="";
+    tbody.dataset.mode = PROJECTS_INFINITE_SCROLL ? "infinite-scroll" : "paged";
+    tbody.dataset.renderedCount = String(ids.length);
 
     ids.forEach(id=>{
       const p = st.projects.byId[id] || {};
@@ -736,9 +777,12 @@ function bindNP(){
 
     applyProjectColumnSettings(st, depts);
 
-    document.getElementById("count").textContent = `${idsAll.length} projecten • Pagina ${page} van ${pages}`;
-    document.getElementById("prev").disabled = (page<=1);
-    document.getElementById("next").disabled = (page>=pages);
+    const countEl = document.getElementById("count");
+    if(countEl) countEl.textContent = `${idsAll.length} projecten • Alles op 1 pagina • Infinite scroll`;
+    const prevBtn = document.getElementById("prev");
+    const nextBtn = document.getElementById("next");
+    if(prevBtn){ prevBtn.disabled = true; prevBtn.setAttribute("aria-hidden","true"); prevBtn.tabIndex = -1; }
+    if(nextBtn){ nextBtn.disabled = true; nextBtn.setAttribute("aria-hidden","true"); nextBtn.tabIndex = -1; }
   }
 
   // events
@@ -749,8 +793,10 @@ function bindNP(){
     th.addEventListener("click", ()=> setSort(k));
   });
 
-  document.getElementById("prev").addEventListener("click", ()=>{ page=Math.max(1,page-1); render(); });
-  document.getElementById("next").addEventListener("click", ()=>{ page=page+1; render(); });
+  const prevPageBtn = document.getElementById("prev");
+  const nextPageBtn = document.getElementById("next");
+  if(prevPageBtn) prevPageBtn.addEventListener("click", (e)=>{ e.preventDefault(); page=1; render(); });
+  if(nextPageBtn) nextPageBtn.addEventListener("click", (e)=>{ e.preventDefault(); page=1; render(); });
 
   window.CWS_Projecten_OpenNew = () => openProjectModal(null);
   document.getElementById("newProject").addEventListener("click", (e)=>{ e.preventDefault(); openProjectModal(null); });

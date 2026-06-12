@@ -105,3 +105,8 @@ check("V52 Projectoverzicht/Capaciteit zichtbare scrollbars, statuskleuren en A0
 check("V53 onderste printkalender omgekeerd dag-week-maand-jaar", gantt.includes("V53 — onderste printkalender omgekeerd") && gantt.includes("v53BottomPrintTimelineHtml") && gantt.includes("print-calendar-timeline-bottom") && gantt.includes("tl-row-years") && gantt.includes("top.innerHTML=topLeft+topRight") && gantt.includes("bottom.innerHTML=bottomLeft+bottomRight") && fs.readFileSync("package.json", "utf8").includes('"preflight:v53"'));
 
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");
+
+check("V54 Capaciteit horizontale scrollbar dock altijd zichtbaar", capacity.includes("V54 — Capaciteit horizontale scrollbar altijd zichtbaar/in beeld") && capacity.includes("width:max(2200px,calc(100vw + 420px))") && capacity.includes("box-shadow:0 -8px 18px") && capacity.includes("proxy.dataset.visible = \"true\"") && capacity.includes("overflow:visible"));
+
+check("V55 Projecten alles op één pagina met infinite scroll", projects.includes("V55 — Projecten: alles op één pagina met infinite scroll") && projects.includes('data-projects-mode="infinite-scroll"') && projects.includes('const ids = idsAll;') && projects.includes('Alles op 1 pagina • Infinite scroll') && projects.includes('prevBtn.disabled = true') && fs.readFileSync("package.json", "utf8").includes('"preflight:v55"'));
+if(process.exitCode) process.exit(process.exitCode);
