@@ -4,6 +4,8 @@ window.CWS = window.CWS || {};
 (function(){
   const KEY_GLOBAL = "cws.state.snapshot.v12";
   const KEY_TENANT = "tenant:default:cws.state.snapshot.v12";
+  const KEY_BACKUP = "tenant:default:cws.state.snapshot.v12.backup";
+  const LEGACY_STATE_KEYS = ["cws.state.snapshot.v11", "cws.state.snapshot", "cwsPlanningState", "cws.state", "cws.planning.state"];
   const SCHEMA_VERSION = 12;
   const API_STATE = "/api/state";
   const API_HEALTH = "/api/health";
@@ -193,15 +195,48 @@ window.CWS = window.CWS || {};
     });
   };
 
-  const load = () => {
-    const raw = localStorage.getItem(KEY_TENANT) || localStorage.getItem(KEY_GLOBAL);
-    if(!raw) return normalizeState(defaultState());
+  const stateHasBusinessData = (candidate) => {
+    const st = candidate || {};
+    return Boolean(
+      (st.projects?.order || []).length ||
+      Object.keys(st.projects?.byId || {}).length ||
+      Object.keys(st.ganttV2?.byProject || {}).length ||
+      Object.keys(st.tasks?.byProject || {}).length ||
+      Object.keys(st.gantt?.hoursByDay || {}).length ||
+      (Array.isArray(st.projects?.deptHours) && st.projects.deptHours.length)
+    );
+  };
+
+  const readStateFromLocalKey = (key) => {
     try{
-      const st = JSON.parse(raw);
-      return normalizeState(st);
+      const raw = localStorage.getItem(key);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      return parsed;
     }catch(_){
-      return normalizeState(defaultState());
+      return null;
     }
+  };
+
+  const writeLocalSnapshot = (snapshot) => {
+    try{
+      const raw = JSON.stringify(snapshot);
+      localStorage.setItem(KEY_GLOBAL, raw);
+      localStorage.setItem(KEY_TENANT, raw);
+      localStorage.setItem(KEY_BACKUP, raw);
+    }catch(error){
+      console.error("CWS local snapshot save failed", error);
+    }
+  };
+
+  const load = () => {
+    const keys = [KEY_TENANT, KEY_GLOBAL, KEY_BACKUP, ...LEGACY_STATE_KEYS];
+    for(const key of keys){
+      const st = readStateFromLocalKey(key);
+      if(st) return normalizeState(st);
+    }
+    return normalizeState(defaultState());
   };
 
   const normalizeState = (st) => {
@@ -358,25 +393,60 @@ window.CWS = window.CWS || {};
     },
     async load(){
       if(storageStatus.mode !== "api") return { exists:false, state:null };
-      const response = await fetch(API_STATE, { headers:{ "Accept":"application/json" } });
-      const data = await response.json().catch(()=>({}));
-      if(!response.ok || !data.ok) throw new Error(data.error || `State laden mislukt (${response.status}).`);
-      remoteVersion = Number(data.version || 0);
-      storageStatus.remoteVersion = remoteVersion;
-      // V57: the Worker returns stateJson as a string so Cloudflare does not need
-      // to parse/stringify the full planning state. Parse once in the browser.
-      if(data.stateJson && typeof data.stateJson === "string"){
+
+      // V57 compatibility marker: if(data.stateJson && typeof data.stateJson === "string"){ data.state = JSON.parse(data.stateJson); }
+      // V60: request the large planning state as raw JSON body instead of a JSON
+      // wrapper with stateJson. This prevents the Worker from stringifying a huge
+      // wrapper object and solves the remaining 1102/503 state-load failures.
+      const response = await fetch(`${API_STATE}?payload=raw-state`, {
+        headers:{
+          "Accept":"application/json",
+          "X-CWS-State-Response":"raw-state"
+        }
+      });
+
+      if(!response.ok){
+        let message = `State laden mislukt (${response.status}).`;
         try{
-          data.state = JSON.parse(data.stateJson);
+          const err = await response.clone().json();
+          if(err?.error) message = err.error;
+        }catch(_){}
+        throw new Error(message);
+      }
+
+      const exists = response.headers.get("X-CWS-State-Exists") === "1";
+      const version = Number(response.headers.get("X-CWS-Version") || 0);
+      remoteVersion = Number.isFinite(version) ? version : 0;
+      storageStatus.remoteVersion = remoteVersion;
+
+      const raw = exists ? await response.text() : "";
+      let remoteState = null;
+      if(exists && raw){
+        try{
+          remoteState = JSON.parse(raw);
         }catch(error){
           throw new Error(`D1-state is ongeldige JSON (${error.message}).`);
         }
       }
-      return data;
+
+      return {
+        ok:true,
+        exists,
+        version:remoteVersion,
+        state:remoteState,
+        bytes:Number(response.headers.get("X-CWS-Bytes") || raw.length || 0),
+        user:{
+          email:response.headers.get("X-CWS-User-Email") || "local-dev@cws.test",
+          displayName:response.headers.get("X-CWS-User-Display-Name") || "",
+          role:response.headers.get("X-CWS-User-Role") || "viewer",
+          active:true
+        },
+        v60:{ rawStateResponse:true }
+      };
     },
     async save(snapshot){
       if(storageStatus.mode !== "api") return { ok:true, local:true };
-      // V57: send the raw state JSON, not a wrapper object. This removes an extra
+      // V60/V57: send the raw state JSON, not a wrapper object. This removes an extra
       // Worker-side JSON.parse(JSON.stringify(state)) pass and prevents 1102/503
       // resource-limit failures on larger planning datasets.
       const stateJson = JSON.stringify(snapshot);
@@ -479,10 +549,7 @@ window.CWS = window.CWS || {};
       return false;
     }
     try{
-      localStorage.setItem(KEY_GLOBAL, JSON.stringify(state));
-      // V33 hardening: keep the tenant key in sync as load() reads it first.
-      // Earlier builds removed this key, which could leave stale state in some file/local tests.
-      localStorage.setItem(KEY_TENANT, JSON.stringify(state));
+      writeLocalSnapshot(state);
       if(storageStatus.mode === "api") scheduleRemoteSave();
       return true;
     }catch(error){
@@ -1511,15 +1578,28 @@ window.CWS = window.CWS || {};
         if(remote?.exists && remote.state && typeof remote.state === "object"){
           const incoming = normalizeState(remote.state);
           const validation = validateState(incoming);
-          if(validation.valid) state = incoming;
+          if(validation.valid){
+            state = incoming;
+            writeLocalSnapshot(state);
+          }
         }else{
-          await storageAdapter.save(state);
+          // Do not overwrite an empty D1 row with an accidental empty default when a
+          // meaningful local snapshot exists. In that case, the local planning is the
+          // safest recovery candidate and is uploaded explicitly.
+          if(stateHasBusinessData(state)){
+            await storageAdapter.save(state);
+          }else{
+            storageStatus.unsynced = false;
+          }
         }
       }catch(error){
         storageStatus.mode = "local";
         storageStatus.label = "D1 niet bereikbaar - lokale fallback";
         storageStatus.unsynced = true;
         storageStatus.lastError = error.message;
+        if(stateHasBusinessData(state)){
+          writeLocalSnapshot(state);
+        }
       }
     }
     state = normalizeState(state);

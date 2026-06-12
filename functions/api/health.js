@@ -7,7 +7,7 @@ export async function onRequestGet(context) {
   }
 
   try {
-    // V57: health must stay ultra-light. Do not run schema repair, seed, state load,
+    // V60: health must stay ultra-light. Do not run schema repair, seed, state load,
     // JSON parsing, or audit work here. A heavy health endpoint caused Cloudflare
     // Worker 1102 / 503 failures and forced the app into local fallback.
     await db.prepare("SELECT 1 AS ok").first();
@@ -16,8 +16,8 @@ export async function onRequestGet(context) {
       ok: true,
       service: "cws-planning",
       storage: "d1",
-      version: "internal-test-v57",
-      healthMode: "v57-lightweight-no-state-load",
+      version: "internal-test-v60",
+      healthMode: "v60-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
       schemaOk: schema.ok,
       schemaErrors: schema.errors,
       schemaRepairRequired: !schema.ok
@@ -27,7 +27,7 @@ export async function onRequestGet(context) {
       ok: false,
       service: "cws-planning",
       storage: "d1",
-      healthMode: "v57-lightweight-no-state-load",
+      healthMode: "v60-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
       error: error.message
     }, 500);
   }

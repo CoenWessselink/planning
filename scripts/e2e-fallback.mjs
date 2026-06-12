@@ -120,3 +120,6 @@ if(process.exitCode) process.exit(process.exitCode);
 
 check("V59 Gantt plant uitsluitend op werkbare dagen", read("js/core/store.js").includes("normalizeGanttModelSchedules(draft, deepClone(model))") && read("js/core/store.js").includes("v59-working-days-only") && read("layers/laag4_gantt.html").includes("function workSegments") && read("layers/laag4_gantt.html").includes("bar-segment") && read("layers/laag4_gantt.html").includes("Balk bijgewerkt op werkbare dagen") && fs.readFileSync("package.json", "utf8").includes('"preflight:v59"'));
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V60 D1 raw-state recovery", read("functions/api/health.js").includes("internal-test-v60") && read("functions/api/state.js").includes("rawStateResponse(row?.state_json || \"\"") && read("js/core/store.js").includes("X-CWS-State-Response") && read("js/core/store.js").includes("KEY_BACKUP") && fs.readFileSync("package.json", "utf8").includes('"preflight:v60"'));
+if(process.exitCode) process.exit(process.exitCode);

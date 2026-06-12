@@ -42,7 +42,23 @@ export function json(data, status = 200) {
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,PUT,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type,Accept"
+      "Access-Control-Allow-Headers": "Content-Type,Accept,X-CWS-Base-Version,X-CWS-State-Payload,X-CWS-State-Response",
+      "Access-Control-Expose-Headers": "X-CWS-OK,X-CWS-State-Exists,X-CWS-Version,X-CWS-Updated-At,X-CWS-Updated-By,X-CWS-User-Email,X-CWS-User-Role,X-CWS-User-Display-Name,X-CWS-Bytes"
+    }
+  });
+}
+
+export function rawStateResponse(body, status = 200, extraHeaders = {}) {
+  return new Response(body || "", {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,PUT,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type,Accept,X-CWS-Base-Version,X-CWS-State-Payload,X-CWS-State-Response",
+      "Access-Control-Expose-Headers": "X-CWS-OK,X-CWS-State-Exists,X-CWS-Version,X-CWS-Updated-At,X-CWS-Updated-By,X-CWS-User-Email,X-CWS-User-Role,X-CWS-User-Display-Name,X-CWS-Bytes",
+      ...extraHeaders
     }
   });
 }
