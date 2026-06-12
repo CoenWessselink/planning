@@ -43,6 +43,10 @@ const checks = [
   [gantt.includes('.mobile-toolbar,.v37-mobile-action-dock,.toolbar') && gantt.includes('display:none!important'), "V39 print verwijdert app/mobiele toolbar"],
   [gantt.includes('repeating-linear-gradient(to right, rgba(17,24,39,.45)') && gantt.includes('calc(var(--dayW) * 7)'), "V39 dunne daglijnen blijven zichtbaar in print"],
   [gantt.includes('id="templateSel"') && settings.includes('openTplPredPicker') && gantt.includes('--v40-print-row'), "V40 print/template hardening aanwezig"],
+  [gantt.includes("dateInputCell") && gantt.includes("duration-input") && gantt.includes("isoWeekLabel"), "V41 Gantt datumpicker/weeknummer en duurinvoer aanwezig"],
+  [gantt.includes("resource-input") && gantt.includes("departmentOptionsHtml"), "V41 Gantt afdeling dropdown en resource invulveld aanwezig"],
+  [gantt.includes("--v41-print-row-h") && gantt.includes("var(--v41-print-line)") && gantt.includes("updatePrintHeader(model, range)"), "V41 print raster/header hard geborgd"],
+  [settings.includes("tplDeptSelect") && settings.includes("tpl-resource-input") && settings.includes("position:sticky"), "V41 templates afdeling/resource/vaste kolommen geborgd"],
 ];
 for (const [pass, label] of checks) {
   console.log(`${pass ? "OK" : "FAIL"} - ${label}`);
