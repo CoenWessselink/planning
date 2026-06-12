@@ -67,14 +67,16 @@ const UI = (() => {
     const { companyName, logo } = companyPrintInfo();
     const logoHtml = logo ? `<img class="print-logo" src="${logo}" alt="Bedrijfslogo">` : `<div class="print-logo-placeholder">${escapeHtml(companyName).slice(0,2).toUpperCase()}</div>`;
     const paper = options.paper || "A3 landscape";
+    const extraCss = options.extraCss || "";
     const printDate = new Date().toLocaleString("nl-NL");
     w.document.open();
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"/>
       <title>${escapeHtml(title)}</title>
       <style>
         @page { size: ${paper}; margin: 12mm; }
-        *{box-sizing:border-box;}
-        body{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#111827; margin:0; background:#fff; }
+        *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+        html,body{ width:100%; min-height:100%; }
+        body{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#111827; margin:0; background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         .hdr{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; border-bottom:1px solid #cbd5e1; padding-bottom:10px; margin-bottom:12px;}
         .hdr h1{ margin:0; font-size:20px; line-height:1.15;}
         .hdr .sub{ font-size:11px; color:#475569; margin-top:3px;}
@@ -86,6 +88,18 @@ const UI = (() => {
         th,td{ border:1px solid #dbe3ef; padding:5px 7px; text-align:left; vertical-align:top;}
         th{ background:#f8fafc; font-weight:900; color:#334155;}
         .print-meta{font-size:10px;color:#64748b;margin-top:5px;}
+        .status-badge,.health-badge,.task-state{display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border-radius:999px;border:1px solid #dbe3ef;font-weight:800;font-size:10px;}
+        .status-badge.gereed,.task-state.gereed{background:#dcfce7;border-color:#86efac;color:#166534;}
+        .status-badge.vertraagd,.task-state.vertraagd{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
+        .status-badge.uitvoering,.task-state.lopend{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
+        .status-badge.aandacht,.health-badge.att-orange{background:#fff7ed;border-color:#fed7aa;color:#92400e;}
+        .status-badge.niet,.task-state.nvt,.health-badge.att-gray{background:#f8fafc;border-color:#e2e8f0;color:#475569;}
+        .health-badge.att-green{background:#dcfce7;border-color:#86efac;color:#166534;}
+        .health-badge.att-red{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
+        .progress{width:120px;height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);}
+        .progress i{display:block;height:100%;background:#2f6fbd;border-radius:999px;}
+        .smallmuted{color:#64748b;font-size:10px;}
+        ${extraCss}
       </style></head><body>
       <div class="hdr"><div><h1>${escapeHtml(title)}</h1><div class="sub"><b>${escapeHtml(companyName)}</b>${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</div><div class="print-meta">Afdruk: ${escapeHtml(printDate)}</div></div><div class="logo-wrap">${logoHtml}</div></div>
       ${html}

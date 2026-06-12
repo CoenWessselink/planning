@@ -7,12 +7,18 @@
   <link rel="stylesheet" href="../css/theme.css">
   <style>
     body{padding:14px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .content{padding:14px}.tablewrap{overflow:auto;border:1px solid var(--border);border-radius:8px}
-    table{width:100%;border-collapse:separate;border-spacing:0}th,td{padding:9px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left;vertical-align:middle}
+    /* V52 — Projectoverzicht horizontale scrollbar altijd zichtbaar en A0-kleurprint */
+    .content{padding:14px}.tablewrap{overflow-x:scroll;overflow-y:auto;max-height:calc(100vh - 190px);border:1px solid var(--border);border-radius:8px;scrollbar-gutter:stable both-edges;background:#fff}
+    .tablewrap::-webkit-scrollbar{height:16px;width:16px}.tablewrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:3px solid #f8fafc}.tablewrap::-webkit-scrollbar-track{background:#f8fafc;border-top:1px solid #e2e8f0}
+    table{min-width:1500px;width:max(100%,1500px);border-collapse:separate;border-spacing:0}th,td{padding:9px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left;vertical-align:middle}
     th{position:sticky;top:0;background:#f8fafc;z-index:2}.progress{width:130px;height:10px;background:#e5e7eb;border-radius:99px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06)}
     .progress i{display:block;height:100%;background:#2f6fbd;border-radius:99px}.progress-click{cursor:pointer}.tabs360{display:flex;gap:6px;margin-bottom:12px}.tab360.active{background:#dbeafe}
     .section360{min-height:220px}.status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #dbe4f0;background:#f8fafc;font-weight:800;font-size:12px}.status-badge.gereed{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.status-badge.uitvoering{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.status-badge.aandacht{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.status-badge.vertraagd{background:#fef2f2;border-color:#fecaca;color:#991b1b}.status-badge.niet{background:#f1f5f9;border-color:#cbd5e1;color:#334155}
-    .task-progress-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}.task-progress-table th{position:static;background:#f8fafc}.task-progress-table td,.task-progress-table th{padding:8px;border-bottom:1px solid #e2e8f0}.task-progress-table tr:last-child td{border-bottom:0}.task-progress-table input,.task-progress-table select,.task-progress-table textarea{width:100%;border:1px solid #d7dee8;border-radius:9px;padding:7px;background:#fff}.task-progress-table textarea{min-width:230px;min-height:44px;resize:vertical}.task-progress-table input[type=checkbox]{width:18px;height:18px}.summary-cards{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:0 0 12px}.summary-card{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#f8fafc}.summary-card b{display:block;color:#0f172a;margin-bottom:3px}.quickchips{display:flex;gap:5px;flex-wrap:wrap}.chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 8px;font-size:12px;font-weight:800;cursor:pointer}.chip:hover{background:#eff6ff;border-color:#93c5fd}.feedback-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis}.clickable-row{cursor:pointer}.clickable-row:hover td{background:#f8fbff}.health-badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;border:1px solid #e2e8f0;font-weight:900;font-size:12px}.att-red{background:#fef2f2!important;border-color:#fecaca!important;color:#991b1b}.att-orange{background:#fff7ed!important;border-color:#fed7aa!important;color:#92400e}.att-green{background:#ecfdf5!important;border-color:#bbf7d0!important;color:#166534}.att-blue{background:#eff6ff!important;border-color:#bfdbfe!important;color:#1d4ed8}.att-gray{background:#f8fafc!important;border-color:#e2e8f0!important;color:#475569}.attention-list{list-style:none;padding:0;margin:8px 0;display:grid;gap:8px}.attention-list li{border:1px solid #e2e8f0;border-radius:12px;padding:10px}.why-link{cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:800}
+    .project-task-cell{font-weight:900;text-align:center}.project-task-cell.task-done{background:#dcfce7!important;color:#166534}.project-task-cell.task-late{background:#fee2e2!important;color:#991b1b}.project-task-cell.task-progress{background:#eff6ff!important;color:#1d4ed8}.project-task-cell.task-open{background:#f8fafc!important;color:#475569}.project-task-cell.task-na{background:#f8fafc!important;color:#64748b;font-weight:700}.task-state{display:inline-flex;align-items:center;justify-content:center;min-width:54px;border-radius:7px;padding:5px 8px;border:1px solid transparent}.task-state.task-done{background:#22c55e;color:#052e16;border-color:#16a34a}.task-state.task-late{background:#ef4444;color:#fff;border-color:#b91c1c}.task-state.task-progress{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}.task-state.task-open,.task-state.task-na{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
+    .task-progress-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}.task-progress-table th{position:static;background:#f8fafc}.task-progress-table td,.task-progress-table th{padding:8px;border-bottom:1px solid #e2e8f0}.task-progress-table tr:last-child td{border-bottom:0}.task-progress-table input,.task-progress-table select,.task-progress-table textarea{width:100%;border:1px solid #d7dee8;border-radius:9px;padding:7px;background:#fff}.task-progress-table textarea{min-width:230px;min-height:44px;resize:vertical}.task-progress-table input[type=checkbox]{width:18px;height:18px}.summary-cards{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:0 0 12px}.summary-card{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#f8fafc}.summary-card b{display:block;color:#0f172a;margin-bottom:3px}.quickchips{display:flex;gap:5px;flex-wrap:wrap}.chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 8px;font-size:12px;font-weight:800;cursor:pointer}.chip:hover{background:#eff6ff;border-color:#93c5fd}.feedback-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis}.clickable-row{cursor:pointer}.clickable-row:hover td{background:#f8fbff}.health-badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;border:1px solid #e2e8f0;font-weight:900;font-size:12px}.att-red{background:#fef2f2!important;border-color:#fecaca!important;color:#991b1b}.att-orange{background:#fff7ed!important;border-color:#fed7aa!important;color:#92400e}.att-green{background:#ecfdf5!important;border-color:#bbf7d0!important;color:#166534}.att-blue{background:#eff6ff!important;border-color:#bfdbfe!important;color:#1d4ed8}.att-gray{background:#f8fafc!important;border-color:#e2e8f0!important;color:#475569}.attention-list{list-style:none;padding:0;margin:8px 0;display:grid;gap:8px}.attention-list li{border:1px solid #e2e8f0;border-radius:12px;padding:10px}.why-link{cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:800}.scrollbar-dock{position:sticky;bottom:0;z-index:6;background:#fff;padding-top:6px}.scrollbar-proxy{overflow-x:scroll;overflow-y:hidden;height:16px;border:1px solid #d7dee8;border-radius:999px;background:#f8fafc}.scrollbar-proxy div{height:1px}.task-state{display:inline-flex;align-items:center;justify-content:center;min-width:90px;padding:6px 10px;border-radius:8px;border:1px solid #e2e8f0;font-weight:900;font-size:12px;line-height:1}.task-state.gereed{background:#dcfce7;border-color:#86efac;color:#166534}.task-state.vertraagd{background:#fee2e2;border-color:#fca5a5;color:#991b1b}.task-state.lopend{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.task-state.nvt{background:#f8fafc;border-color:#e2e8f0;color:#64748b}
+  
+    /* V52 final task-cell colors */
+    .project-task-cell.task-done{background:#dcfce7!important;color:#166534!important}.project-task-cell.task-late{background:#fee2e2!important;color:#991b1b!important}.project-task-cell.task-progress{background:#eff6ff!important;color:#1d4ed8!important}.project-task-cell.task-open,.project-task-cell.task-na{background:#f8fafc!important;color:#475569!important}.task-state.task-done{background:#22c55e!important;color:#052e16!important;border-color:#16a34a!important}.task-state.task-late{background:#ef4444!important;color:#fff!important;border-color:#b91c1c!important}.task-state.task-progress{background:#dbeafe!important;color:#1d4ed8!important;border-color:#93c5fd!important}.task-state.task-open,.task-state.task-na{background:#f1f5f9!important;color:#475569!important;border-color:#cbd5e1!important}
   </style>
 </head>
 <body>
@@ -28,7 +34,8 @@
       </div>
     </div>
     <div class="content">
-      <div class="tablewrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div>
+      <div class="tablewrap" id="projectOverviewTableWrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div>
+      <div class="scrollbar-dock"><div class="scrollbar-proxy" id="projectScrollProxy"><div></div></div></div>
       <div class="smallmuted" id="count" style="margin-top:8px"></div>
     </div>
   </div>
@@ -120,11 +127,56 @@ var CWS = window.CWS;</script>
       }));
       return names.slice(0, 8);
     }
-    function taskStatus(st, projectId, name){
-      const row = (st.ganttV2?.byProject?.[projectId]?.rows || []).find(r => r.type!=="summary" && r.name === name);
-      if(!row) return "NVT";
-      return clampPct(row.progress) >= 100 ? "Gereed" : `${clampPct(row.progress)}%`;
+    function taskStatusInfo(st, projectId, name){
+      const model = st.ganttV2?.byProject?.[projectId] || { rows:[], sched:{} };
+      const row = (model.rows || []).find(r => r.type!=="summary" && r.name === name);
+      if(!row) return { label:"NVT", cls:"task-na", title:"Niet van toepassing" };
+      const pct = clampPct(row.progress);
+      const status = String(row.status || "").toLowerCase();
+      const sc = model.sched?.[row.id] || {};
+      const today = new Date(); today.setUTCHours(0,0,0,0);
+      const end = parseDate(sc.end);
+      const late = !!(end && end < today && pct < 100 && !status.includes("gereed"));
+      if(pct >= 100 || status.includes("gereed")) return { label:"Gereed", cls:"task-done", title:"Gereed" };
+      if(late) return { label:"Te laat", cls:"task-late", title:`Te laat: einddatum ${toNL(sc.end) || sc.end || "onbekend"}, voortgang ${pct}%` };
+      if(pct > 0 || status.includes("uitvoering")) return { label:`${pct}%`, cls:"task-progress", title:`In uitvoering: ${pct}%` };
+      return { label:"0%", cls:"task-open", title:"Niet gestart" };
     }
+    function taskStatusCell(st, projectId, name){
+      const info = taskStatusInfo(st, projectId, name);
+      return `<td class="project-task-cell ${info.cls}" title="${esc(info.title)}"><span class="task-state ${info.cls}">${esc(info.label)}</span></td>`;
+    }
+    function taskStatusMeta(st, projectId, name){
+      const model = st.ganttV2?.byProject?.[projectId] || { rows:[], sched:{} };
+      const row = (model.rows || []).find(r => r.type!=="summary" && r.name === name);
+      if(!row) return { label:"NVT", cls:"nvt" };
+      const pct = clampPct(row.progress);
+      const sc = model.sched?.[row.id] || {};
+      const end = parseDate(sc.end || row.end || "");
+      const today = new Date(); today.setUTCHours(0,0,0,0);
+      const overdue = !!(end && end < today && pct < 100);
+      if(pct >= 100) return { label:"Gereed", cls:"gereed" };
+      if(overdue) return { label:"Te laat", cls:"vertraagd" };
+      return { label:`${pct}%`, cls:"lopend" };
+    }
+    function initScrollDock(){
+      const wrap = document.getElementById("projectOverviewTableWrap");
+      const proxy = document.getElementById("projectScrollProxy");
+      const filler = proxy?.firstElementChild;
+      if(!wrap || !proxy || !filler) return () => {};
+      let locking = false;
+      const syncSizes = () => { filler.style.width = Math.max(wrap.scrollWidth, wrap.clientWidth) + "px"; };
+      wrap.addEventListener("scroll", ()=>{ if(locking) return; locking = true; proxy.scrollLeft = wrap.scrollLeft; locking = false; });
+      proxy.addEventListener("scroll", ()=>{ if(locking) return; locking = true; wrap.scrollLeft = proxy.scrollLeft; locking = false; });
+      const ro = window.ResizeObserver ? new ResizeObserver(syncSizes) : null;
+      ro?.observe(wrap);
+      const table = wrap.querySelector("table");
+      if(table) ro?.observe(table);
+      window.addEventListener("resize", syncSizes);
+      syncSizes();
+      return syncSizes;
+    }
+    const syncProjectScrollDock = initScrollDock();
     function render(){
       const st = CWS.getState();
       const dynamic = taskNames(st);
@@ -147,11 +199,12 @@ var CWS = window.CWS;</script>
           <td class="progress-click" data-progress><div class="progress"><i style="width:${clampPct(progress)}%"></i></div><span class="smallmuted">${clampPct(progress)}% gereed</span></td>
           <td class="feedback-cell why-link" data-why-open title="${esc(why)}">${esc(why)}</td>
           <td class="feedback-cell" title="${esc(feedback)}">${feedback ? esc(feedback) : '<span class="smallmuted">Geen terugkoppeling</span>'}</td>
-          ${dynamic.map(n=>`<td>${taskStatus(st,p.id,n)}</td>`).join("")}
+          ${dynamic.map(n=>taskStatusCell(st,p.id,n)).join("")}
           <td><button class="btn primary" data-progress-open>Voortgang bijwerken</button> <button class="btn" data-360>Project 360</button></td>
         </tr>`;
       }).join("");
       $("#count").textContent = `${rows.length} projecten`;
+      if(typeof syncProjectScrollDock === "function") requestAnimationFrame(syncProjectScrollDock);
       $("#body").querySelectorAll("[data-progress-open],[data-progress]").forEach(el => el.addEventListener("click", e => { e.stopPropagation(); openProgress(e.target.closest("tr").dataset.id); }));
       $("#body").querySelectorAll("[data-360]").forEach(el => el.addEventListener("click", e => { e.stopPropagation(); open360(e.target.closest("tr").dataset.id); }));
       $("#body").querySelectorAll("[data-why-open]").forEach(el => el.addEventListener("click", e => { e.stopPropagation(); openWhy(e.target.closest("tr").dataset.id); }));
@@ -300,7 +353,22 @@ var CWS = window.CWS;</script>
     $("#undo").addEventListener("click",()=>{CWS.undo();render();});
     $("#redo").addEventListener("click",()=>{CWS.redo();render();});
     $("#export").addEventListener("click",()=>{const st=CWS.getState();UI.downloadCSV("projectoverzicht.csv",[["Project","Naam","Klant","Status","Voortgang","Terugkoppeling"],...projects(st).map(p=>{const s=progressSummary(st,p.id);return [p.nr,p.name,p.client,s.status,s.pct,s.latestFeedback];})]);});
-    $("#print").addEventListener("click",()=>UI.printA3("Projectoverzicht","CWS Planning",document.querySelector(".tablewrap").innerHTML));
+    const projectOverviewA0Css = `
+      table{width:100%;border-collapse:collapse;font-size:7.2px;line-height:1.08;table-layout:auto;}
+      th,td{border:.45pt solid #cbd5e1;padding:2.2px 3px;white-space:nowrap;vertical-align:middle;text-align:left;}
+      th{background:#e8edf5;color:#0f172a;font-weight:900;}
+      .smallmuted{font-size:6.2px;color:#475569;}
+      .status-badge,.health-badge,.task-state{display:inline-flex;align-items:center;justify-content:center;border-radius:7px;padding:2px 4px;font-weight:900;border:.45pt solid transparent;}
+      .status-badge.gereed,.task-state.task-done,.project-task-cell.task-done{background:#22c55e!important;color:#052e16!important;border-color:#15803d!important;}
+      .status-badge.vertraagd,.task-state.task-late,.project-task-cell.task-late{background:#ef4444!important;color:#fff!important;border-color:#b91c1c!important;}
+      .status-badge.uitvoering,.task-state.task-progress,.project-task-cell.task-progress{background:#dbeafe!important;color:#1d4ed8!important;border-color:#93c5fd!important;}
+      .status-badge.aandacht{background:#fff7ed!important;color:#9a3412!important;border-color:#fed7aa!important;}
+      .status-badge.niet,.task-state.task-open,.task-state.task-na{background:#f1f5f9!important;color:#334155!important;border-color:#cbd5e1!important;}
+      .att-red{background:#fef2f2!important;color:#991b1b!important;border-color:#fecaca!important}.att-orange{background:#fff7ed!important;color:#92400e!important;border-color:#fed7aa!important}.att-green{background:#ecfdf5!important;color:#166534!important;border-color:#bbf7d0!important}.att-blue{background:#eff6ff!important;color:#1d4ed8!important;border-color:#bfdbfe!important}.att-gray{background:#f8fafc!important;color:#475569!important;border-color:#e2e8f0!important}
+      .progress{width:70px;height:5px;background:#e5e7eb;border-radius:99px;overflow:hidden;border:.25pt solid #cbd5e1}.progress i{display:block;height:100%;background:#2f6fbd;}
+      button{display:none!important;}
+    `;
+    $("#print").addEventListener("click",()=>UI.printA3("Projectoverzicht","CWS Planning",document.querySelector(".tablewrap").innerHTML,{paper:"A0 landscape",extraCss:projectOverviewA0Css}));
     render();
   </script>
 </body>
