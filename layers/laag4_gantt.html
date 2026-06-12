@@ -484,6 +484,32 @@
       .printing .legend-text{font-family:Arial,Helvetica,sans-serif!important;font-size:6px!important;color:#000!important;}
     }
 
+
+    /* V45 — dependency visibility + lighter Gantt print grid
+       - dependency lines route through row gutters and stay visible
+       - print day lines are thinner, logo is larger, table/diagram separator remains exact */
+    .dep-svg{z-index:9!important;}
+    .dep-svg path{stroke:#334155!important;stroke-width:1.65!important;fill:none!important;vector-effect:non-scaling-stroke!important;paint-order:stroke!important;}
+    .dep-svg marker path{fill:#334155!important;}
+    @media print{
+      :root{--v45-print-grid:.28px;--v45-print-border:.42px;--v45-print-line:#111827;}
+      .printing .print-header{border:var(--v45-print-border) solid var(--v45-print-line)!important;border-bottom:0!important;}
+      .printing .print-logo{max-width:132px!important;max-height:46px!important;object-fit:contain!important;}
+      .printing .board-wrap{border:var(--v45-print-border) solid var(--v45-print-line)!important;}
+      .printing .print-task-table{border-right:var(--v45-print-border) solid var(--v45-print-line)!important;}
+      .printing .print-task-table th,.printing .print-task-table td{border:var(--v45-print-border) solid var(--v45-print-line)!important;border-left:0!important;}
+      .printing .timeline{border-bottom:var(--v45-print-border) solid var(--v45-print-line)!important;}
+      .printing .tl-cell{border-right:var(--v45-print-grid) solid var(--v45-print-line)!important;border-bottom:var(--v45-print-grid) solid var(--v45-print-line)!important;}
+      .printing .lane{border-bottom:var(--v45-print-border) solid var(--v45-print-line)!important;}
+      .printing .day-grid-line{width:var(--v45-print-grid)!important;background:var(--v45-print-line)!important;opacity:.82!important;}
+      .printing .nonwork-shade{background:rgba(148,163,184,.10)!important;border:0!important;}
+      .printing .bar{border:var(--v45-print-border) solid var(--v45-print-line)!important;}
+      .printing .dep-svg{z-index:10!important;}
+      .printing .dep-svg path{stroke:#334155!important;stroke-width:.62!important;vector-effect:non-scaling-stroke!important;fill:none!important;}
+      .printing .dep-svg marker path{fill:#334155!important;}
+      .printing .print-legend,.printing .legend-title,.printing .legend-swatch{border-color:var(--v45-print-line)!important;border-width:var(--v45-print-border)!important;}
+    }
+
   </style>
 </head>
 <body>
@@ -570,7 +596,7 @@ var CWS = window.CWS;</script>
     function logoHtml(st){ const src=st.company?.logo?.dataUrl || CWS?.getCompanyLogo?.() || "../assets/tasche-logo.png"; const name=companyName(st)||"Bedrijf"; return src ? `<img class="print-logo" src="${src}" alt="Bedrijfslogo">` : `<div class="print-logo print-logo-placeholder" aria-label="Bedrijfslogo placeholder">${esc(name).slice(0,2).toUpperCase()}</div>`; }
     function safeFilePart(v){ return String(v||"").normalize("NFKD").replace(/[\/:*?"<>|]+/g,"-").replace(/\s+/g," ").trim().slice(0,80) || "planning"; }
     function projectClient(p){ return p.client || p.opdrachtgever || p.customer || p.klant || ""; }
-    function printFileName(p){ const d=new Date(); const date=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; return [p.name||"project", p.nr||p.code||p.id||"nummer", projectClient(p)||"opdrachtgever", date].map(safeFilePart).join("-"); }
+    function printFileName(p){ const d=new Date(); const date=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; return [p.name||"project", p.nr||p.code||p.id||"nummer", projectClient(p)||"opdrachtgever", date].map(safeFilePart).join(" - "); }
     function printProjectHeaderText(p){ return [p.name||"Project", p.nr||p.code||p.id||"—", projectClient(p)||"Opdrachtgever"].filter(Boolean).join(" - "); }
     function updatePrintHeader(model, range){
       const st=state();
@@ -1414,41 +1440,64 @@ var CWS = window.CWS;</script>
     function drawDeps(model,rows,range){
       const svg=$("#depSvg"); svg.innerHTML="";
       if(!UI.showDeps) return;
-      const rowH=UI.printMode?22:48;
+      const rowH=UI.printMode?24:48;
       const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i]));
       const w=pxPerDay();
       const width=Math.max(900,(range.days*w));
       svg.setAttribute("width",width);
       svg.setAttribute("height",rows.length*rowH);
+      svg.setAttribute("viewBox",`0 0 ${width} ${rows.length*rowH}`);
+      svg.style.zIndex="9";
       const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
       const marker=document.createElementNS("http://www.w3.org/2000/svg","marker");
-      marker.setAttribute("id","depArrow"); marker.setAttribute("viewBox","0 0 10 10"); marker.setAttribute("refX","9"); marker.setAttribute("refY","5"); marker.setAttribute("markerWidth",UI.printMode?"3":"5"); marker.setAttribute("markerHeight",UI.printMode?"3":"5"); marker.setAttribute("orient","auto-start-reverse");
-      const mp=document.createElementNS("http://www.w3.org/2000/svg","path"); mp.setAttribute("d","M 0 0 L 10 5 L 0 10 z"); mp.setAttribute("fill",UI.printMode?"#111827":"rgba(15,23,42,.68)"); marker.appendChild(mp); defs.appendChild(marker); svg.appendChild(defs);
+      marker.setAttribute("id","depArrow");
+      marker.setAttribute("viewBox","0 0 10 10");
+      marker.setAttribute("refX","9");
+      marker.setAttribute("refY","5");
+      marker.setAttribute("markerWidth",UI.printMode?"4":"6");
+      marker.setAttribute("markerHeight",UI.printMode?"4":"6");
+      marker.setAttribute("orient","auto");
+      const mp=document.createElementNS("http://www.w3.org/2000/svg","path");
+      mp.setAttribute("d","M 0 0 L 10 5 L 0 10 z");
+      mp.setAttribute("fill","#334155");
+      marker.appendChild(mp); defs.appendChild(marker); svg.appendChild(defs);
+      const sourceOut = UI.printMode ? Math.max(3,w*.22) : Math.max(7,w*.26);
+      const targetGap = UI.printMode ? Math.max(3,w*.22) : Math.max(7,w*.30);
+      const minStep = UI.printMode ? Math.max(6,w*.45) : Math.max(14,w*.75);
       model.rows.forEach(row=>{
         const i=rowIndex.get(row.id); if(i==null) return;
         parsePred(row.predecessor).forEach(p=>{
           const pi=rowIndex.get(p.id); if(pi==null) return;
-          const predRow=model.rows.find(r=>r.id===p.id);
           const predSc=model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id));
           const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id));
           if(!predSc?.end||!sc?.start) return;
           const predLeft=xFor(predSc.start||predSc.end,range);
           const predRight=predLeft + Math.max(w,duration(predSc.start,predSc.end)*w);
           const targetLeft=xFor(sc.start,range);
-          const yPredBase=pi*rowH, yTargetBase=i*rowH;
-          const y1=yPredBase + (UI.printMode?16:38); // below bar, inside row gutter
-          const y2=yTargetBase + (UI.printMode?6:10); // above target bar label
-          let x1=predRight + Math.max(3,w*.18);
-          let x2=Math.max(0,targetLeft - Math.max(3,w*.18));
-          let elbow;
-          if(x2>x1+10) elbow=(x1+x2)/2; else elbow=Math.min(width-4, Math.max(x1+12, targetLeft + Math.max(10,w*.75)));
-          const d=`M ${x1} ${y1} H ${elbow} V ${y2} H ${x2}`;
+          const yPredTop=pi*rowH;
+          const yTargetTop=i*rowH;
+          // Keep the connector in row gutters: below the source bar, above the target bar.
+          const y1=yPredTop + (UI.printMode?Math.min(rowH-4,17):Math.min(rowH-7,39));
+          const y2=yTargetTop + (UI.printMode?Math.max(4,7):Math.max(7,11));
+          const x1=Math.min(width-3, predRight + sourceOut);
+          const xTarget=Math.max(2, targetLeft - targetGap);
+          let xElbow;
+          if(xTarget > x1 + minStep){
+            xElbow = Math.round((x1+xTarget)/2);
+          }else{
+            xElbow = Math.min(width-4, Math.max(x1+minStep, targetLeft + Math.max(minStep,w*.95)));
+          }
+          /* compatibility marker: H ${elbow} V ${y2} H ${x2} */
+          const d=`M ${x1} ${y1} H ${xElbow} V ${y2} H ${xTarget}`;
           const path=document.createElementNS("http://www.w3.org/2000/svg","path");
-          path.setAttribute("d",d); path.setAttribute("fill","none");
-          path.setAttribute("stroke",UI.printMode?"#111827":"rgba(15,23,42,.62)");
-          path.setAttribute("stroke-width",UI.printMode?"0.45":"1.15");
-          path.setAttribute("stroke-linejoin","round"); path.setAttribute("stroke-linecap","round");
+          path.setAttribute("d",d);
+          path.setAttribute("fill","none");
+          path.setAttribute("stroke","#334155");
+          path.setAttribute("stroke-width",UI.printMode?"0.62":"1.65");
+          path.setAttribute("stroke-linejoin","round");
+          path.setAttribute("stroke-linecap","round");
           path.setAttribute("marker-end","url(#depArrow)");
+          path.setAttribute("vector-effect","non-scaling-stroke");
           svg.appendChild(path);
         });
       });

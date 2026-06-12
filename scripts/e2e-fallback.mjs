@@ -66,5 +66,10 @@ const v44pass = gantt.includes('V44 — definitive Gantt print raster') && gantt
 console.log(`${v44pass ? "OK" : "FAIL"} - V44 Gantt print daglijnen, uitlijning en kalenderbreedte`);
 if(!v44pass) ok = false;
 
+
+const v45pass = gantt.includes('V45 — dependency visibility') && gantt.includes('stroke-width:1.65') && gantt.includes('--v45-print-grid:.28px') && gantt.includes('join(" - ")');
+console.log(`${v45pass ? "OK" : "FAIL"} - V45 dependencylijnen zichtbaarer en printlijnen dunner/PDF-titel`);
+if(!v45pass) ok = false;
+
 if (!ok) process.exit(1);
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");
