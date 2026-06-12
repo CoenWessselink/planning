@@ -1416,7 +1416,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
       // SSOT: default = all weekdays workbaar; user can toggle a weekday to "niet-werkbaar".
       // Individual date clicks create overrides.
       if(!cal.workweek){
-        cal.workweek = { 1:true, 2:true, 3:true, 4:true, 5:true, 6:true, 7:true };
+        cal.workweek = { 1:true, 2:true, 3:true, 4:true, 5:true, 6:false, 7:false };
       }
       if(!cal.overrides){
         cal.overrides = {}; // { 'YYYY-MM-DD': true|false }  true = niet-werkdag, false = werkdag
@@ -1626,7 +1626,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
   function ensureEmployeeCalendarFields(emp){
     if(!emp) return;
     // per-employee defaults: inherit global workweek at first use
-    const g = CWS.getState().settings?.calendar?.workweek || {1:true,2:true,3:true,4:true,5:true,6:true,7:true};
+    const g = CWS.getState().settings?.calendar?.workweek || {1:true,2:true,3:true,4:true,5:true,6:false,7:false};
     if(!emp.workweek){
       emp.workweek = { 1:!!g[1], 2:!!g[2], 3:!!g[3], 4:!!g[4], 5:!!g[5], 6:!!g[6], 7:!!g[7] };
     }

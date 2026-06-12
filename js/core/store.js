@@ -722,8 +722,8 @@ window.CWS = window.CWS || {};
     st.settings.calendar = st.settings.calendar || {};
     const cal = st.settings.calendar;
     if(!cal.workweek){
-      // SSOT requirement: default all weekdays workbaar (Ma..Zo)
-      cal.workweek = { 1:true,2:true,3:true,4:true,5:true,6:true,7:true };
+      // V59: Gantt/Capaciteit mogen nooit op weekend plannen; standaard Ma-Vr werkbaar.
+      cal.workweek = { 1:true,2:true,3:true,4:true,5:true,6:false,7:false };
     }
     if(!cal.overrides){ cal.overrides = {}; }
   };
@@ -735,6 +735,7 @@ window.CWS = window.CWS || {};
     if(typeof ov === 'boolean') return ov;
     const d = new Date(iso + 'T00:00:00Z');
     const wd = isoWeekdayUTC(d);
+    if(wd === 6 || wd === 7) return true;
     const isWork = !!cal.workweek?.[wd];
     // backwards compat: settings.tables.calendar with isWorking=false
     const legacy = Array.isArray(st?.settings?.tables?.calendar) ? st.settings.tables.calendar : [];
@@ -757,7 +758,7 @@ window.CWS = window.CWS || {};
     if(typeof ov === 'boolean') return ov;
     const d = new Date(iso + 'T00:00:00Z');
     const wd = isoWeekdayUTC(d);
-    const ww = emp.workweek || st.settings?.calendar?.workweek || {1:true,2:true,3:true,4:true,5:true,6:true,7:true};
+    const ww = emp.workweek || st.settings?.calendar?.workweek || {1:true,2:true,3:true,4:true,5:true,6:false,7:false};
     const isWork = !!ww[wd];
     return !isWork;
   };
@@ -1228,6 +1229,65 @@ window.CWS = window.CWS || {};
     return out;
   };
 
+  // V59 — Gantt plant uitsluitend op werkbare dagen.
+  // Weekenden en niet-werkbare dagen blijven zichtbaar in de kalender, maar taakdata en capaciteit worden gecorrigeerd.
+  const nextGanttWorkIso = (st, iso) => {
+    let d = new Date(String(iso || isoDateUTC(new Date())).slice(0,10) + "T00:00:00Z");
+    if(!Number.isFinite(d.getTime())) d = new Date();
+    for(let i=0;i<900;i++){
+      const out = isoDateUTC(d);
+      if(!getGlobalNonWorkISO(st, out)) return out;
+      d = addDaysUTC(d, 1);
+    }
+    return isoDateUTC(d);
+  };
+
+  const previousGanttWorkIso = (st, iso) => {
+    let d = new Date(String(iso || isoDateUTC(new Date())).slice(0,10) + "T00:00:00Z");
+    if(!Number.isFinite(d.getTime())) d = new Date();
+    for(let i=0;i<900;i++){
+      const out = isoDateUTC(d);
+      if(!getGlobalNonWorkISO(st, out)) return out;
+      d = addDaysUTC(d, -1);
+    }
+    return isoDateUTC(d);
+  };
+
+  const addGanttWorkdays = (st, startIso, workdays) => {
+    const total = Math.max(1, Number(workdays)||1);
+    let iso = nextGanttWorkIso(st, startIso);
+    let count = 1;
+    while(count < total){
+      iso = nextGanttWorkIso(st, isoDateUTC(addDaysUTC(new Date(iso + "T00:00:00Z"), 1)));
+      count += 1;
+    }
+    return iso;
+  };
+
+  const normalizeGanttScheduleRange = (st, startIso, endIso, preferredWorkdays=null) => {
+    const start = nextGanttWorkIso(st, startIso || endIso || isoDateUTC(new Date()));
+    let days = Number(preferredWorkdays);
+    if(!Number.isFinite(days) || days < 1){
+      const existing = getTaskWorkdays(st, startIso, endIso);
+      days = Math.max(1, existing.length || 1);
+    }
+    return { start, end:addGanttWorkdays(st, start, days), workdays:days };
+  };
+
+  const normalizeGanttModelSchedules = (st, model) => {
+    if(!model || !Array.isArray(model.rows)) return model || { rows:[], sched:{} };
+    model.sched = model.sched && typeof model.sched === "object" ? model.sched : {};
+    model.rows.forEach(row => {
+      if(!row || row.type === "summary" || row.type === "phase") return;
+      const sc = model.sched[row.id] || {};
+      const preferred = Math.max(1, baseNum(row.duration || row.days || row.duur) || (sc.start && sc.end ? Math.max(1, Math.round((new Date(String(sc.end).slice(0,10)+"T00:00:00Z") - new Date(String(sc.start).slice(0,10)+"T00:00:00Z"))/86400000) + 1) : 1));
+      const fixed = normalizeGanttScheduleRange(st, sc.start, sc.end, preferred);
+      model.sched[row.id] = { ...sc, start:fixed.start, end:fixed.end };
+      row.duration = fixed.workdays;
+    });
+    return model;
+  };
+
   const getProjectDeptHoursTotal = (st, projectId, deptName) => {
     const dept = String(deptName || "(Geen)").trim() || "(Geen)";
     const p = st?.projects?.byId?.[projectId] || {};
@@ -1359,7 +1419,7 @@ window.CWS = window.CWS || {};
     target.gantt.hoursByDay = hoursByDay;
     target.gantt.sourcesByDay = sourcesByDay;
     target.gantt.projectDeptHoursValidation = validation;
-    target.gantt.allocationRule = "v58-project-dept-hours-ssot-manual-override-only-explicit";
+    target.gantt.allocationRule = "v58-project-dept-hours-ssot-manual-override-only-explicit|v59-working-days-only";
     const nextSignature = ganttHoursSignature(target.gantt);
     if(previousSignature !== nextSignature || !target.gantt.recalculatedAt){
       target.gantt.recalculatedAt = new Date().toISOString();
@@ -1388,7 +1448,7 @@ window.CWS = window.CWS || {};
       return mutate("gantt_save", { projectId }, draft => {
         draft.ganttV2 = draft.ganttV2 || { byProject:{}, ui:{} };
         draft.ganttV2.byProject = draft.ganttV2.byProject || {};
-        draft.ganttV2.byProject[projectId] = deepClone(model);
+        draft.ganttV2.byProject[projectId] = normalizeGanttModelSchedules(draft, deepClone(model));
         rebuildGanttHoursByDay(draft);
       });
     },
@@ -1399,6 +1459,7 @@ window.CWS = window.CWS || {};
         const project = draft.projects?.byId?.[projectId];
         if(!project) throw new Error("Project niet gevonden.");
         const base = parseNLDateToUTC(project.start) || new Date();
+        let cursorIso = nextGanttWorkIso(draft, isoDateUTC(base));
         const pack = draft.tasks?.byProject?.[projectId];
         const phases = pack?.phases?.length ? pack.phases : [{ id:"PH-1", name:"Engineering", tasks:[{id:"T-1",name:"Voorbereiding"},{id:"T-2",name:"Uitvoering"}] }];
         const model = { rows:[], sched:{} };
@@ -1407,10 +1468,11 @@ window.CWS = window.CWS || {};
           model.rows.push({ id:`${projectId}-${phase.id}`, name:phase.name, type:"summary", level:0, department:phase.name, progress:0, predecessor:"", locked:false });
           (phase.tasks || []).forEach((task, index) => {
             const id = `${projectId}-${task.id}`;
-            const start = isoDateUTC(addDaysUTC(base, day));
-            const end = isoDateUTC(addDaysUTC(base, day+4));
+            const start = cursorIso;
+            const end = addGanttWorkdays(draft, start, 5);
             model.rows.push({ id, name:task.name, type:"task", level:1, department:phase.name, progress:0, predecessor:index ? `${projectId}-${phase.tasks[index-1].id}FS` : "", locked:false, hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 });
             model.sched[id] = { start, end };
+            cursorIso = nextGanttWorkIso(draft, isoDateUTC(addDaysUTC(new Date(end + "T00:00:00Z"), 1)));
             day += 5;
           });
         });

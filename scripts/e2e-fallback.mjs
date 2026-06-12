@@ -117,3 +117,6 @@ check("V57 D1 Worker resource hardening aanwezig", read("functions/api/health.js
 if(process.exitCode) process.exit(process.exitCode);
 check("V58 projecturen per afdeling zijn Gantt/Capaciteit SSOT met expliciete handmatige override", read("js/core/store.js").includes("v58-project-dept-hours-ssot-manual-override-only-explicit") && read("js/core/store.js").includes("allocationMode = \"project-dept-hours-auto\"") && read("layers/laag4_gantt.html").includes("data-v58-hours-source=\"1\"") && read("layers/laag4_gantt.html").includes("Projecturen zijn SSOT") && fs.readFileSync("package.json", "utf8").includes('"preflight:v58"'));
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V59 Gantt plant uitsluitend op werkbare dagen", read("js/core/store.js").includes("normalizeGanttModelSchedules(draft, deepClone(model))") && read("js/core/store.js").includes("v59-working-days-only") && read("layers/laag4_gantt.html").includes("function workSegments") && read("layers/laag4_gantt.html").includes("bar-segment") && read("layers/laag4_gantt.html").includes("Balk bijgewerkt op werkbare dagen") && fs.readFileSync("package.json", "utf8").includes('"preflight:v59"'));
+if(process.exitCode) process.exit(process.exitCode);

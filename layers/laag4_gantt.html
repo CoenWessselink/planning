@@ -987,6 +987,27 @@
 
 
 
+
+
+    /* V59 — Gantt plant uitsluitend op werkbare dagen
+       - weekenden en niet-werkbare dagen blijven zichtbaar als kalenderachtergrond
+       - taakbalken worden visueel gesegmenteerd en lopen niet door over niet-werkbare dagen
+       - drag/resize/datum/duur snappen naar werkbare dagen */
+    .bar.bar-segment{border-radius:8px;overflow:hidden;}
+    .bar.bar-segment.segment-middle .handle{display:none!important;}
+    .bar.bar-segment.segment-first:not(.segment-last){border-top-right-radius:3px;border-bottom-right-radius:3px;}
+    .bar.bar-segment.segment-last:not(.segment-first){border-top-left-radius:3px;border-bottom-left-radius:3px;}
+    .bar.bar-segment.segment-middle{border-radius:3px;}
+    .bar.bar-segment.segment-empty{display:none!important;}
+    .bar.bar-segment .handle.left{display:none;}
+    .bar.bar-segment.segment-first .handle.left{display:block;}
+    .bar.bar-segment .handle.right{display:none;}
+    .bar.bar-segment.segment-last .handle.right{display:block;}
+    .workday-rule-note{display:block;color:#64748b;font-size:11px;font-weight:800;margin-top:3px;}
+    @media print{
+      .printing .bar.bar-segment{border-radius:2px!important;}
+    }
+
   </style>
 </head>
 <body>
@@ -1374,13 +1395,64 @@ var CWS = window.CWS;</script>
     function startOfWeek(iso){ const d=parseDate(iso)||new Date(); const dow=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()-dow+1); return toIso(d); }
     function isoWeek(d0){ const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate())); const day=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-day); const ys=new Date(Date.UTC(d.getUTCFullYear(),0,1)); return { year:d.getUTCFullYear(), week:Math.ceil((((d-ys)/86400000)+1)/7) }; }
     function isoWeekLabel(iso){ const d=parseDate(iso); if(!d) return "W--"; const w=isoWeek(d); return `W${String(w.week).padStart(2,"0")}`; }
-    function duration(s,e){ if(!s||!e) return 0; return Math.max(1, dayDiff(s,e)+1); }
+    function calendarDuration(s,e){ if(!s||!e) return 0; return Math.max(1, dayDiff(s,e)+1); }
+    function isWeekendIso(iso){ const d=parseDate(iso); return !!d && (d.getUTCDay()===0 || d.getUTCDay()===6); }
+    function isWorkingIso(st, iso){ return !!parseDate(iso) && !isWeekendIso(iso) && !isNonWorkingIso(st, iso); }
+    function nextWorkingIso(st, iso){ let d=toIso(iso)||toIso(new Date()); for(let i=0;i<900;i++){ if(isWorkingIso(st,d)) return d; d=addDays(d,1); } return d; }
+    function previousWorkingIso(st, iso){ let d=toIso(iso)||toIso(new Date()); for(let i=0;i<900;i++){ if(isWorkingIso(st,d)) return d; d=addDays(d,-1); } return d; }
+    function workdaysBetween(st, s, e){
+      const out=[]; if(!s||!e) return out; let a=toIso(s), b=toIso(e); if(!a||!b) return out; if(dayDiff(a,b)<0){ const t=a; a=b; b=t; }
+      for(let d=a; dayDiff(d,b)<=0; d=addDays(d,1)){ if(isWorkingIso(st,d)) out.push(d); }
+      return out;
+    }
+    function duration(s,e){ return Math.max(1, workdaysBetween(state(),s,e).length || calendarDuration(s,e)); }
+    /* V41 compatibility: addDays(start,days-1) is superseded by addWorkingDays for V59. */
+    function addWorkingDays(st, startIso, workdays){
+      const total=Math.max(1,Number(workdays)||1); let cur=nextWorkingIso(st,startIso); let count=1;
+      while(count<total){ cur=nextWorkingIso(st,addDays(cur,1)); count++; }
+      return cur;
+    }
+    function normalizeSchedule(st, startIso, endIso, preferredWorkdays=null){
+      const start=nextWorkingIso(st,startIso||endIso||toIso(new Date()));
+      let wd=Number(preferredWorkdays);
+      if(!Number.isFinite(wd)||wd<1){ wd=workdaysBetween(st,startIso,endIso).length || 1; }
+      return { start, end:addWorkingDays(st,start,wd), workdays:wd };
+    }
+    function shiftScheduleByWorkdays(st, sc, delta){
+      const wd=duration(sc.start, sc.end)||1;
+      let start=nextWorkingIso(st, addDays(sc.start, delta));
+      return normalizeSchedule(st,start,null,wd);
+    }
+    function workSegments(st,startIso,endIso,range){
+      const days=workdaysBetween(st,startIso,endIso);
+      if(!days.length) return [];
+      const segs=[]; let segStart=days[0], prev=days[0];
+      for(let i=1;i<days.length;i++){
+        if(dayDiff(prev,days[i])===1){ prev=days[i]; continue; }
+        segs.push({start:segStart,end:prev}); segStart=prev=days[i];
+      }
+      segs.push({start:segStart,end:prev});
+      return segs.map(seg=>({ ...seg, left:xFor(seg.start,range), width:Math.max(pxPerDay(), (dayDiff(seg.start,seg.end)+1)*pxPerDay()) }));
+    }
+    function normalizeModelSchedulesForWorkdays(st, model){
+      let changed=0;
+      (model?.rows||[]).forEach(row=>{
+        if(!row || row.type==="summary") return;
+        const sc=model.sched?.[row.id]||{};
+        if(!sc.start || !sc.end) return;
+        const preferred=Number(row.duration||row.days||row.duur)||calendarDuration(sc.start,sc.end)||1;
+        const fixed=normalizeSchedule(st,sc.start,sc.end,preferred);
+        if(fixed.start!==sc.start || fixed.end!==sc.end){ model.sched[row.id]={...sc,start:fixed.start,end:fixed.end}; row.duration=fixed.workdays; changed++; }
+      });
+      return changed;
+    }
     function dateInputCell(k, iso, disabled){ const v=toIso(iso); return `<div class="date-cell"><input class="cellinput dateinput" type="date" data-k="${esc(k)}" value="${esc(v)}" title="${esc(v?isoWeekLabel(v):"Geen datum")}" ${disabled||""}><span class="weekno">${esc(v?isoWeekLabel(v):"W--")}</span></div>`; }
     function departmentOptionsHtml(st, selected){ return departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(selected)===String(d.id||d.name)||String(selected)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("") + (selected && !departments(st).some(d=>String(selected)===String(d.id||d.name)||String(selected)===String(d.name)) ? `<option value="${esc(selected)}" selected>${esc(selected)}</option>` : ""); }
     function isNonWorkingIso(st, iso){
       const d=parseDate(iso);
       if(!d) return false;
       const wd=d.getUTCDay()===0 ? 7 : d.getUTCDay();
+      if(wd===6 || wd===7) return true;
       const cal=st?.settings?.calendar || {};
       const ov=cal.overrides?.[iso];
       // In de store betekent override=true: niet werkbaar; override=false: werkbaar.
@@ -1500,8 +1572,11 @@ var CWS = window.CWS;</script>
           const taskDays=Math.max(1, Number(t.days ?? t.duration ?? t.duur ?? 5) || 5);
           const explicitStart=toIso(t.start||t.startDate||"");
           const explicitEnd=toIso(t.end||t.endDate||"");
-          const start=explicitStart || cursor;
-          const end=explicitEnd || addDays(start, taskDays-1);
+          const fixedSchedule = explicitEnd
+            ? normalizeSchedule(st, explicitStart || cursor, explicitEnd)
+            : normalizeSchedule(st, explicitStart || cursor, null, taskDays);
+          const start=fixedSchedule.start;
+          const end=fixedSchedule.end;
           let pred = t.pred || t.predecessor || t.predecessors || "";
           pred = normalizeTemplatePredecessor(pred, projectId, new Map([...globalTemplateIdMap,...idMap]));
           if(!pred && ti>0){
@@ -1532,7 +1607,7 @@ var CWS = window.CWS;</script>
             templateId:template?.id||""
           });
           model.sched[id]={start,end};
-          cursor=addDays(end,1);
+          cursor=nextWorkingIso(st,addDays(end,1));
         });
       });
       return model;
@@ -1653,6 +1728,14 @@ var CWS = window.CWS;</script>
       UI.projectId=pid;
       if(!pid){ $("#ganttHead").innerHTML=""; $("#tableRows").innerHTML=""; $("#lanes").innerHTML='<div class="empty">Geen projecten beschikbaar.</div>'; return; }
       const liveModel=ensureModel(pid);
+      if(!UI.revisionId){
+        const fixedCount=normalizeModelSchedulesForWorkdays(st, liveModel);
+        if(fixedCount){
+          saveModel(pid, liveModel, `${fixedCount} taakdatum(s) naar werkbare dagen gecorrigeerd`);
+          toast(`${fixedCount} taakdatum(s) naar werkbare dagen gecorrigeerd`, "warn");
+          return;
+        }
+      }
       const model=activeModelForRender(liveModel);
       const rows=filteredRows(model);
       rows.forEach((x,i)=>{ x.row._displayNo=i+1; });
@@ -1681,28 +1764,37 @@ var CWS = window.CWS;</script>
       $("#lanes").style.width=chartW+"px";
       $("#lanes").style.minWidth=chartW+"px";
       $("#lanes").innerHTML=rows.map(({row,index,sc})=>{
-        const left=xFor(sc.start||range.start,range), width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay());
+        const segments=workSegments(st, sc.start||range.start, sc.end||sc.start||range.start, range);
+        const fallbackLeft=xFor(sc.start||range.start,range);
+        const firstLeft=segments[0]?.left ?? fallbackLeft;
+        const lastRight=segments.length ? Math.max(...segments.map(seg=>seg.left+seg.width)) : firstLeft+pxPerDay();
         const isCritical=cids.has(row.id);
-        const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),duration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:"";
+        const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),calendarDuration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:"";
         const labels=loadLabelConfig();
         const beforeText=labelText(labels.before,row,sc);
         const insideText=labelText(labels.inside,row,sc);
         const afterText=labelText(labels.after,row,sc);
         const beforeGap=6, afterGap=6;
-        const beforeW=Math.max(0,Math.min(180,left-beforeGap));
-        const afterLeft=left+width+afterGap;
+        const beforeW=Math.max(0,Math.min(180,firstLeft-beforeGap));
+        const afterLeft=lastRight+afterGap;
         const afterW=Math.max(0,Math.min(220,chartW-afterLeft));
-        const beforeHtml=beforeText&&beforeW>=24?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,left-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
+        const beforeHtml=beforeText&&beforeW>=24?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,firstLeft-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
         const afterHtml=afterText&&afterW>=24?`<span class="bar-text-after" title="${esc(afterText)}" style="left:${afterLeft}px;width:${afterW}px">${esc(afterText)}</span>`:"";
         const title=[beforeText,insideText,afterText].filter(Boolean).join(" | ") || row.name;
-        return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${dayGridLineHtml}${nonWorkShadeHtml}${base}${beforeHtml}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>${(row.feedback||row.why)&&row.type!=="summary"?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>${afterHtml}</div>`;
+        const barSegments=(segments.length?segments:[{left:fallbackLeft,width:pxPerDay(),start:sc.start,end:sc.start}]).map((seg,segIndex,arr)=>{
+          const first=segIndex===0, last=segIndex===arr.length-1;
+          const segCls=`bar-segment ${first?"segment-first":"segment-middle"} ${last?"segment-last":""}`;
+          const labelHtml=first?`<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>`:`<span class="bar-label" title="${esc(title)}"></span>`;
+          return `<div class="bar ${segCls} ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" data-segment="${segIndex+1}/${arr.length}" style="left:${seg.left}px;width:${seg.width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}${labelHtml}${(row.feedback||row.why)&&row.type!=="summary"&&first?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>`;
+        }).join("");
+        return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${dayGridLineHtml}${nonWorkShadeHtml}${base}${beforeHtml}${barSegments}${afterHtml}</div>`;
       }).join("");
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");
       if(tl){ tl.style.display=(todayX>=0&&todayX<=chartW)?"block":"none"; tl.style.left=todayX+"px"; tl.style.height=`calc(var(--headH) + ${rows.length*(UI.printMode?22:48)}px)`; }
       $("#board").className="board "+(UI.view==="table"?"table-only":UI.view==="diagram"?"diagram-only":"");
       const revMeta=model._revision ? ` | revisie ${model._revision.revNo||""} | revisiedatum ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"} | status ${model._revision.status||"—"}${model._revision.description?` | ${model._revision.description}`:""}` : " | live planning";
-      $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
+      $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | planning: alleen werkbare dagen | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
       renderLegend(rows);
       renderPrintTaskTable(rows);
       renderPrintCalendars($("#timeline")?.innerHTML || "", chartW);
@@ -1840,24 +1932,24 @@ var CWS = window.CWS;</script>
             dept=sel.department || dept;
             const lastChild=model.rows.slice(a+1,b+1).filter(r=>r.type!=="summary").at(-1);
             const lastSc=lastChild ? model.sched[lastChild.id] : null;
-            if(lastSc?.end){ start=addDays(lastSc.end,1); pred=`${lastChild.id}FS`; }
+            if(lastSc?.end){ start=nextWorkingIso(st,addDays(lastSc.end,1)); pred=`${lastChild.id}FS`; }
           } else {
             insertAt=b+1;
             level=Math.max(1,Number(sel.level||1));
             parent=sel.parent || "";
             dept=sel.department || dept;
             const selSc=model.sched[sel.id];
-            if(selSc?.end){ start=addDays(selSc.end,1); pred=`${sel.id}FS`; }
+            if(selSc?.end){ start=nextWorkingIso(st,addDays(selSc.end,1)); pred=`${sel.id}FS`; }
           }
         }
       } else if(model.rows.length){
         const prev=model.rows.filter(r=>r.type!=="summary").at(-1);
-        if(prev){ const sc=model.sched[prev.id]; if(sc?.end){ start=addDays(sc.end,1); pred=`${prev.id}FS`; } level=Math.max(1,Number(prev.level||1)); parent=prev.parent||""; dept=prev.department||dept; }
+        if(prev){ const sc=model.sched[prev.id]; if(sc?.end){ start=nextWorkingIso(st,addDays(sc.end,1)); pred=`${prev.id}FS`; } level=Math.max(1,Number(prev.level||1)); parent=prev.parent||""; dept=prev.department||dept; }
       }
       const id=uniqueRowId(model, `${pid}-T`);
       const row={id,name:"Nieuwe taak",type:"task",level,parent,department:dept,resourceId:"",progress:0,predecessor:pred,locked:false,colorKey:"c1",hours:0,why:""};
       model.rows.splice(insertAt,0,row);
-      model.sched[id]={start,end:addDays(start,4)};
+      model.sched[id]=normalizeSchedule(st,start,null,5);
       UI.selected=id;
       saveModel(pid,model,"Taak toegevoegd");
       render();
@@ -1948,15 +2040,21 @@ var CWS = window.CWS;</script>
               if(!iso){toast("Ongeldige datum","bad");render();return;}
               model.sched[rowId]=model.sched[rowId]||{};
               const oldDur=duration(model.sched[rowId].start, model.sched[rowId].end) || 1;
-              model.sched[rowId][k]=iso;
-              if(k==="start" && (!model.sched[rowId].end || dayDiff(model.sched[rowId].start, model.sched[rowId].end)<0)) model.sched[rowId].end=addDays(iso, oldDur-1);
-              if(k==="end" && (!model.sched[rowId].start || dayDiff(model.sched[rowId].start, model.sched[rowId].end)<0)) model.sched[rowId].start=iso;
+              if(k==="start"){
+                const fixed=normalizeSchedule(state(),iso,null,oldDur);
+                model.sched[rowId].start=fixed.start;
+                model.sched[rowId].end=fixed.end;
+              }else{
+                const fixed=normalizeSchedule(state(),model.sched[rowId].start||iso,iso);
+                model.sched[rowId].start=fixed.start;
+                model.sched[rowId].end=fixed.end;
+              }
             } else if(k==="duration"){
               const days=Math.max(1,Number(el.value)||1);
               model.sched[rowId]=model.sched[rowId]||{};
-              const start=model.sched[rowId].start||firstProjectStart(state(),pid);
+              const start=nextWorkingIso(state(),model.sched[rowId].start||firstProjectStart(state(),pid));
               model.sched[rowId].start=start;
-              model.sched[rowId].end=addDays(start,days-1);
+              model.sched[rowId].end=addWorkingDays(state(),start,days);
             } else if(k==="progress"){
               row.progress=Math.max(0,Math.min(100,Number(el.value)||0));
               row.status=row.progress>=100?"Gereed":row.progress>0?(row.status||"In uitvoering"):(row.status||"Niet gestart");
@@ -2023,8 +2121,8 @@ var CWS = window.CWS;</script>
         });
       });
     }
-    window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc.start=addDays(UI.drag.orig.start,d); sc.end=addDays(UI.drag.orig.end,d); } else if(UI.drag.handle==="left"){ sc.start=addDays(UI.drag.orig.start,d); if(dayDiff(sc.start,sc.end)<0) sc.start=sc.end; } else { sc.end=addDays(UI.drag.orig.end,d); if(dayDiff(sc.start,sc.end)<0) sc.end=sc.start; } const bar=$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); if(bar){ bar.style.left=xFor(sc.start,{start:UI.originStart})+"px"; bar.style.width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay())+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
-    window.addEventListener("pointerup",()=>{ if(!UI.drag) return; if(UI.revisionId){ UI.drag=null; render(); return; } const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]={start:bar.dataset.tmpStart,end:bar.dataset.tmpEnd}; saveModel(pid,model,"Balk bijgewerkt"); } UI.drag=null; render(); });
+    window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const st=state(); let sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc=shiftScheduleByWorkdays(st,UI.drag.orig,d); } else if(UI.drag.handle==="left"){ sc=normalizeSchedule(st,addDays(UI.drag.orig.start,d),UI.drag.orig.end); } else { sc=normalizeSchedule(st,UI.drag.orig.start,addDays(UI.drag.orig.end,d)); } const bars=$$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); bars.forEach((bar,i)=>{ if(i>0) bar.style.opacity=".35"; }); const bar=bars[0]; if(bar){ bar.style.left=xFor(sc.start,{start:UI.originStart})+"px"; bar.style.width=Math.max(pxPerDay(),calendarDuration(sc.start,sc.end)*pxPerDay())+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
+    window.addEventListener("pointerup",()=>{ if(!UI.drag) return; if(UI.revisionId){ UI.drag=null; render(); return; } const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid), st=state(); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]=normalizeSchedule(st,bar.dataset.tmpStart,bar.dataset.tmpEnd); saveModel(pid,model,"Balk bijgewerkt op werkbare dagen"); } UI.drag=null; render(); });
     function drawDeps(model,rows,range){
       const svg=$("#depSvg"); svg.innerHTML="";
       if(!UI.showDeps) return;
@@ -2062,7 +2160,7 @@ var CWS = window.CWS;</script>
           const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id));
           if(!predSc?.end||!sc?.start) return;
           const predLeft=xFor(predSc.start||predSc.end,range);
-          const predRight=predLeft + Math.max(w,duration(predSc.start,predSc.end)*w);
+          const predRight=xFor(predSc.end||predSc.start,range) + w;
           const targetLeft=xFor(sc.start,range);
           const y1=pi*rowH + barTop + barH/2;
           const y2=i*rowH + barTop + barH/2;
@@ -2113,7 +2211,7 @@ var CWS = window.CWS;</script>
       $("#modalBack").classList.add("show");
     }
 
-    function applyPredecessors(){ if(!assertLiveMode()) return;  const pid=currentProjectId(), model=getModel(pid); let changed=0; model.rows.forEach(row=>{ if(row.type!=="task"||row.locked) return; parsePred(row.predecessor).forEach(p=>{ const pred=model.sched[p.id]; const cur=model.sched[row.id]; if(!pred||!cur) return; const min=addDays(pred.end,1+(p.lag||0)); if(cur.start<min){ const dur=duration(cur.start,cur.end); cur.start=min; cur.end=addDays(min,dur-1); changed++; } }); }); saveModel(pid,model,changed?"Planning herberekend":"Planning ongewijzigd"); toast(changed?`${changed} taak/taken verschoven`:"Planning al geldig"); render(); }
+    function applyPredecessors(){ if(!assertLiveMode()) return;  const pid=currentProjectId(), model=getModel(pid), st=state(); let changed=0; model.rows.forEach(row=>{ if(row.type!=="task"||row.locked) return; parsePred(row.predecessor).forEach(p=>{ const pred=model.sched[p.id]; const cur=model.sched[row.id]; if(!pred||!cur) return; const min=nextWorkingIso(st,addDays(pred.end,1+(p.lag||0))); if(cur.start<min){ const dur=duration(cur.start,cur.end); const fixed=normalizeSchedule(st,min,null,dur); cur.start=fixed.start; cur.end=fixed.end; changed++; } }); }); changed += normalizeModelSchedulesForWorkdays(st,model); saveModel(pid,model,changed?"Planning herberekend op werkbare dagen":"Planning ongewijzigd"); toast(changed?`${changed} taak/taken verschoven/gecorrigeerd`:"Planning al geldig"); render(); }
     function setBaseline(){ if(!assertLiveMode()) return;  const pid=currentProjectId(), model=getModel(pid); model.rows.forEach(row=>{ const sc=model.sched[row.id]; if(sc?.start&&sc?.end){ row.baselineStart=sc.start; row.baselineEnd=sc.end; }}); saveModel(pid,model,"Baseline ingesteld"); render(); }
     function indent(delta){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid); const row=model.rows.find(r=>r.id===UI.selected); if(!row||row.type==="summary"||row.locked){toast("Selecteer een ontgrendelde taak","warn");return;} row.level=Math.max(1,Number(row.level||1)+delta); saveModel(pid,model); render(); }
     function openEdit(rowId){
@@ -2131,7 +2229,7 @@ var CWS = window.CWS;</script>
         <label class="field">Resource<input id="mResource" list="modalResourceOptions" value="${esc(row.resourceId||"")}" placeholder="Resource"><datalist id="modalResourceOptions">${resOptions}</datalist></label>
         <label class="field">Start<input id="mStart" type="date" value="${esc(toIso(sc.start))}" ${row.type==="summary"?"disabled":""}><small class="weekno">${esc(sc.start?isoWeekLabel(sc.start):"W--")}</small></label>
         <label class="field">Einde<input id="mEnd" type="date" value="${esc(toIso(sc.end))}" ${row.type==="summary"?"disabled":""}><small class="weekno">${esc(sc.end?isoWeekLabel(sc.end):"W--")}</small></label>
-        <label class="field">Duur<input id="mDur" type="number" min="1" step="1" value="${duration(sc.start,sc.end)}" ${row.type==="summary"?"disabled":""}></label>
+        <label class="field">Duur<input id="mDur" type="number" min="1" step="1" value="${duration(sc.start,sc.end)}" ${row.type==="summary"?"disabled":""}><small class="workday-rule-note">Duur telt alleen werkbare dagen. Weekend/niet-werkbaar wordt automatisch overgeslagen.</small></label>
         <label class="field">Voortgang<input id="mProg" type="number" min="0" max="100" value="${Number(row.progress||0)}"></label>
         <label class="field">Status<select id="mStatus">${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select></label>
         <label class="field">Voorgangers<select id="mPredSel" class="pred-select" multiple>${predecessorOptionsHtml(model,rowId,row.predecessor)}</select><span class="pred-help">Meerdere voorgangers mogelijk. In de tabel worden regelnummers getoond.</span></label>
@@ -2186,8 +2284,8 @@ var CWS = window.CWS;</script>
           const start=toIso($("#mStart").value)||sc.start;
           let end=toIso($("#mEnd").value)||sc.end;
           const dur=Number($("#mDur")?.value||0);
-          if($("#mDur")?.dataset.changed==="1" && dur>=1) end=addDays(start,dur-1);
-          model.sched[rowId]={start,end};
+          const fixed=$("#mDur")?.dataset.changed==="1" && dur>=1 ? normalizeSchedule(st,start,null,dur) : normalizeSchedule(st,start,end);
+          model.sched[rowId]={start:fixed.start,end:fixed.end};
         }
         saveModel(pid,model,"Taak bijgewerkt");
         $("#modalBack").classList.remove("show");
@@ -2286,9 +2384,9 @@ var CWS = window.CWS;</script>
 
 
     function childrenOf(model,rowId){ const [a,b]=blockRange(model,rowId); return a>=0 ? model.rows.slice(a+1,b+1) : []; }
-    function insertTaskAfter(rowId, asChild=false){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); const idx=model.rows.findIndex(r=>r.id===rowId); const sel=model.rows[idx]; if(!sel) return addTask(); const [a,b]=blockRange(model,rowId); const insertAt=asChild&&sel.type==="summary" ? a+1 : b+1; const parent=asChild&&sel.type==="summary" ? sel.id : (sel.parent||""); const level=asChild&&sel.type==="summary" ? Number(sel.level||0)+1 : Math.max(1,Number(sel.level||1)); const sc=model.sched[sel.id]||{}; const start=sc.end?addDays(sc.end,1):firstProjectStart(st,pid); const id=uniqueRowId(model,`${pid}-T`); const row={id,name:asChild?"Nieuwe subtaak":"Nieuwe taak",type:"task",level,parent,department:sel.department||departments(st)[0]?.id||"Engineering",resourceId:"",progress:0,status:"Niet gestart",predecessor:sel.type!=="summary"?`${sel.id}FS`:"",locked:false,colorKey:sel.colorKey||"c1",hours:0,why:"",feedback:""}; model.rows.splice(insertAt,0,row); model.sched[id]={start,end:addDays(start,4)}; UI.selected=id; saveModel(pid,model,"Taak toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
-    function insertSummaryAfter(rowId=null){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); let insertAt=model.rows.length, level=0, start=firstProjectStart(st,pid); if(rowId){ const [a,b]=blockRange(model,rowId); insertAt=b+1; level=Math.max(0,Number(model.rows[a]?.level||0)); const sc=model.sched[model.rows[a]?.id]||{}; if(sc.end) start=addDays(sc.end,1); } const id=uniqueRowId(model,`${pid}-F`); model.rows.splice(insertAt,0,{id,name:"Nieuwe fase",type:"summary",level,department:departments(st)[0]?.id||"Engineering",resourceId:"",progress:0,status:"Niet gestart",predecessor:"",locked:false,colorKey:"c1",hours:0,why:"",feedback:""}); model.sched[id]={start,end:addDays(start,4)}; UI.selected=id; saveModel(pid,model,"Fase toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
-    function insertMilestoneAfter(rowId=null){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); let insertAt=model.rows.length, level=1, parent="", start=firstProjectStart(st,pid), dept=departments(st)[0]?.id||"Engineering"; if(rowId){ const [a,b]=blockRange(model,rowId); const sel=model.rows[a]; insertAt=b+1; level=Math.max(1,Number(sel?.level||1)); parent=sel?.parent||""; dept=sel?.department||dept; const sc=model.sched[sel?.id]||{}; if(sc.end) start=addDays(sc.end,1); } const id=uniqueRowId(model,`${pid}-M`); model.rows.splice(insertAt,0,{id,name:"Nieuwe mijlpaal",type:"task",level,parent,department:dept,resourceId:"",progress:0,status:"Niet gestart",predecessor:"",locked:false,colorKey:"c5",hours:0,why:"",feedback:"",milestone:true}); model.sched[id]={start,end:start}; UI.selected=id; saveModel(pid,model,"Mijlpaal toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
+    function insertTaskAfter(rowId, asChild=false){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); const idx=model.rows.findIndex(r=>r.id===rowId); const sel=model.rows[idx]; if(!sel) return addTask(); const [a,b]=blockRange(model,rowId); const insertAt=asChild&&sel.type==="summary" ? a+1 : b+1; const parent=asChild&&sel.type==="summary" ? sel.id : (sel.parent||""); const level=asChild&&sel.type==="summary" ? Number(sel.level||0)+1 : Math.max(1,Number(sel.level||1)); const sc=model.sched[sel.id]||{}; const start=sc.end?nextWorkingIso(st,addDays(sc.end,1)):nextWorkingIso(st,firstProjectStart(st,pid)); const id=uniqueRowId(model,`${pid}-T`); const row={id,name:asChild?"Nieuwe subtaak":"Nieuwe taak",type:"task",level,parent,department:sel.department||departments(st)[0]?.id||"Engineering",resourceId:"",progress:0,status:"Niet gestart",predecessor:sel.type!=="summary"?`${sel.id}FS`:"",locked:false,colorKey:sel.colorKey||"c1",hours:0,why:"",feedback:""}; model.rows.splice(insertAt,0,row); model.sched[id]=normalizeSchedule(st,start,null,5); UI.selected=id; saveModel(pid,model,"Taak toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
+    function insertSummaryAfter(rowId=null){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); let insertAt=model.rows.length, level=0, start=firstProjectStart(st,pid); if(rowId){ const [a,b]=blockRange(model,rowId); insertAt=b+1; level=Math.max(0,Number(model.rows[a]?.level||0)); const sc=model.sched[model.rows[a]?.id]||{}; if(sc.end) start=nextWorkingIso(st,addDays(sc.end,1)); } start=nextWorkingIso(st,start); const id=uniqueRowId(model,`${pid}-F`); model.rows.splice(insertAt,0,{id,name:"Nieuwe fase",type:"summary",level,department:departments(st)[0]?.id||"Engineering",resourceId:"",progress:0,status:"Niet gestart",predecessor:"",locked:false,colorKey:"c1",hours:0,why:"",feedback:""}); model.sched[id]=normalizeSchedule(st,start,null,5); UI.selected=id; saveModel(pid,model,"Fase toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
+    function insertMilestoneAfter(rowId=null){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); let insertAt=model.rows.length, level=1, parent="", start=firstProjectStart(st,pid), dept=departments(st)[0]?.id||"Engineering"; if(rowId){ const [a,b]=blockRange(model,rowId); const sel=model.rows[a]; insertAt=b+1; level=Math.max(1,Number(sel?.level||1)); parent=sel?.parent||""; dept=sel?.department||dept; const sc=model.sched[sel?.id]||{}; if(sc.end) start=nextWorkingIso(st,addDays(sc.end,1)); } start=nextWorkingIso(st,start); const id=uniqueRowId(model,`${pid}-M`); model.rows.splice(insertAt,0,{id,name:"Nieuwe mijlpaal",type:"task",level,parent,department:dept,resourceId:"",progress:0,status:"Niet gestart",predecessor:"",locked:false,colorKey:"c5",hours:0,why:"",feedback:"",milestone:true}); model.sched[id]=normalizeSchedule(st,start,null,1); UI.selected=id; saveModel(pid,model,"Mijlpaal toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
     function setTaskProgressFromMenu(rowId,progress){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; row.progress=Math.max(0,Math.min(100,Number(progress)||0)); row.status=row.progress>=100?"Gereed":row.progress>0?"In uitvoering":"Niet gestart"; row.progressUpdatedAt=new Date().toISOString(); saveModel(pid,model,"Voortgang aangepast via rechtermuisknop"); render(); }
     function markBlockProgress(rowId,progress){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), [a,b]=blockRange(model,rowId); if(a<0) return; for(let i=a;i<=b;i++){ const r=model.rows[i]; r.progress=Math.max(0,Math.min(100,Number(progress)||0)); r.status=r.progress>=100?"Gereed":r.progress>0?"In uitvoering":"Niet gestart"; r.progressUpdatedAt=new Date().toISOString(); } saveModel(pid,model,"Fasevoortgang aangepast via rechtermuisknop"); render(); }
     function promptSet(rowId,field,label){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; const current=field==="colorKey"?colorLabel(row.colorKey):(row[field]||""); const v=window.prompt(label,current); if(v==null) return; if(field==="colorKey") row.colorKey=normalizeColorKey(v,row.colorKey||"c1"); else row[field]=String(v).trim(); if(field==="feedback") { row.why=row.feedback||row.why||""; row.feedbackUpdatedAt=new Date().toISOString(); } saveModel(pid,model,`${label} bijgewerkt via rechtermuisknop`); render(); }
