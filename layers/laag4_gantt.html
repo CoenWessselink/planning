@@ -643,6 +643,69 @@
       .printing .bar{border:var(--v48-print-outer-line) solid var(--v48-print-outer-color)!important;}
     }
 
+    /* V49 — niet-werkbare dagen met zichtbare dunne daglijnen
+       - niet-werkbare dagvlakken blijven lichtgrijs
+       - elke daglijn blijft zichtbaar over het grijze vlak
+       - lijnen zijn extreem dun en donker/zwart
+       - day-grid-line ligt boven nonwork-shade in print */
+    :root{
+      --v49-nonwork-fill:#e6eaef;
+      --v49-nonwork-line-screen:rgba(0,0,0,.36);
+      --v49-nonwork-line-print:rgba(0,0,0,.68);
+      --v49-nonwork-line-width-screen:.5px;
+      --v49-nonwork-line-width-print:.18px;
+    }
+    .nonwork-shade{
+      background:
+        linear-gradient(to right, var(--v49-nonwork-line-screen) 0 var(--v49-nonwork-line-width-screen), transparent var(--v49-nonwork-line-width-screen) 100%),
+        var(--v49-nonwork-fill)!important;
+      border:0!important;
+      opacity:.88!important;
+      z-index:1!important;
+    }
+    .nonwork-shade::after{
+      content:"";
+      position:absolute;
+      top:0;
+      right:0;
+      bottom:0;
+      width:var(--v49-nonwork-line-width-screen);
+      background:var(--v49-nonwork-line-screen);
+      pointer-events:none;
+    }
+    .tl-cell.day.weekend,.tl-cell.day.nonwork{
+      background:var(--v49-nonwork-fill)!important;
+      color:#111827!important;
+      border-right:.5px solid var(--v49-nonwork-line-screen)!important;
+    }
+    @media print{
+      .printing .tl-cell.day.weekend,.printing .tl-cell.day.nonwork{
+        background:var(--v49-nonwork-fill)!important;
+        color:#000!important;
+        border-right:var(--v49-nonwork-line-width-print) solid var(--v49-nonwork-line-print)!important;
+      }
+      .printing .nonwork-shade{
+        background:
+          linear-gradient(to right, var(--v49-nonwork-line-print) 0 var(--v49-nonwork-line-width-print), transparent var(--v49-nonwork-line-width-print) 100%),
+          var(--v49-nonwork-fill)!important;
+        border:0!important;
+        opacity:1!important;
+        z-index:1!important;
+      }
+      .printing .nonwork-shade::after{
+        width:var(--v49-nonwork-line-width-print)!important;
+        background:var(--v49-nonwork-line-print)!important;
+      }
+      .printing .day-grid-line{
+        width:var(--v49-nonwork-line-width-print)!important;
+        background:var(--v49-nonwork-line-print)!important;
+        opacity:1!important;
+        z-index:2!important;
+        display:block!important;
+      }
+    }
+
+
   </style>
 </head>
 <body>

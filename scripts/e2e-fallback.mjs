@@ -90,4 +90,7 @@ check("V47 afhankelijkheidslijnen hebben halo en duidelijke lijn", gantt.include
 
 check("V48 print fine-tune aanwezig", read("layers/laag4_gantt.html").includes("V48 — final small Gantt print fine-tune") && read("layers/laag4_gantt.html").includes("max-width:203px"));
 
+
+check("V49 niet-werkbare daglijnen blijven zichtbaar", gantt.includes("V49 — niet-werkbare dagen met zichtbare dunne daglijnen") && gantt.includes("--v49-nonwork-line-print:rgba(0,0,0,.68)") && gantt.includes(".printing .day-grid-line") && gantt.includes("z-index:2!important") && gantt.includes(".nonwork-shade::after"));
+
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");
