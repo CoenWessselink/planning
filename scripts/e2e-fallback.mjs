@@ -38,6 +38,10 @@ const checks = [
   [gantt.includes('function predecessorDisplay') && gantt.includes('return predecessorDisplay(row.predecessor)'), "V38 voorganger wordt als regelnummer getoond"],
   [gantt.includes('showDeps:false') && gantt.includes('<button class="btn" id="depsBtn">Afhankelijkheden</button>'), "V38 afhankelijkheden standaard uit"],
   [gantt.includes('printFileName(p)') && gantt.includes('printProjectHeaderText') && gantt.includes('Regel nr'), "V38 printkop/bestandsnaam/regelnummer geborgd"],
+  [gantt.includes('pred-select') && gantt.includes('multiple') && gantt.includes('openPredecessorPicker'), "V39 voorganger multi-select aanwezig"],
+  [gantt.includes('function encodePred') && gantt.includes('predecessorOptionsHtml') && gantt.includes('Voorgangers kiezen'), "V39 meerdere voorgangers selecteerbaar"],
+  [gantt.includes('.mobile-toolbar,.v37-mobile-action-dock,.toolbar') && gantt.includes('display:none!important'), "V39 print verwijdert app/mobiele toolbar"],
+  [gantt.includes('repeating-linear-gradient(to right, rgba(17,24,39,.45)') && gantt.includes('calc(var(--dayW) * 7)'), "V39 dunne daglijnen blijven zichtbaar in print"],
 ];
 for (const [pass, label] of checks) {
   console.log(`${pass ? "OK" : "FAIL"} - ${label}`);

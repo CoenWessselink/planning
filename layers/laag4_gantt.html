@@ -235,6 +235,46 @@
       .cws-compact-mode .table-pane{display:none}.cws-compact-mode .chart-pane{min-width:760px}.cws-compact-mode .toolbar-group:nth-child(n+4){display:none}
     }
 
+  
+
+    /* V39 print + predecessor hardening */
+    .pred-cell{display:flex;align-items:center;gap:6px;min-width:120px}
+    .pred-nos{font-weight:800;color:#0f172a;min-width:22px}
+    .pred-pick{height:28px;border:1px solid #d7dee8;border-radius:8px;background:#fff;color:#1d4ed8;font-weight:800;font-size:12px;padding:0 8px;cursor:pointer}
+    .pred-pick:hover{background:#eff6ff;border-color:#93c5fd}
+    .pred-select{min-height:180px!important;height:220px!important;padding:7px!important;line-height:1.35}
+    .pred-help{font-size:12px;color:#64748b;line-height:1.35;margin-top:6px}
+    @media print{
+      html,body{background:#fff!important;padding:0!important;margin:0!important;}
+      .mobile-toolbar,.v37-mobile-action-dock,.toolbar,.notice,.context,.gantt-context-menu,.modalback,.status,.btn,#depsBtn,#criticalBtn,#baselineBtn,#setBaselineBtn,#saveRevisionBtn,#revisionsBtn,#indentBtn,#outdentBtn,#undoBtn,#redoBtn,#printBtn,#exportBtn,.columns-group{display:none!important;}
+      body.printing .mobile-toolbar, body.printing .v37-mobile-action-dock, body.printing .toolbar, body.printing .notice, body.printing .context{display:none!important;}
+      .print-header{display:flex!important;align-items:center!important;justify-content:space-between!important;border-bottom:.45px solid #111827!important;margin:0 0 3px 0!important;padding:0 0 4px 0!important;background:#fff!important;}
+      .print-title{font-size:10px!important;font-weight:900!important;color:#000!important;line-height:1.15!important;}
+      .print-sub{font-size:5.5px!important;color:#374151!important;line-height:1.15!important;}
+      .print-logo{max-width:52px!important;max-height:28px!important;object-fit:contain!important;display:block!important;}
+      .print-logo-placeholder{width:44px!important;height:26px!important;border:.45px solid #111827!important;border-radius:3px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:9px!important;font-weight:900!important;background:#fff!important;color:#111827!important;}
+      .module-head{display:none!important;}
+      .meta-line{display:none!important;}
+      .board-wrap{margin:0!important;border:.45px solid #111827!important;border-radius:0!important;overflow:visible!important;background:#fff!important;}
+      .printing .chart-pane{display:block!important;overflow:visible!important;background:#fff!important;}
+      .printing .timeline{height:48px!important;grid-template-rows:16px 16px 16px!important;background:#fff!important;}
+      .printing .tl-cell{border-right:.35px solid rgba(17,24,39,.75)!important;border-bottom:.35px solid rgba(17,24,39,.75)!important;font-size:4.8px!important;line-height:1!important;color:#000!important;background:#fff!important;}
+      .printing .tl-row:nth-child(2) .tl-cell{border-bottom:.45px solid rgba(17,24,39,.95)!important;}
+      .printing .tl-cell.day{display:flex!important;flex-direction:column!important;gap:1px!important;font-weight:700!important;}
+      .printing .tl-cell.day.weekend{background:#f8fafc!important;color:#475569!important;}
+      .printing .lane{height:22px!important;border-bottom:.35px solid rgba(17,24,39,.55)!important;background-image:repeating-linear-gradient(to right, rgba(17,24,39,.45) 0, rgba(17,24,39,.45) .45px, transparent .45px, transparent var(--dayW)),repeating-linear-gradient(to right, rgba(0,0,0,.85) 0, rgba(0,0,0,.85) .8px, transparent .8px, transparent calc(var(--dayW) * 7))!important;background-size:auto!important;}
+      .printing .nonwork-shade{background:rgba(148,163,184,.16)!important;border-left:.35px solid rgba(100,116,139,.25)!important;border-right:0!important;}
+      .printing .bar{top:5px!important;height:12px!important;border-radius:2px!important;padding:0 3px!important;font-size:5.5px!important;font-weight:800!important;line-height:12px!important;box-shadow:none!important;border:.45px solid #111827!important;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+      .printing .bar.summary{border:0!important;background:transparent!important;color:#111827!important;}
+      .printing .bar.summary:before{top:10px!important;border-top:1.2px solid #111827!important;}
+      .printing .bar.summary:after{top:14px!important;border-top:.55px solid #111827!important;}
+      .printing .print-task-table table{border-collapse:collapse!important;border:.45px solid #111827!important;}
+      .printing .print-task-table th,.printing .print-task-table td{border:.35px solid #111827!important;}
+      .printing .print-task-table thead th{height:44px!important;vertical-align:bottom!important;background:#fff!important;}
+      .printing .print-legend{border:.45px solid #111827!important;}
+      .printing .print-legend .legend-title{border-bottom:.35px solid #111827!important;}
+    }
+
   </style>
 </head>
 <body>
@@ -349,7 +389,7 @@ var CWS = window.CWS;</script>
       {id:"taskStatus",label:"Status",min:112,control:"select"},
       {id:"feedback",label:"Terugkoppeling",min:170,control:"input"},
       {id:"hours",label:"Uren",min:58,control:"number"},
-      {id:"predecessor",label:"Voorganger",min:82,control:"input"},
+      {id:"predecessor",label:"Voorganger",min:148,control:"picker"},
       {id:"department",label:"Afdeling",min:78,control:"select"},
       {id:"resource",label:"Resource",min:70,control:"select"},
       {id:"color",label:"Kleur",min:126,control:"select"},
@@ -499,7 +539,7 @@ var CWS = window.CWS;</script>
       if(col.id==="taskStatus") return `<select class="resource-select" data-k="status" ${dis}>${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select>`;
       if(col.id==="feedback") return `<input class="cellinput" data-k="feedback" title="${esc(row.feedback||row.why||"")}" value="${esc(row.feedback||row.why||"")}" ${dis}>`;
       if(col.id==="hours") return `<input class="cellinput smallinput" data-k="hours" title="0 = automatisch uit projecturen per afdeling" value="${Number(row.hours||0)}" ${dis}>`;
-      if(col.id==="predecessor") return `<div class="pred-display" title="Technische voorganger: ${esc(predecessorTitle(row.predecessor))}"><span class="pred-nos">${esc(predecessorDisplay(row.predecessor)||"—")}</span><input class="cellinput pred-raw" data-k="predecessor" value="${esc(row.predecessor||"")}" ${dis} aria-label="Technische voorganger"></div>`;
+      if(col.id==="predecessor") return `<div class="pred-cell" title="${esc(predecessorTitle(row.predecessor))}"><span class="pred-nos">${esc(predecessorDisplay(row.predecessor)||"—")}</span><button class="pred-pick" data-pred-pick="${esc(row.id)}" type="button" ${dis}>Kies</button></div>`;
       if(col.id==="department") return `<select class="dept-select" data-k="department" ${dis}>${departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("")}</select>`;
       if(col.id==="resource") return `<select class="resource-select" data-k="resourceId" ${dis}><option value="">—</option>${resources(st).map(r=>`<option value="${esc(r.id)}" ${row.resourceId===r.id?"selected":""}>${esc(r.name||r.id)}</option>`).join("")}</select>`;
       if(col.id==="color") return colorPickerHtml("colorKey", row.colorKey, dis);
@@ -738,10 +778,44 @@ var CWS = window.CWS;</script>
     function ensureModel(projectId){ let m=getModel(projectId); if(!m.rows.length && projectId){ m=generateModel(projectId); saveModel(projectId,m,"Fasen gegenereerd"); } return m; }
     function summarySchedule(model, index){ const row=model.rows[index]; const children=[]; for(let i=index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(row.level||0);i++){ const sc=model.sched[model.rows[i].id]; if(sc?.start&&sc?.end) children.push(sc); } if(!children.length) return {}; return { start:children.map(x=>x.start).sort()[0], end:children.map(x=>x.end).sort().at(-1) }; }
     function rowSchedule(model, row, index){ return row.type==="summary" ? summarySchedule(model,index) : (model.sched[row.id]||{}); }
-    function parsePred(raw){ const s=String(raw||"").trim(); if(!s) return []; return s.split(/[;,]+/).map(x=>x.trim()).filter(Boolean).map(x=>{ const m=x.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i); return m?{id:m[1],type:m[2].toUpperCase(),lag:Number(m[3]||0)}:null; }).filter(Boolean); }
+    function parsePred(raw){
+      const s=String(raw||"").trim();
+      if(!s) return [];
+      return s.split(/[;,]+/).map(x=>x.trim()).filter(Boolean).map(x=>{
+        const m=x.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i);
+        if(m) return {id:m[1],type:m[2].toUpperCase(),lag:Number(m[3]||0)};
+        return {id:x,type:"FS",lag:0};
+      }).filter(Boolean);
+    }
+    function encodePred(ids){
+      const seen=new Set();
+      return (ids||[]).map(x=>String(x||"").trim()).filter(Boolean).filter(id=>!seen.has(id)&&seen.add(id)).map(id=>`${id}FS`).join(";");
+    }
     function rowNumberMap(model){ const map=new Map(); (model?.rows||[]).forEach((r,i)=>map.set(String(r.id), i+1)); return map; }
-    function predecessorDisplay(raw, model=getModel(currentProjectId())){ const preds=parsePred(raw); if(!preds.length) return ""; const map=rowNumberMap(model); return preds.map(p=>{ const nr=map.get(String(p.id)); const suffix=(p.type&&p.type!=="FS"?p.type:"")+(p.lag?`${p.lag>0?"+":""}${p.lag}`:""); return `${nr||"?"}${suffix}`; }).join(", "); }
-    function predecessorTitle(raw){ return String(raw||""); }
+    function predecessorDisplay(raw, model=getModel(currentProjectId())){
+      const preds=parsePred(raw);
+      if(!preds.length) return "";
+      const map=rowNumberMap(model);
+      return preds.map(p=>{
+        const nr=map.get(String(p.id));
+        const suffix=(p.type&&p.type!=="FS"?p.type:"")+(p.lag?`${p.lag>0?"+":""}${p.lag}`:"");
+        return `${nr||"?"}${suffix}`;
+      }).join(", ");
+    }
+    function predecessorTitle(raw, model=getModel(currentProjectId())){
+      const rows=model?.rows||[];
+      const byId=new Map(rows.map((r,i)=>[String(r.id),{row:r,nr:i+1}]));
+      return parsePred(raw).map(p=>{ const item=byId.get(String(p.id)); return item?`${item.nr}. ${item.row.name||p.id} (${p.id})`:p.id; }).join(", ") || "Geen voorgangers";
+    }
+    function predecessorCandidates(model,rowId){
+      const rows=model?.rows||[];
+      const idx=rows.findIndex(r=>r.id===rowId);
+      return rows.map((r,i)=>({row:r,nr:i+1,index:i})).filter(x=>x.row.id!==rowId && (idx<0 || x.index<idx));
+    }
+    function predecessorOptionsHtml(model,rowId,raw){
+      const selected=new Set(parsePred(raw).map(p=>String(p.id)));
+      return predecessorCandidates(model,rowId).map(x=>`<option value="${esc(x.row.id)}" ${selected.has(String(x.row.id))?"selected":""}>${x.nr} - ${esc(x.row.name||x.row.id)}</option>`).join("");
+    }
     function filteredRows(model){ const dept=UI.dept, res=UI.resource, q=String($("#searchInput")?.value||"").toLowerCase(); return model.rows.map((row,index)=>({row,index,sc:rowSchedule(model,row,index)})).filter(x=>{ const r=x.row; const matchSelf=(!dept||r.department===dept)&&(!res||r.resourceId===res)&&(!q||[r.id,r.name,r.department].join(" ").toLowerCase().includes(q)); if(r.type!=="summary") return matchSelf; // keep summary if any direct/desc child visible
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
     function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const sorted=dates.slice().sort(); const min=sorted[0]; const max=sorted.at(-1); const start=startOfWeek(addDays(min,-7)); if(UI.printMode){ const endPad=startOfWeek(addDays(max,7)); return {start,days:Math.max(14,dayDiff(start,endPad)+7)}; } let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
@@ -1019,6 +1093,9 @@ var CWS = window.CWS;</script>
           setColorPickerPreview(sel);
           sel.addEventListener("input",()=>setColorPickerPreview(sel));
         });
+        tr.querySelectorAll("button[data-pred-pick]").forEach(btn=>{
+          btn.addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); selectRow(model,rowId); openPredecessorPicker(rowId); });
+        });
         tr.querySelectorAll("input,select").forEach(el=>{
           el.addEventListener("click",()=>selectRow(model,rowId));
           el.addEventListener("change",()=>{
@@ -1092,6 +1169,26 @@ var CWS = window.CWS;</script>
     window.addEventListener("pointerup",()=>{ if(!UI.drag) return; if(UI.revisionId){ UI.drag=null; render(); return; } const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]={start:bar.dataset.tmpStart,end:bar.dataset.tmpEnd}; saveModel(pid,model,"Balk bijgewerkt"); } UI.drag=null; render(); });
     function drawDeps(model,rows,range){ const svg=$("#depSvg"); svg.innerHTML=""; if(!UI.showDeps) return; const rowH=UI.printMode?22:48; const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i])); const w=pxPerDay(); svg.setAttribute("width",Math.max(900,(range.days*w))); svg.setAttribute("height",rows.length*rowH); model.rows.forEach(row=>{ const i=rowIndex.get(row.id); if(i==null) return; parsePred(row.predecessor).forEach(p=>{ const pi=rowIndex.get(p.id); if(pi==null) return; const predSc=model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id)); const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id)); if(!predSc?.end||!sc?.start) return; const x1=xFor(predSc.end,range)+duration(predSc.start,predSc.end)*w, y1=pi*rowH+(rowH/2), x2=xFor(sc.start,range)+2, y2=i*rowH+(rowH/2); const mid=x1+Math.max(14,(x2-x1)/2); const path=document.createElementNS("http://www.w3.org/2000/svg","path"); path.setAttribute("d",`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`); path.setAttribute("fill","none"); path.setAttribute("stroke","rgba(15,23,42,.45)"); path.setAttribute("stroke-width",UI.printMode?"0.55":"1.1"); svg.appendChild(path); }); }); }
     function renderContext(model){ const row=model.rows.find(r=>r.id===UI.selected); if(!row){ $("#contextBody").textContent="Selecteer een taak of balk om details te zien."; return; } const sc=model.sched[row.id]||{}; const status=row.status || (Number(row.progress||0)>=100?"Gereed":Number(row.progress||0)>0?"In uitvoering":"Niet gestart"); $("#contextBody").innerHTML=`<div class="ctx-grid"><div class="ctx-card"><b>Taak</b>${esc(row.name)}</div><div class="ctx-card"><b>Start / eind</b>${esc(toNL(sc.start))} — ${esc(toNL(sc.end))}</div><div class="ctx-card"><b>Afdeling</b>${esc(row.department||"—")}</div><div class="ctx-card"><b>Voortgang/status</b>${Number(row.progress||0)}% · ${esc(status)}</div><div class="ctx-card" style="grid-column:1/-1"><b>Terugkoppeling / WHY</b>${esc(row.feedback||row.why||"Geen terugkoppeling")}</div></div>`; }
+    function openPredecessorPicker(rowId){
+      if(!assertLiveMode()) return;
+      const pid=currentProjectId(), model=getModel(pid);
+      const row=model.rows.find(r=>r.id===rowId);
+      if(!row) return;
+      const opts=predecessorOptionsHtml(model,rowId,row.predecessor);
+      $("#modalTitle").textContent="Voorgangers kiezen";
+      $("#modalBody").classList.remove("revision-readonly");
+      $("#modalBody").innerHTML=`<p style="margin-top:0;color:#64748b;line-height:1.45">Kies één of meerdere voorgangers. De Gantt-tabel toont deze als regelnummers; intern blijven de taak-id's bewaard voor planning en afhankelijkheden.</p><label class="field">Voorgangers<select id="predMulti" class="pred-select" multiple>${opts}</select><span class="pred-help">Ctrl/Command-klik om meerdere regels te selecteren. Alleen bovenliggende/eerdere regels zijn selecteerbaar om circulaire afhankelijkheden te voorkomen.</span></label>`;
+      $("#modalSave").onclick=()=>{
+        const ids=Array.from($("#predMulti")?.selectedOptions||[]).map(o=>o.value);
+        row.predecessor=encodePred(ids);
+        saveModel(pid,model,"Voorgangers bijgewerkt");
+        $("#modalBack").classList.remove("show");
+        render();
+        toast("Voorgangers bijgewerkt");
+      };
+      $("#modalBack").classList.add("show");
+    }
+
     function applyPredecessors(){ if(!assertLiveMode()) return;  const pid=currentProjectId(), model=getModel(pid); let changed=0; model.rows.forEach(row=>{ if(row.type!=="task"||row.locked) return; parsePred(row.predecessor).forEach(p=>{ const pred=model.sched[p.id]; const cur=model.sched[row.id]; if(!pred||!cur) return; const min=addDays(pred.end,1+(p.lag||0)); if(cur.start<min){ const dur=duration(cur.start,cur.end); cur.start=min; cur.end=addDays(min,dur-1); changed++; } }); }); saveModel(pid,model,changed?"Planning herberekend":"Planning ongewijzigd"); toast(changed?`${changed} taak/taken verschoven`:"Planning al geldig"); render(); }
     function setBaseline(){ if(!assertLiveMode()) return;  const pid=currentProjectId(), model=getModel(pid); model.rows.forEach(row=>{ const sc=model.sched[row.id]; if(sc?.start&&sc?.end){ row.baselineStart=sc.start; row.baselineEnd=sc.end; }}); saveModel(pid,model,"Baseline ingesteld"); render(); }
     function indent(delta){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid); const row=model.rows.find(r=>r.id===UI.selected); if(!row||row.type==="summary"||row.locked){toast("Selecteer een ontgrendelde taak","warn");return;} row.level=Math.max(1,Number(row.level||1)+delta); saveModel(pid,model); render(); }
@@ -1113,7 +1210,7 @@ var CWS = window.CWS;</script>
         <label class="field">Duur<input id="mDur" value="${duration(sc.start,sc.end)} d" disabled></label>
         <label class="field">Voortgang<input id="mProg" type="number" min="0" max="100" value="${Number(row.progress||0)}"></label>
         <label class="field">Status<select id="mStatus">${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select></label>
-        <label class="field">Voorganger<input id="mPred" value="${esc(row.predecessor||"")}" placeholder="P-1001-T1FS, P-1001-T2SS+2"></label>
+        <label class="field">Voorgangers<select id="mPredSel" class="pred-select" multiple>${predecessorOptionsHtml(model,rowId,row.predecessor)}</select><span class="pred-help">Meerdere voorgangers mogelijk. In de tabel worden regelnummers getoond.</span></label>
         <label class="field">Kleur${colorPickerHtml("mColor", row.colorKey, "")}</label>
         <label class="field">Uren<input id="mHours" type="number" min="0" step="0.25" value="${Number(row.hours||0)}"><small style="color:#64748b;font-weight:600">0 = automatisch verdelen vanuit projecturen per afdeling.</small></label>
         <label class="field">Lock<select id="mLock"><option value="0" ${!row.locked?"selected":""}>Nee</option><option value="1" ${row.locked?"selected":""}>Ja</option></select></label>
@@ -1132,7 +1229,7 @@ var CWS = window.CWS;</script>
         row.resourceId=$("#mResource").value.trim();
         row.progress=Math.max(0,Math.min(100,Number($("#mProg").value)||0));
         row.status=$("#mStatus").value;
-        row.predecessor=$("#mPred").value.trim();
+        row.predecessor=encodePred(Array.from($("#mPredSel")?.selectedOptions||[]).map(o=>o.value));
         row.colorKey=normalizeColorKey(colorSel?.value||row.colorKey);
         row.hours=Math.max(0,Number($("#mHours").value)||0);
         row.locked=$("#mLock").value==="1";
@@ -1250,7 +1347,7 @@ var CWS = window.CWS;</script>
     function promptSet(rowId,field,label){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; const current=field==="colorKey"?colorLabel(row.colorKey):(row[field]||""); const v=window.prompt(label,current); if(v==null) return; if(field==="colorKey") row.colorKey=normalizeColorKey(v,row.colorKey||"c1"); else row[field]=String(v).trim(); if(field==="feedback") { row.why=row.feedback||row.why||""; row.feedbackUpdatedAt=new Date().toISOString(); } saveModel(pid,model,`${label} bijgewerkt via rechtermuisknop`); render(); }
     function toggleLock(rowId){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; row.locked=!row.locked; saveModel(pid,model,row.locked?"Taak vergrendeld":"Taak ontgrendeld"); render(); }
     function applyPhaseColor(rowId){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), [a,b]=blockRange(model,rowId); if(a<0) return; const color=model.rows[a].colorKey||"c1"; for(let i=a+1;i<=b;i++) model.rows[i].colorKey=color; saveModel(pid,model,"Fasekleur toegepast op onderliggende taken"); render(); }
-    function runContextAction(action,rowId){ hideGanttContextMenu(); const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(action==="open") return rowId&&openEdit(rowId); if(action==="add-under") return rowId?insertTaskAfter(rowId,false):addTask(); if(action==="add-child") return rowId?insertTaskAfter(rowId,true):addTask(); if(action==="add-task") return addTask(); if(action==="add-phase") return insertSummaryAfter(rowId); if(action==="add-milestone") return insertMilestoneAfter(rowId); if(action==="duplicate") return duplicateRow(rowId); if(action==="delete") return deleteRow(rowId); if(action==="done") return row?.type==="summary"?markBlockProgress(rowId,100):setTaskProgressFromMenu(rowId,100); if(action==="zero") return row?.type==="summary"?markBlockProgress(rowId,0):setTaskProgressFromMenu(rowId,0); if(action==="progress"){ const v=window.prompt("Voortgang %",String(row?.progress??0)); if(v!=null) setTaskProgressFromMenu(rowId,v); return; } if(action==="color") return promptSet(rowId,"colorKey","Kleur wijzigen (Blauw/Groen/Geel/Rood/Paars/Turquoise/Oranje/Lime)"); if(action==="dept") return promptSet(rowId,"department","Afdeling wijzigen"); if(action==="resource") return promptSet(rowId,"resourceId","Resource wijzigen"); if(action==="pred") return promptSet(rowId,"predecessor","Voorganger instellen"); if(action==="lock") return toggleLock(rowId); if(action==="why") return promptSet(rowId,"feedback","Notitie / WHY / terugkoppeling"); if(action==="apply-color") return applyPhaseColor(rowId); if(action==="generate") { const m=generateModel(pid); saveModel(pid,m,"Fasen uit standaardtemplate gegenereerd"); toast("Standaard fasen/taken gegenereerd"); return render(); } if(action==="today") return $("#todayBtn")?.click(); if(action==="recalc") return applyPredecessors(); if(action==="print") return printA3(); }
+    function runContextAction(action,rowId){ hideGanttContextMenu(); const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(action==="open") return rowId&&openEdit(rowId); if(action==="add-under") return rowId?insertTaskAfter(rowId,false):addTask(); if(action==="add-child") return rowId?insertTaskAfter(rowId,true):addTask(); if(action==="add-task") return addTask(); if(action==="add-phase") return insertSummaryAfter(rowId); if(action==="add-milestone") return insertMilestoneAfter(rowId); if(action==="duplicate") return duplicateRow(rowId); if(action==="delete") return deleteRow(rowId); if(action==="done") return row?.type==="summary"?markBlockProgress(rowId,100):setTaskProgressFromMenu(rowId,100); if(action==="zero") return row?.type==="summary"?markBlockProgress(rowId,0):setTaskProgressFromMenu(rowId,0); if(action==="progress"){ const v=window.prompt("Voortgang %",String(row?.progress??0)); if(v!=null) setTaskProgressFromMenu(rowId,v); return; } if(action==="color") return promptSet(rowId,"colorKey","Kleur wijzigen (Blauw/Groen/Geel/Rood/Paars/Turquoise/Oranje/Lime)"); if(action==="dept") return promptSet(rowId,"department","Afdeling wijzigen"); if(action==="resource") return promptSet(rowId,"resourceId","Resource wijzigen"); if(action==="pred") return openPredecessorPicker(rowId); if(action==="lock") return toggleLock(rowId); if(action==="why") return promptSet(rowId,"feedback","Notitie / WHY / terugkoppeling"); if(action==="apply-color") return applyPhaseColor(rowId); if(action==="generate") { const m=generateModel(pid); saveModel(pid,m,"Fasen uit standaardtemplate gegenereerd"); toast("Standaard fasen/taken gegenereerd"); return render(); } if(action==="today") return $("#todayBtn")?.click(); if(action==="recalc") return applyPredecessors(); if(action==="print") return printA3(); }
     function menuButtons(items){ return items.map(it=>it.sep?'<div class="sep"></div>':it.title?`<div class="title">${esc(it.title)}</div>`:`<button type="button" class="${it.danger?'danger':''}" data-ctx-action="${esc(it.action)}">${esc(it.label)}</button>`).join(""); }
     function showGanttContextMenu(event,rowId=null,kind="empty"){
       event.preventDefault(); event.stopPropagation();
