@@ -53,4 +53,8 @@ for (const [pass, label] of checks) {
   if (!pass) ok = false;
 }
 if (!ok) process.exit(1);
+const v42pass = gantt.includes("--v42-line") && gantt.includes("depArrow") && gantt.includes("summary-lane");
+console.log(`${v42pass ? "OK" : "FAIL"} - V42 print raster + dependency arrows`);
+if(!v42pass) ok = false;
+if (!ok) process.exit(1);
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");

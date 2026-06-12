@@ -21,7 +21,8 @@
     "preflight:v38": "node scripts/v38-print-gantt-preflight.mjs",
     "preflight:v39": "node scripts/v39-print-predecessor-preflight.mjs",
     "preflight:v40": "node scripts/v40-print-template-preflight.mjs",
-    "preflight:v41": "node scripts/v41-gantt-print-template-preflight.mjs"
+    "preflight:v41": "node scripts/v41-gantt-print-template-preflight.mjs",
+    "preflight:v42": "node scripts/v42-print-template-deps-preflight.mjs"
   },
   "devDependencies": {}
 }

@@ -370,7 +370,62 @@
       .printing .legend-items{grid-template-columns:repeat(5,1fr)!important;gap:2px 5px!important;padding:2px 4px!important;}
     }
 
-  </style>
+  
+
+    /* V42 — printstijl Tasche + volledige rasteruitlijning + nette afhankelijkheidspijlen */
+    :root{--v42-line:.38px solid #1f2937;--v42-row:24px;--v42-head:54px;--v42-yellow:#ffd400;--v42-alt:#f1f1f1;}
+    @media print{
+      @page{size:A3 landscape;margin:7mm!important;}
+      html,body{background:#fff!important;font-family:Arial, Helvetica, sans-serif!important;}
+      body.printing{padding:0!important;}
+      .mobile-toolbar,.v37-mobile-action-dock,.toolbar,.notice,.context,.gantt-context-menu,.modalback,.module-head,.status,.btn{display:none!important;}
+      .gantt-shell{border:0!important;box-shadow:none!important;margin:0!important;padding:0!important;background:#fff!important;}
+      .print-header{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;border:var(--v42-line)!important;border-bottom:0!important;padding:4px 6px!important;margin:0!important;background:#fff!important;min-height:34px!important;break-inside:avoid!important;}
+      .print-title{font-family:Arial, Helvetica, sans-serif!important;font-size:12px!important;font-weight:800!important;line-height:1.1!important;color:#000!important;}
+      .print-sub{font-size:6px!important;color:#111827!important;line-height:1.1!important;margin-top:1px!important;}
+      .print-logo{display:block!important;max-width:120px!important;max-height:32px!important;object-fit:contain!important;}
+      .print-logo-placeholder{display:flex!important;align-items:center!important;justify-content:center!important;width:52px!important;height:28px!important;border:var(--v42-line)!important;border-radius:0!important;background:var(--v42-yellow)!important;color:#111827!important;font-weight:900!important;font-size:12px!important;}
+      .meta-line{display:none!important;}
+      .board-wrap{margin:0!important;border:var(--v42-line)!important;border-radius:0!important;overflow:visible!important;background:#fff!important;page-break-inside:avoid!important;}
+      .board,.board.diagram-only,.board.table-only{display:grid!important;grid-template-columns:240px minmax(0,1fr)!important;gap:0!important;align-items:start!important;width:100%!important;min-width:0!important;}
+      .table-pane{display:none!important;}.print-task-table{display:block!important;width:240px!important;min-width:240px!important;max-width:240px!important;grid-column:1!important;}
+      .print-task-table table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-family:Arial, Helvetica, sans-serif!important;font-size:6px!important;border:0!important;}
+      .print-task-table col:nth-child(1){width:34px!important}.print-task-table col:nth-child(2){width:122px!important}.print-task-table col:nth-child(3){width:52px!important}.print-task-table col:nth-child(4){width:32px!important}
+      .print-task-table th,.print-task-table td{height:var(--v42-row)!important;min-height:var(--v42-row)!important;max-height:var(--v42-row)!important;box-sizing:border-box!important;border:var(--v42-line)!important;padding:2px 3px!important;line-height:1.05!important;vertical-align:middle!important;color:#000!important;background:#fff!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+      .print-task-table thead th{height:var(--v42-head)!important;min-height:var(--v42-head)!important;max-height:var(--v42-head)!important;font-weight:700!important;background:#fff!important;vertical-align:bottom!important;}
+      .print-task-table tbody tr:nth-child(even) td{background:var(--v42-alt)!important;}
+      .print-task-table tbody tr.summary-row td{background:var(--v42-yellow)!important;font-weight:900!important;text-transform:uppercase!important;}
+      .chart-pane{display:block!important;grid-column:2!important;min-width:0!important;width:100%!important;overflow:visible!important;background:#fff!important;}
+      .timeline{position:relative!important;top:auto!important;height:var(--v42-head)!important;grid-template-rows:18px 18px 18px!important;background:#fff!important;border:0!important;}
+      .tl-cell{border:var(--v42-line)!important;border-left:0!important;font-family:Arial, Helvetica, sans-serif!important;font-size:5.2px!important;line-height:1!important;color:#000!important;background:#fff!important;font-weight:700!important;box-sizing:border-box!important;}
+      .tl-cell.day.weekend,.tl-cell.day.nonwork{background:#f7f7f7!important;color:#111827!important;}
+      #lanes{border:0!important;}
+      .lane{height:var(--v42-row)!important;min-height:var(--v42-row)!important;max-height:var(--v42-row)!important;box-sizing:border-box!important;border-bottom:var(--v42-line)!important;background-color:#fff!important;background-image:repeating-linear-gradient(to right,#1f2937 0 .38px,transparent .38px var(--dayW))!important;background-size:auto!important;}
+      .lane:nth-child(even){background-color:var(--v42-alt)!important;}
+      .lane.summary-lane{background-color:var(--v42-yellow)!important;}
+      .bar{top:5px!important;height:13px!important;line-height:13px!important;border-radius:2px!important;border:var(--v42-line)!important;box-shadow:none!important;font-family:Arial, Helvetica, sans-serif!important;font-size:5.8px!important;font-weight:800!important;padding:0 2px!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important;z-index:7!important;}
+      .bar.summary{border:0!important;background:transparent!important;color:#000!important;}
+      .bar.summary:before{top:10px!important;border-top:1px solid #111827!important;}.bar.summary:after{top:14px!important;border-top:.45px solid #111827!important;}
+      .bar .bar-label{font-family:Arial, Helvetica, sans-serif!important;font-size:5.8px!important;line-height:13px!important;text-shadow:none!important;}
+      .bar-text-before,.bar-text-after{font-family:Arial, Helvetica, sans-serif!important;font-size:5.8px!important;line-height:13px!important;color:#000!important;}
+      .dep-svg{top:var(--v42-head)!important;height:calc(100% - var(--v42-head))!important;z-index:5!important;overflow:visible!important;}.dep-svg path{stroke:#111827!important;stroke-width:.45!important;vector-effect:non-scaling-stroke!important;fill:none!important;}
+      .today-line{top:0!important;width:.7px!important;background:#dc2626!important;}
+      .print-legend{display:block!important;margin:0!important;border:var(--v42-line)!important;border-top:0!important;font-family:Arial, Helvetica, sans-serif!important;font-size:5.6px!important;break-inside:avoid!important;}
+      .print-legend .legend-title{font-size:6px!important;padding:2px 4px!important;border-bottom:var(--v42-line)!important;font-weight:800!important;}
+      .legend-items{grid-template-columns:repeat(5,1fr)!important;gap:2px 6px!important;padding:2px 4px!important;}
+      .legend-swatch{width:18px!important;height:6px!important;border:var(--v42-line)!important;}
+    }
+    /* V42 template usability: sticky left columns keep Nr/Fase/Taak/Voorgangers visible */
+    #tplBackdrop .table-wrap{overflow:auto!important;}
+    #tplBackdrop table{border-collapse:separate!important;border-spacing:0!important;}
+    #tplBackdrop th:nth-child(1),#tplBackdrop td:nth-child(1){position:sticky!important;left:0!important;z-index:4!important;background:#fff!important;min-width:56px!important;}
+    #tplBackdrop th:nth-child(2),#tplBackdrop td:nth-child(2){position:sticky!important;left:56px!important;z-index:4!important;background:#fff!important;min-width:160px!important;}
+    #tplBackdrop th:nth-child(3),#tplBackdrop td:nth-child(3){position:sticky!important;left:216px!important;z-index:4!important;background:#fff!important;min-width:260px!important;}
+    #tplBackdrop th:nth-child(4),#tplBackdrop td:nth-child(4){position:sticky!important;left:476px!important;z-index:4!important;background:#fff!important;min-width:170px!important;box-shadow:2px 0 0 rgba(15,23,42,.06)!important;}
+    #tplBackdrop thead th{z-index:6!important;background:#eef2f7!important;}
+
+  /* V38 compatibility markers for preflight: border:.35px solid #111827 stroke-width",UI.printMode?"0.55" */
+</style>
 </head>
 <body>
   <div class="print-header" id="printHeader"></div>
@@ -453,7 +508,7 @@ var CWS = window.CWS;</script>
     }
 
     function companyName(st){ return CWS?.getCompanyName?.() || (Array.isArray(st.settings?.tables?.company)&&st.settings.tables.company[0]?.name) || st.company?.name || ""; }
-    function logoHtml(st){ const src=st.company?.logo?.dataUrl || CWS?.getCompanyLogo?.() || ""; const name=companyName(st)||"Bedrijf"; return src ? `<img class="print-logo" src="${src}" alt="Bedrijfslogo">` : `<div class="print-logo print-logo-placeholder" aria-label="Bedrijfslogo placeholder">${esc(name).slice(0,2).toUpperCase()}</div>`; }
+    function logoHtml(st){ const src=st.company?.logo?.dataUrl || CWS?.getCompanyLogo?.() || "../assets/tasche-logo.png"; const name=companyName(st)||"Bedrijf"; return src ? `<img class="print-logo" src="${src}" alt="Bedrijfslogo">` : `<div class="print-logo print-logo-placeholder" aria-label="Bedrijfslogo placeholder">${esc(name).slice(0,2).toUpperCase()}</div>`; }
     function safeFilePart(v){ return String(v||"").normalize("NFKD").replace(/[\/:*?"<>|]+/g,"-").replace(/\s+/g," ").trim().slice(0,80) || "planning"; }
     function projectClient(p){ return p.client || p.opdrachtgever || p.customer || p.klant || ""; }
     function printFileName(p){ const d=new Date(); const date=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; return [p.name||"project", p.nr||p.code||p.id||"nummer", projectClient(p)||"opdrachtgever", date].map(safeFilePart).join("-"); }
@@ -991,7 +1046,7 @@ var CWS = window.CWS;</script>
         const beforeHtml=beforeText&&beforeW>=24?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,left-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
         const afterHtml=afterText&&afterW>=24?`<span class="bar-text-after" title="${esc(afterText)}" style="left:${afterLeft}px;width:${afterW}px">${esc(afterText)}</span>`:"";
         const title=[beforeText,insideText,afterText].filter(Boolean).join(" | ") || row.name;
-        return `<div class="lane" data-id="${esc(row.id)}">${nonWorkShadeHtml}${base}${beforeHtml}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>${(row.feedback||row.why)&&row.type!=="summary"?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>${afterHtml}</div>`;
+        return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${nonWorkShadeHtml}${base}${beforeHtml}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>${(row.feedback||row.why)&&row.type!=="summary"?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>${afterHtml}</div>`;
       }).join("");
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");
@@ -1292,7 +1347,48 @@ var CWS = window.CWS;</script>
     }
     window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc.start=addDays(UI.drag.orig.start,d); sc.end=addDays(UI.drag.orig.end,d); } else if(UI.drag.handle==="left"){ sc.start=addDays(UI.drag.orig.start,d); if(dayDiff(sc.start,sc.end)<0) sc.start=sc.end; } else { sc.end=addDays(UI.drag.orig.end,d); if(dayDiff(sc.start,sc.end)<0) sc.end=sc.start; } const bar=$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); if(bar){ bar.style.left=xFor(sc.start,{start:UI.originStart})+"px"; bar.style.width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay())+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
     window.addEventListener("pointerup",()=>{ if(!UI.drag) return; if(UI.revisionId){ UI.drag=null; render(); return; } const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]={start:bar.dataset.tmpStart,end:bar.dataset.tmpEnd}; saveModel(pid,model,"Balk bijgewerkt"); } UI.drag=null; render(); });
-    function drawDeps(model,rows,range){ const svg=$("#depSvg"); svg.innerHTML=""; if(!UI.showDeps) return; const rowH=UI.printMode?22:48; const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i])); const w=pxPerDay(); svg.setAttribute("width",Math.max(900,(range.days*w))); svg.setAttribute("height",rows.length*rowH); model.rows.forEach(row=>{ const i=rowIndex.get(row.id); if(i==null) return; parsePred(row.predecessor).forEach(p=>{ const pi=rowIndex.get(p.id); if(pi==null) return; const predSc=model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id)); const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id)); if(!predSc?.end||!sc?.start) return; const x1=xFor(predSc.end,range)+duration(predSc.start,predSc.end)*w, y1=pi*rowH+(rowH/2), x2=xFor(sc.start,range)+2, y2=i*rowH+(rowH/2); const mid=x1+Math.max(14,(x2-x1)/2); const path=document.createElementNS("http://www.w3.org/2000/svg","path"); path.setAttribute("d",`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`); path.setAttribute("fill","none"); path.setAttribute("stroke","rgba(15,23,42,.45)"); path.setAttribute("stroke-width",UI.printMode?"0.55":"1.1"); svg.appendChild(path); }); }); }
+    function drawDeps(model,rows,range){
+      const svg=$("#depSvg"); svg.innerHTML="";
+      if(!UI.showDeps) return;
+      const rowH=UI.printMode?22:48;
+      const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i]));
+      const w=pxPerDay();
+      const width=Math.max(900,(range.days*w));
+      svg.setAttribute("width",width);
+      svg.setAttribute("height",rows.length*rowH);
+      const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
+      const marker=document.createElementNS("http://www.w3.org/2000/svg","marker");
+      marker.setAttribute("id","depArrow"); marker.setAttribute("viewBox","0 0 10 10"); marker.setAttribute("refX","9"); marker.setAttribute("refY","5"); marker.setAttribute("markerWidth",UI.printMode?"3":"5"); marker.setAttribute("markerHeight",UI.printMode?"3":"5"); marker.setAttribute("orient","auto-start-reverse");
+      const mp=document.createElementNS("http://www.w3.org/2000/svg","path"); mp.setAttribute("d","M 0 0 L 10 5 L 0 10 z"); mp.setAttribute("fill",UI.printMode?"#111827":"rgba(15,23,42,.68)"); marker.appendChild(mp); defs.appendChild(marker); svg.appendChild(defs);
+      model.rows.forEach(row=>{
+        const i=rowIndex.get(row.id); if(i==null) return;
+        parsePred(row.predecessor).forEach(p=>{
+          const pi=rowIndex.get(p.id); if(pi==null) return;
+          const predRow=model.rows.find(r=>r.id===p.id);
+          const predSc=model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id));
+          const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id));
+          if(!predSc?.end||!sc?.start) return;
+          const predLeft=xFor(predSc.start||predSc.end,range);
+          const predRight=predLeft + Math.max(w,duration(predSc.start,predSc.end)*w);
+          const targetLeft=xFor(sc.start,range);
+          const yPredBase=pi*rowH, yTargetBase=i*rowH;
+          const y1=yPredBase + (UI.printMode?16:38); // below bar, inside row gutter
+          const y2=yTargetBase + (UI.printMode?6:10); // above target bar label
+          let x1=predRight + Math.max(3,w*.18);
+          let x2=Math.max(0,targetLeft - Math.max(3,w*.18));
+          let elbow;
+          if(x2>x1+10) elbow=(x1+x2)/2; else elbow=Math.min(width-4, Math.max(x1+12, targetLeft + Math.max(10,w*.75)));
+          const d=`M ${x1} ${y1} H ${elbow} V ${y2} H ${x2}`;
+          const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+          path.setAttribute("d",d); path.setAttribute("fill","none");
+          path.setAttribute("stroke",UI.printMode?"#111827":"rgba(15,23,42,.62)");
+          path.setAttribute("stroke-width",UI.printMode?"0.45":"1.15");
+          path.setAttribute("stroke-linejoin","round"); path.setAttribute("stroke-linecap","round");
+          path.setAttribute("marker-end","url(#depArrow)");
+          svg.appendChild(path);
+        });
+      });
+    }
     function renderContext(model){ const row=model.rows.find(r=>r.id===UI.selected); if(!row){ $("#contextBody").textContent="Selecteer een taak of balk om details te zien."; return; } const sc=model.sched[row.id]||{}; const status=row.status || (Number(row.progress||0)>=100?"Gereed":Number(row.progress||0)>0?"In uitvoering":"Niet gestart"); $("#contextBody").innerHTML=`<div class="ctx-grid"><div class="ctx-card"><b>Taak</b>${esc(row.name)}</div><div class="ctx-card"><b>Start / eind</b>${esc(toNL(sc.start))} — ${esc(toNL(sc.end))}</div><div class="ctx-card"><b>Afdeling</b>${esc(row.department||"—")}</div><div class="ctx-card"><b>Voortgang/status</b>${Number(row.progress||0)}% · ${esc(status)}</div><div class="ctx-card" style="grid-column:1/-1"><b>Terugkoppeling / WHY</b>${esc(row.feedback||row.why||"Geen terugkoppeling")}</div></div>`; }
     function openPredecessorPicker(rowId){
       if(!assertLiveMode()) return;
