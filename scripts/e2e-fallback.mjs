@@ -80,4 +80,10 @@ check("V46 print kolombreedte op inhoud", gantt.includes("longestName") && gantt
 check("V46 lichtere print daglijnen", gantt.includes("--v46-print-grid:.20px") && gantt.includes("--v46-print-day:#9aa4b2"));
 
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V47 zet parent document title voor PDF-bestandsnaam", gantt.includes("window.parent.document.title=wantedTitle"));
+check("V47 printkolommen passen op inhoud", gantt.includes("--v47-print-left-w"));
+check("V47 lichtere daglijnen en donkerdere niet-werkbare dagen", gantt.includes("--v47-print-grid:.18px") && gantt.includes("--v47-print-nonwork:#dfe4ea"));
+check("V47 afhankelijkheidslijnen hebben halo en duidelijke lijn", gantt.includes("dep-halo") && gantt.includes("dep-line"));
+
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");
