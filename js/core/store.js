@@ -15,6 +15,18 @@ window.CWS = window.CWS || {};
   };
 
   const deepClone = (x) => JSON.parse(JSON.stringify(x));
+  const baseNum = (v) => {
+    const n = (typeof v === 'number') ? v : parseFloat(String(v ?? '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  };
+  // V58 — Gantt urenbron hard gemaakt. Projecturen per afdeling zijn standaard de SSOT.
+  // Alleen wanneer een taak expliciet op handmatige override staat, gebruikt Gantt taakuren.
+  const ganttTaskHoursMode = (row) => {
+    const mode = String(row?.hoursMode || row?.hoursSource || row?.allocationMode || '').trim().toLowerCase();
+    if(mode === 'manual' || mode === 'handmatig' || mode === 'manual-override' || mode === 'task-hours') return 'manual';
+    return 'auto';
+  };
+  const ganttTaskManualHours = (row) => Math.max(0, baseNum(row?.manualHours ?? row?.hours));
   const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
   const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
   const normalizeColorKey = (value, fallback="c1") => {
@@ -266,6 +278,23 @@ window.CWS = window.CWS || {};
     st.ganttV2.expanded = st.ganttV2.expanded || {};
     st.ganttV2.byProject = st.ganttV2.byProject || {};
     st.ganttV2.ui = st.ganttV2.ui || { showCritical:false, showDeps:true, viewMode:"both", zoom:"week" };
+    Object.values(st.ganttV2.byProject || {}).forEach(model => {
+      if(!model || !Array.isArray(model.rows)) return;
+      model.rows.forEach(row => {
+        if(!row || row.type === "summary" || row.type === "phase") return;
+        const legacyHours = Math.max(0, num(row.manualHours ?? row.hours));
+        const mode = ganttTaskHoursMode(row);
+        row.hoursMode = mode;
+        row.hoursSource = mode === "manual" ? "manual" : "project-dept-hours";
+        if(mode === "manual"){
+          row.manualHours = legacyHours;
+          row.hours = legacyHours;
+        }else{
+          row.manualHours = Math.max(0, num(row.manualHours || 0));
+          row.hours = 0;
+        }
+      });
+    });
     st.templates = st.templates || { taskSets: [ { id:"default", name:"Standaard", phases:[] } ] };
     st.templates.taskSets = Array.isArray(st.templates.taskSets) ? st.templates.taskSets : [];
     if(!st.templates.taskSets.length) st.templates.taskSets.push({ id:"default", name:"Standaard", phases:[] });
@@ -601,10 +630,8 @@ window.CWS = window.CWS || {};
 
   const DAY_KEYS = ["ma","di","wo","do","vr","za","zo"]; // NL
 
-  const num = (v) => {
-    const n = (typeof v === 'number') ? v : parseFloat(String(v ?? '').replace(',', '.'));
-    return Number.isFinite(n) ? n : 0;
-  };
+  const num = baseNum;
+
 
   const getEmployees = (st) => {
     const rows = st?.settings?.tables?.employees;
@@ -1242,7 +1269,8 @@ window.CWS = window.CWS || {};
           start: String(sc.start).slice(0,10),
           end: String(sc.end).slice(0,10),
           days,
-          explicitHours: Math.max(0, num(row.hours)),
+          hoursMode: ganttTaskHoursMode(row),
+          explicitHours: ganttTaskHoursMode(row) === "manual" ? ganttTaskManualHours(row) : 0,
           weight: Math.max(1, Number(row.allocationWeight || row.weight || days.length) || days.length || 1)
         });
       });
@@ -1267,8 +1295,8 @@ window.CWS = window.CWS || {};
 
     taskGroups.forEach(group => {
       const projectTotal = getProjectDeptHoursTotal(target, group.projectId, group.dept);
-      const explicitSum = group.tasks.reduce((sum, t) => sum + t.explicitHours, 0);
-      const tasksWithoutExplicit = group.tasks.filter(t => t.explicitHours <= 0);
+      const explicitSum = group.tasks.reduce((sum, t) => sum + (t.hoursMode === "manual" ? t.explicitHours : 0), 0);
+      const tasksWithoutExplicit = group.tasks.filter(t => t.hoursMode !== "manual");
       const allWeight = group.tasks.reduce((sum, t) => sum + t.weight, 0) || group.tasks.length || 1;
       const emptyWeight = tasksWithoutExplicit.reduce((sum, t) => sum + t.weight, 0) || tasksWithoutExplicit.length || 1;
 
@@ -1276,16 +1304,16 @@ window.CWS = window.CWS || {};
         let taskHours = 0;
         let allocationMode = "none";
 
-        if(task.explicitHours > 0){
+        if(task.hoursMode === "manual"){
           taskHours = task.explicitHours;
-          allocationMode = "task-hours";
+          allocationMode = "manual-override";
         }else if(projectTotal > 0 && tasksWithoutExplicit.length){
           const remaining = Math.max(0, projectTotal - explicitSum);
           taskHours = remaining > 0 ? remaining * (task.weight / emptyWeight) : 0;
-          allocationMode = "project-dept-hours-remaining";
+          allocationMode = "project-dept-hours-auto";
         }else if(projectTotal > 0 && explicitSum <= 0){
           taskHours = projectTotal * (task.weight / allWeight);
-          allocationMode = "project-dept-hours";
+          allocationMode = "project-dept-hours-auto";
         }
 
         taskHours = Math.round(taskHours * 1000000) / 1000000;
@@ -1310,16 +1338,28 @@ window.CWS = window.CWS || {};
             dept: group.dept,
             hours: perDay,
             taskHours,
+            projectDeptHoursTotal: projectTotal,
+            manualOverrideHours: task.hoursMode === "manual" ? task.explicitHours : 0,
             workdays: task.days.length,
-            allocationMode
+            allocationMode,
+            hoursSource: task.hoursMode === "manual" ? "manual-override" : "project-dept-hours"
           });
         });
       });
     });
 
+    const validation = taskGroups.map(group => {
+      const projectTotal = getProjectDeptHoursTotal(target, group.projectId, group.dept);
+      const plannedTotal = group.tasks.reduce((sum, task) => {
+        if(task.hoursMode === "manual") return sum + task.explicitHours;
+        return sum;
+      }, 0);
+      return { projectId:group.projectId, dept:group.dept, projectDeptHours:projectTotal, manualOverrideHours:plannedTotal, hasManualOverride:plannedTotal > 0 };
+    });
     target.gantt.hoursByDay = hoursByDay;
     target.gantt.sourcesByDay = sourcesByDay;
-    target.gantt.allocationRule = "task-hours-first-project-dept-hours-fallback-workdays-only-auto";
+    target.gantt.projectDeptHoursValidation = validation;
+    target.gantt.allocationRule = "v58-project-dept-hours-ssot-manual-override-only-explicit";
     const nextSignature = ganttHoursSignature(target.gantt);
     if(previousSignature !== nextSignature || !target.gantt.recalculatedAt){
       target.gantt.recalculatedAt = new Date().toISOString();
@@ -1369,7 +1409,7 @@ window.CWS = window.CWS || {};
             const id = `${projectId}-${task.id}`;
             const start = isoDateUTC(addDaysUTC(base, day));
             const end = isoDateUTC(addDaysUTC(base, day+4));
-            model.rows.push({ id, name:task.name, type:"task", level:1, department:phase.name, progress:0, predecessor:index ? `${projectId}-${phase.tasks[index-1].id}FS` : "", locked:false });
+            model.rows.push({ id, name:task.name, type:"task", level:1, department:phase.name, progress:0, predecessor:index ? `${projectId}-${phase.tasks[index-1].id}FS` : "", locked:false, hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 });
             model.sched[id] = { start, end };
             day += 5;
           });

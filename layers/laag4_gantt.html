@@ -975,6 +975,17 @@
     }
 
 
+    /* V58 — Projecturen per afdeling zijn de standaard Gantt-urenbron.
+       Handmatige taakuren zijn alleen actief als de gebruiker expliciet Handmatig kiest. */
+    .hours-source-cell{display:flex;align-items:center;gap:6px;min-width:210px;}
+    .hours-source-select{height:34px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font-weight:800;color:#0f172a;padding:0 8px;max-width:118px;}
+    .hours-source-cell .cellinput{width:74px!important;min-width:74px!important;text-align:right;}
+    .hours-source-cell .cellinput:disabled{background:#eef6ff;color:#2563eb;border-color:#bfdbfe;font-weight:900;opacity:1;}
+    .hours-source-badge{display:inline-flex;align-items:center;border-radius:999px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;padding:4px 8px;white-space:nowrap;}
+    .hours-mode-note{margin-top:7px;color:#64748b;font-weight:700;line-height:1.35;}
+    .hours-mode-note strong{color:#0f172a;}
+
+
 
   </style>
 </head>
@@ -1175,7 +1186,7 @@ var CWS = window.CWS;</script>
       if(col.id==="progress") return `${Number(row.progress||0)} %`;
       if(col.id==="taskStatus") return row.status || (Number(row.progress||0)>=100 ? "Gereed" : Number(row.progress||0)>0 ? "In uitvoering" : "Niet gestart");
       if(col.id==="feedback") return row.feedback || row.why || "";
-      if(col.id==="hours") return Number(row.hours||0) ? `${Number(row.hours||0)} u` : "auto";
+      if(col.id==="hours") return hoursSourceLabel(row);
       if(col.id==="predecessor") return predecessorDisplay(row.predecessor);
       if(col.id==="department") { const st=state(); const d=departments(st).find(x=>String(x.id||x.name)===String(row.department)||String(x.name)===String(row.department)); return d?(d.name||d.id):(row.department||""); }
       if(col.id==="resource") { const st=state(); const r=(st.resources?.byId||{})[row.resourceId]; return r?(r.name||r.id):(row.resourceId||"—"); }
@@ -1187,6 +1198,30 @@ var CWS = window.CWS;</script>
       if(col.id==="why") return row.why || "";
       return "";
     }
+    function rowHoursMode(row){
+      const mode=String(row?.hoursMode||row?.hoursSource||"auto").trim().toLowerCase();
+      return (mode==="manual"||mode==="handmatig"||mode==="manual-override"||mode==="task-hours") ? "manual" : "auto";
+    }
+    function rowManualHours(row){
+      const n=Number(String(row?.manualHours ?? row?.hours ?? 0).replace(",","."));
+      return Number.isFinite(n) ? Math.max(0,n) : 0;
+    }
+    function projectDeptHoursTotalFor(row, pid=currentProjectId(), st=state()){
+      const dept=String(row?.department||row?.dept||row?.afdeling||"(Geen)").trim()||"(Geen)";
+      const p=st.projects?.byId?.[pid]||{};
+      let total=0;
+      (Array.isArray(st.projects?.deptHours)?st.projects.deptHours:[]).forEach(r=>{
+        if(String(r?.projectId||r?.project||"")!==String(pid)) return;
+        const rd=String(r?.deptId||r?.dept||r?.department||"(Geen)").trim()||"(Geen)";
+        if(rd===dept){ const h=Number(String(r?.hours??0).replace(",",".")); if(Number.isFinite(h)) total+=Math.max(0,h); }
+      });
+      if(total<=0 && p.deptHours && typeof p.deptHours==="object"){ const h=Number(String(p.deptHours[dept]??0).replace(",",".")); if(Number.isFinite(h)) total=Math.max(0,h); }
+      return Math.round(total*100)/100;
+    }
+    function hoursSourceLabel(row){
+      return rowHoursMode(row)==="manual" ? `${rowManualHours(row)} u handmatig` : "Auto uit projecturen";
+    }
+
     function labelTextForField(id,row,sc){ return textForCol({id},row,sc); }
     function labelText(ids,row,sc){
       return (ids||[]).map(id=>labelTextForField(id,row,sc)).map(v=>String(v||"").trim()).filter(Boolean).join(" | ");
@@ -1239,7 +1274,19 @@ var CWS = window.CWS;</script>
       if(col.id==="progress") return `<input class="cellinput smallinput" data-k="progress" value="${Number(row.progress||0)}" ${dis}>%`;
       if(col.id==="taskStatus") return `<select class="resource-select" data-k="status" ${dis}>${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select>`;
       if(col.id==="feedback") return `<input class="cellinput" data-k="feedback" title="${esc(row.feedback||row.why||"")}" value="${esc(row.feedback||row.why||"")}" ${dis}>`;
-      if(col.id==="hours") return `<input class="cellinput smallinput" data-k="hours" title="0 = automatisch uit projecturen per afdeling" value="${Number(row.hours||0)}" ${dis}>`;
+      if(col.id==="hours"){
+        const mode=rowHoursMode(row);
+        const manual=rowManualHours(row);
+        const autoTotal=projectDeptHoursTotalFor(row);
+        const disabledInput=(mode==="auto"||row.locked||readOnly)?"disabled":"";
+        return `<div class="hours-source-cell" data-v58-hours-source="1">
+          <select class="hours-source-select" data-k="hoursMode" title="Urenbron voor Gantt en Capaciteit" ${dis}>
+            <option value="auto" ${mode==="auto"?"selected":""}>Auto</option>
+            <option value="manual" ${mode==="manual"?"selected":""}>Handmatig</option>
+          </select>
+          <input class="cellinput smallinput" data-k="hours" title="Alleen actief bij handmatige override. Auto gebruikt projecturen per afdeling." value="${mode==="manual"?manual:autoTotal}" ${disabledInput}>
+        </div>`;
+      }
       if(col.id==="predecessor") return `<div class="pred-cell" title="${esc(predecessorTitle(row.predecessor))}"><span class="pred-nos">${esc(predecessorDisplay(row.predecessor)||"—")}</span><button class="pred-pick" data-pred-pick="${esc(row.id)}" type="button" ${dis}>Kies</button></div>`;
       if(col.id==="department") return `<select class="dept-select" data-k="department" ${dis}>${departmentOptionsHtml(st,row.department)}</select>`;
       if(col.id==="resource") return `<input class="cellinput resource-input" data-k="resourceId" list="resourceOptions" value="${esc(row.resourceId||"")}" placeholder="Resource" ${dis}>`;
@@ -1477,7 +1524,10 @@ var CWS = window.CWS;</script>
             predecessor:pred,
             locked:!!t.locked,
             colorKey:taskColor,
-            hours:Math.max(0,Number(t.hours||0)),
+            hoursMode:(String(t.hoursMode||t.hoursSource||"").toLowerCase()==="manual"||String(t.hoursMode||t.hoursSource||"").toLowerCase()==="handmatig")?"manual":"auto",
+            hoursSource:(String(t.hoursMode||t.hoursSource||"").toLowerCase()==="manual"||String(t.hoursMode||t.hoursSource||"").toLowerCase()==="handmatig")?"manual":"project-dept-hours",
+            hours:(String(t.hoursMode||t.hoursSource||"").toLowerCase()==="manual"||String(t.hoursMode||t.hoursSource||"").toLowerCase()==="handmatig")?Math.max(0,Number(t.hours||0)):0,
+            manualHours:(String(t.hoursMode||t.hoursSource||"").toLowerCase()==="manual"||String(t.hoursMode||t.hoursSource||"").toLowerCase()==="handmatig")?Math.max(0,Number(t.hours||0)):0,
             why:t.why||t.note||"",
             templateId:template?.id||""
           });
@@ -1911,8 +1961,17 @@ var CWS = window.CWS;</script>
               row.progress=Math.max(0,Math.min(100,Number(el.value)||0));
               row.status=row.progress>=100?"Gereed":row.progress>0?(row.status||"In uitvoering"):(row.status||"Niet gestart");
               row.progressUpdatedAt=new Date().toISOString();
+            } else if(k==="hoursMode"){
+              const mode=el.value==="manual" ? "manual" : "auto";
+              row.hoursMode=mode;
+              row.hoursSource=mode==="manual" ? "manual" : "project-dept-hours";
+              if(mode==="auto"){ row.hours=0; row.manualHours=0; }
             } else if(k==="hours"){
-              row.hours=Math.max(0,Number(String(el.value).replace(",","."))||0);
+              const v=Math.max(0,Number(String(el.value).replace(",","."))||0);
+              row.hoursMode="manual";
+              row.hoursSource="manual";
+              row.manualHours=v;
+              row.hours=v;
             } else if(k==="status"){
               row.status=el.value;
             } else if(k==="feedback"){
@@ -2077,7 +2136,14 @@ var CWS = window.CWS;</script>
         <label class="field">Status<select id="mStatus">${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select></label>
         <label class="field">Voorgangers<select id="mPredSel" class="pred-select" multiple>${predecessorOptionsHtml(model,rowId,row.predecessor)}</select><span class="pred-help">Meerdere voorgangers mogelijk. In de tabel worden regelnummers getoond.</span></label>
         <label class="field">Kleur${colorPickerHtml("mColor", row.colorKey, "")}</label>
-        <label class="field">Uren<input id="mHours" type="number" min="0" step="0.25" value="${Number(row.hours||0)}"><small style="color:#64748b;font-weight:600">0 = automatisch verdelen vanuit projecturen per afdeling.</small></label>
+        <label class="field">Urenbron
+          <select id="mHoursMode">
+            <option value="auto" ${rowHoursMode(row)==="auto"?"selected":""}>Automatisch uit projecturen per afdeling</option>
+            <option value="manual" ${rowHoursMode(row)==="manual"?"selected":""}>Handmatige override</option>
+          </select>
+          <small class="hours-mode-note"><strong>Projecturen zijn SSOT.</strong> Auto gebruikt de uren van afdeling "${esc(row.department||"(Geen)")}" uit Projecten (${projectDeptHoursTotalFor(row)} u). Handmatig wijkt bewust af.</small>
+        </label>
+        <label class="field">Uren handmatige override<input id="mHours" type="number" min="0" step="0.25" value="${rowManualHours(row)}" ${rowHoursMode(row)==="auto"?"disabled":""}></label>
         <label class="field">Lock<select id="mLock"><option value="0" ${!row.locked?"selected":""}>Nee</option><option value="1" ${row.locked?"selected":""}>Ja</option></select></label>
         <label class="field" style="grid-column:1/-1">Terugkoppeling / WHY<textarea id="mWhy">${esc(row.feedback||row.why||"")}</textarea></label>
       </div>`;
@@ -2088,6 +2154,8 @@ var CWS = window.CWS;</script>
       const durEl=$("#mDur"); if(durEl) durEl.addEventListener("input",()=>{ durEl.dataset.changed="1"; });
       const colorSel=$("#modalBody select[data-k='mColor']");
       if(colorSel){ setColorPickerPreview(colorSel); colorSel.addEventListener("input",()=>setColorPickerPreview(colorSel)); }
+      const hoursModeSel=$("#mHoursMode");
+      if(hoursModeSel){ hoursModeSel.addEventListener("input",()=>{ const inp=$("#mHours"); if(inp) inp.disabled=hoursModeSel.value!=="manual"; }); }
       $("#modalSave").textContent=readOnly?"Sluiten":"Opslaan";
       $("#modalSave").onclick=()=>{
         if(readOnly){ $("#modalBack").classList.remove("show"); return; }
@@ -2098,7 +2166,17 @@ var CWS = window.CWS;</script>
         row.status=$("#mStatus").value;
         row.predecessor=encodePred(Array.from($("#mPredSel")?.selectedOptions||[]).map(o=>o.value));
         row.colorKey=normalizeColorKey(colorSel?.value||row.colorKey);
-        row.hours=Math.max(0,Number($("#mHours").value)||0);
+        const hMode=$("#mHoursMode")?.value==="manual" ? "manual" : "auto";
+        row.hoursMode=hMode;
+        row.hoursSource=hMode==="manual" ? "manual" : "project-dept-hours";
+        if(hMode==="manual"){
+          const hv=Math.max(0,Number($("#mHours").value)||0);
+          row.manualHours=hv;
+          row.hours=hv;
+        }else{
+          row.manualHours=0;
+          row.hours=0;
+        }
         row.locked=$("#mLock").value==="1";
         row.feedback=$("#mWhy").value.trim();
         row.why=row.feedback || row.why || "";
