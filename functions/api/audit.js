@@ -10,8 +10,10 @@ import {
 } from "./_shared.js";
 
 async function prepareDb(db) {
-  await ensureSchema(db);
-  return verifyRequiredSchema(db);
+  // V57: verify first and only repair schema when necessary.
+  let schema = await verifyRequiredSchema(db);
+  if (!schema.ok) schema = await ensureSchema(db);
+  return schema;
 }
 
 export async function onRequestGet(context) {

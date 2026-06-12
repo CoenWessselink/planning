@@ -112,3 +112,6 @@ check("V55 Projecten alles op één pagina met infinite scroll", projects.includ
 if(process.exitCode) process.exit(process.exitCode);
 check("V56 Gantt daglijnen zichtbaar in schermdiagram", gantt.includes("V56 — Gantt schermdiagram: dunne daglijnen altijd zichtbaar") && gantt.includes("const dayGridLineHtml=days.map") && gantt.includes("--v56-screen-day-line-width:.5px") && gantt.includes(".lane .bar{z-index:8!important;}"));
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V57 D1 Worker resource hardening aanwezig", read("functions/api/health.js").includes("v57-lightweight-no-state-load") && !read("functions/api/health.js").includes("ensureSchema") && read("functions/api/state.js").includes("stateJson: row?.state_json") && read("functions/api/state.js").includes("X-CWS-State-Payload") && read("js/core/store.js").includes("payload=raw-state") && read("js/core/store.js").includes("data.state = JSON.parse(data.stateJson)") && fs.readFileSync("package.json", "utf8").includes('"preflight:v57"'));
+if(process.exitCode) process.exit(process.exitCode);

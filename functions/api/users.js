@@ -3,8 +3,9 @@ import { ensureSchema, getOrCreateUser, json, requireActorEmail, verifyRequiredS
 async function requireAdmin(context) {
   const db = context.env?.DB;
   if (!db) return { error: json({ ok:false, error:"D1-binding DB ontbreekt." }, 500) };
-  await ensureSchema(db);
-  const schema = await verifyRequiredSchema(db);
+  // V57: keep normal user checks light; only self-heal when required.
+  let schema = await verifyRequiredSchema(db);
+  if (!schema.ok) schema = await ensureSchema(db);
   if (!schema.ok) return { error: json({ ok:false, error:"D1-schema onjuist.", schemaErrors:schema.errors }, 500) };
   const email = requireActorEmail(context.request);
   if (!email) return { error: json({ ok:false, error:"Cloudflare Access-identiteit ontbreekt." }, 401) };

@@ -36,7 +36,8 @@
     "preflight:v53": "node scripts/v53-gantt-bottom-calendar-inverted-preflight.mjs",
     "preflight:v54": "node scripts/v54-capacity-scrollbar-dock-preflight.mjs",
     "preflight:v55": "node scripts/v55-projecten-infinite-scroll-preflight.mjs",
-    "preflight:v56": "node scripts/v56-gantt-screen-daylines-preflight.mjs"
+    "preflight:v56": "node scripts/v56-gantt-screen-daylines-preflight.mjs",
+    "preflight:v57": "node scripts/v57-d1-lightweight-state-preflight.mjs"
   },
   "devDependencies": {}
 }

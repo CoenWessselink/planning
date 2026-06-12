@@ -334,14 +334,32 @@ window.CWS = window.CWS || {};
       if(!response.ok || !data.ok) throw new Error(data.error || `State laden mislukt (${response.status}).`);
       remoteVersion = Number(data.version || 0);
       storageStatus.remoteVersion = remoteVersion;
+      // V57: the Worker returns stateJson as a string so Cloudflare does not need
+      // to parse/stringify the full planning state. Parse once in the browser.
+      if(data.stateJson && typeof data.stateJson === "string"){
+        try{
+          data.state = JSON.parse(data.stateJson);
+        }catch(error){
+          throw new Error(`D1-state is ongeldige JSON (${error.message}).`);
+        }
+      }
       return data;
     },
     async save(snapshot){
       if(storageStatus.mode !== "api") return { ok:true, local:true };
-      const response = await fetch(API_STATE, {
+      // V57: send the raw state JSON, not a wrapper object. This removes an extra
+      // Worker-side JSON.parse(JSON.stringify(state)) pass and prevents 1102/503
+      // resource-limit failures on larger planning datasets.
+      const stateJson = JSON.stringify(snapshot);
+      const response = await fetch(`${API_STATE}?baseVersion=${encodeURIComponent(String(remoteVersion))}&payload=raw-state`, {
         method:"PUT",
-        headers:{ "Content-Type":"application/json", "Accept":"application/json" },
-        body:JSON.stringify({ state:snapshot, baseVersion:remoteVersion })
+        headers:{
+          "Content-Type":"application/json; charset=utf-8",
+          "Accept":"application/json",
+          "X-CWS-Base-Version":String(remoteVersion),
+          "X-CWS-State-Payload":"raw-state"
+        },
+        body:stateJson
       });
       const data = await response.json().catch(()=>({}));
       if(response.status === 409){
@@ -353,6 +371,7 @@ window.CWS = window.CWS || {};
       if(!response.ok || !data.ok) throw new Error(data.error || `State opslaan mislukt (${response.status}).`);
       remoteVersion = Number(data.version || remoteVersion);
       storageStatus.remoteVersion = remoteVersion;
+      storageStatus.label = "Cloudflare D1 - gedeelde interne testdata";
       return data;
     },
     async audit(action, metadata){
