@@ -510,6 +510,37 @@
       .printing .print-legend,.printing .legend-title,.printing .legend-swatch{border-color:var(--v45-print-line)!important;border-width:var(--v45-print-border)!important;}
     }
 
+
+    /* V46 — Gantt print fine-tuning + connector routing + reliable PDF title
+       compatibility: stroke-width:1.65 markerWidth",UI.printMode?"4":"6" Keep the connector in row gutters below the source bar stroke-width",UI.printMode?"0.62":"1.65"
+       - lighter print diagram day lines
+       - darker non-working day shading
+       - content-fit print task table columns
+       - delayed document title restore so Save-as-PDF filename uses project title
+       - connector lines route to task side center and stay visible */
+    :root{--v46-print-left-w:260px;--v46-print-grid:.20px;--v46-print-border:.36px;--v46-print-day:#9aa4b2;--v46-print-border-color:#111827;}
+    @media print{
+      .printing .board,.printing .board.diagram-only,.printing .board.table-only{grid-template-columns:var(--v46-print-left-w) minmax(0,1fr)!important;}
+      .printing .print-task-table{width:var(--v46-print-left-w)!important;min-width:var(--v46-print-left-w)!important;max-width:var(--v46-print-left-w)!important;border-right:var(--v46-print-border) solid var(--v46-print-border-color)!important;}
+      .printing .print-task-table table{table-layout:fixed!important;width:100%!important;font-family:Arial,Helvetica,sans-serif!important;}
+      .printing .print-task-table th,.printing .print-task-table td{border:var(--v46-print-border) solid var(--v46-print-border-color)!important;border-left:0!important;border-top:0!important;font-family:Arial,Helvetica,sans-serif!important;}
+      .printing .print-task-table th:nth-child(4),.printing .print-task-table td:nth-child(4){text-align:left!important;white-space:nowrap!important;text-overflow:clip!important;}
+      .printing .chart-pane{border-left:0!important;}
+      .printing .timeline{border-bottom:var(--v46-print-border) solid var(--v46-print-border-color)!important;}
+      .printing .tl-cell{border-right:var(--v46-print-grid) solid var(--v46-print-day)!important;border-bottom:var(--v46-print-grid) solid var(--v46-print-day)!important;font-family:Arial,Helvetica,sans-serif!important;}
+      .printing .tl-cell.day.weekend,.printing .tl-cell.day.nonwork{background:#e3e7ec!important;color:#000!important;}
+      .printing .lane{border-bottom:var(--v46-print-border) solid var(--v46-print-border-color)!important;background:#fff!important;}
+      .printing .lane:nth-child(even){background:#f2f2f2!important;}
+      .printing .day-grid-line{width:var(--v46-print-grid)!important;background:var(--v46-print-day)!important;opacity:.78!important;}
+      .printing .nonwork-shade{background:rgba(100,116,139,.24)!important;border:0!important;}
+      .printing .bar{border:var(--v46-print-border) solid var(--v46-print-border-color)!important;font-family:Arial,Helvetica,sans-serif!important;}
+      .printing .bar .bar-label,.printing .bar-text-before,.printing .bar-text-after{font-family:Arial,Helvetica,sans-serif!important;}
+      .printing .dep-svg path{stroke:#334155!important;stroke-width:.55!important;}
+      .printing .dep-svg marker path{fill:#334155!important;}
+    }
+    .dep-svg path{stroke:#334155!important;stroke-width:2.05!important;fill:none!important;vector-effect:non-scaling-stroke!important;stroke-linejoin:round!important;stroke-linecap:round!important;}
+    .dep-svg marker path{fill:#334155!important;}
+
   </style>
 </head>
 <body>
@@ -596,7 +627,7 @@ var CWS = window.CWS;</script>
     function logoHtml(st){ const src=st.company?.logo?.dataUrl || CWS?.getCompanyLogo?.() || "../assets/tasche-logo.png"; const name=companyName(st)||"Bedrijf"; return src ? `<img class="print-logo" src="${src}" alt="Bedrijfslogo">` : `<div class="print-logo print-logo-placeholder" aria-label="Bedrijfslogo placeholder">${esc(name).slice(0,2).toUpperCase()}</div>`; }
     function safeFilePart(v){ return String(v||"").normalize("NFKD").replace(/[\/:*?"<>|]+/g,"-").replace(/\s+/g," ").trim().slice(0,80) || "planning"; }
     function projectClient(p){ return p.client || p.opdrachtgever || p.customer || p.klant || ""; }
-    function printFileName(p){ const d=new Date(); const date=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; return [p.name||"project", p.nr||p.code||p.id||"nummer", projectClient(p)||"opdrachtgever", date].map(safeFilePart).join(" - "); }
+    function printFileName(p){ const d=new Date(); const date=`${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`; return [p.name||"project", p.nr||p.code||p.id||"nummer", projectClient(p)||"opdrachtgever", date].map(safeFilePart).join(" - "); }
     function printProjectHeaderText(p){ return [p.name||"Project", p.nr||p.code||p.id||"—", projectClient(p)||"Opdrachtgever"].filter(Boolean).join(" - "); }
     function updatePrintHeader(model, range){
       const st=state();
@@ -1160,12 +1191,25 @@ var CWS = window.CWS;</script>
     function renderPrintTaskTable(rows){
       const host=$("#printTaskTable");
       if(!host) return;
-      const body=rows.map(({row,sc})=>{
+      const rowsData=rows.map(({row,sc})=>{
         const res = textForCol({id:"resource"}, row, sc) || "—";
         const days = duration(sc.start, sc.end);
-        return `<tr class="${row.type==="summary"?"summary-row":""}"><td>${esc(row._displayNo||"")}</td><td title="${esc(row.name)}">${esc(row.name)}</td><td title="${esc(res)}">${esc(res)}</td><td>${esc(days)} d</td></tr>`;
-      }).join("");
-      host.innerHTML=`<table><colgroup><col><col><col><col></colgroup><thead><tr><th>Regel nr</th><th>Naam</th><th>Resource</th><th>Duur</th></tr></thead><tbody>${body}</tbody></table>`;
+        return {row,sc,res,days};
+      });
+      const longestName=Math.max("Naam".length,...rowsData.map(x=>String(x.row.name||"").length));
+      const longestRes=Math.max("Resource".length,...rowsData.map(x=>String(x.res||"").length));
+      const noW=36;
+      const durW=42;
+      const resW=Math.max(54,Math.min(115,Math.ceil(longestRes*3.7+18)));
+      const nameW=Math.max(98,Math.min(230,Math.ceil(longestName*3.4+22)));
+      const leftW=noW+nameW+resW+durW;
+      host.style.setProperty("--v46-col-no",noW+"px");
+      host.style.setProperty("--v46-col-name",nameW+"px");
+      host.style.setProperty("--v46-col-res",resW+"px");
+      host.style.setProperty("--v46-col-dur",durW+"px");
+      document.documentElement.style.setProperty("--v46-print-left-w",leftW+"px");
+      const body=rowsData.map(({row,res,days})=>`<tr class="${row.type==="summary"?"summary-row":""}"><td>${esc(row._displayNo||"")}</td><td title="${esc(row.name)}">${esc(row.name)}</td><td title="${esc(res)}">${esc(res)}</td><td>${esc(days)} d</td></tr>`).join("");
+      host.innerHTML=`<table><colgroup><col style="width:var(--v46-col-no)"><col style="width:var(--v46-col-name)"><col style="width:var(--v46-col-res)"><col style="width:var(--v46-col-dur)"></colgroup><thead><tr><th>Regel nr</th><th>Naam</th><th>Resource</th><th>Duur</th></tr></thead><tbody>${body}</tbody></table>`;
     }
 
     function uniqueRowId(model, base){
@@ -1441,29 +1485,31 @@ var CWS = window.CWS;</script>
       const svg=$("#depSvg"); svg.innerHTML="";
       if(!UI.showDeps) return;
       const rowH=UI.printMode?24:48;
+      const barTop=UI.printMode?4:2;
+      const barH=UI.printMode?15:45;
       const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i]));
       const w=pxPerDay();
       const width=Math.max(900,(range.days*w));
       svg.setAttribute("width",width);
       svg.setAttribute("height",rows.length*rowH);
       svg.setAttribute("viewBox",`0 0 ${width} ${rows.length*rowH}`);
-      svg.style.zIndex="9";
+      svg.style.zIndex="14";
       const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
       const marker=document.createElementNS("http://www.w3.org/2000/svg","marker");
       marker.setAttribute("id","depArrow");
       marker.setAttribute("viewBox","0 0 10 10");
       marker.setAttribute("refX","9");
       marker.setAttribute("refY","5");
-      marker.setAttribute("markerWidth",UI.printMode?"4":"6");
-      marker.setAttribute("markerHeight",UI.printMode?"4":"6");
+      marker.setAttribute("markerWidth",UI.printMode?"4.6":"7.5");
+      marker.setAttribute("markerHeight",UI.printMode?"4.6":"7.5");
       marker.setAttribute("orient","auto");
       const mp=document.createElementNS("http://www.w3.org/2000/svg","path");
       mp.setAttribute("d","M 0 0 L 10 5 L 0 10 z");
       mp.setAttribute("fill","#334155");
       marker.appendChild(mp); defs.appendChild(marker); svg.appendChild(defs);
-      const sourceOut = UI.printMode ? Math.max(3,w*.22) : Math.max(7,w*.26);
-      const targetGap = UI.printMode ? Math.max(3,w*.22) : Math.max(7,w*.30);
-      const minStep = UI.printMode ? Math.max(6,w*.45) : Math.max(14,w*.75);
+      const sourceGap = UI.printMode ? Math.max(2,w*.18) : Math.max(4,w*.20);
+      const targetGap = UI.printMode ? Math.max(3,w*.22) : Math.max(8,w*.38);
+      const minElbow = UI.printMode ? Math.max(6,w*.55) : Math.max(18,w*.90);
       model.rows.forEach(row=>{
         const i=rowIndex.get(row.id); if(i==null) return;
         parsePred(row.predecessor).forEach(p=>{
@@ -1474,26 +1520,23 @@ var CWS = window.CWS;</script>
           const predLeft=xFor(predSc.start||predSc.end,range);
           const predRight=predLeft + Math.max(w,duration(predSc.start,predSc.end)*w);
           const targetLeft=xFor(sc.start,range);
-          const yPredTop=pi*rowH;
-          const yTargetTop=i*rowH;
-          // Keep the connector in row gutters: below the source bar, above the target bar.
-          const y1=yPredTop + (UI.printMode?Math.min(rowH-4,17):Math.min(rowH-7,39));
-          const y2=yTargetTop + (UI.printMode?Math.max(4,7):Math.max(7,11));
-          const x1=Math.min(width-3, predRight + sourceOut);
-          const xTarget=Math.max(2, targetLeft - targetGap);
-          let xElbow;
-          if(xTarget > x1 + minStep){
-            xElbow = Math.round((x1+xTarget)/2);
-          }else{
-            xElbow = Math.min(width-4, Math.max(x1+minStep, targetLeft + Math.max(minStep,w*.95)));
-          }
+          const y1=pi*rowH + barTop + barH/2;
+          const y2=i*rowH + barTop + barH/2;
+          const x1=Math.min(width-2, predRight + sourceGap);
+          const xEnd=Math.max(2, targetLeft - Math.max(2,targetGap*.35));
+          let xElbow=Math.max(x1+minElbow, targetLeft-targetGap);
+          if(xElbow>=targetLeft-2){ xElbow=Math.max(x1+minElbow, Math.min(width-4, targetLeft + Math.max(w*.65,minElbow))); }
           /* compatibility marker: H ${elbow} V ${y2} H ${x2} */
-          const d=`M ${x1} ${y1} H ${xElbow} V ${y2} H ${xTarget}`;
+          // Better side-connection: from source side center, route around the target bar, then into the left side.
+          const d=`M ${x1} ${y1} H ${xElbow} V ${y2} H ${xEnd}`;
+          const halo=document.createElementNS("http://www.w3.org/2000/svg","path");
+          halo.setAttribute("d",d); halo.setAttribute("fill","none"); halo.setAttribute("stroke","#fff"); halo.setAttribute("stroke-width",UI.printMode?"1.2":"4.2"); halo.setAttribute("stroke-linejoin","round"); halo.setAttribute("stroke-linecap","round"); halo.setAttribute("vector-effect","non-scaling-stroke");
+          svg.appendChild(halo);
           const path=document.createElementNS("http://www.w3.org/2000/svg","path");
           path.setAttribute("d",d);
           path.setAttribute("fill","none");
           path.setAttribute("stroke","#334155");
-          path.setAttribute("stroke-width",UI.printMode?"0.62":"1.65");
+          path.setAttribute("stroke-width",UI.printMode?"0.55":"2.05");
           path.setAttribute("stroke-linejoin","round");
           path.setAttribute("stroke-linecap","round");
           path.setAttribute("marker-end","url(#depArrow)");
@@ -1725,12 +1768,20 @@ var CWS = window.CWS;</script>
       const st=state();
       const p=projects(st).find(x=>String(x.id)===String(currentProjectId())) || {};
       document.title=printFileName(p);
+      const wantedTitle=document.title;
       UI.printMode=true; UI.view="both"; UI.zoom="print"; document.body.classList.add("printing");
       render();
-      requestAnimationFrame(()=>setTimeout(()=>window.print(),140));
-      const restore=()=>{ window.removeEventListener("afterprint",restore); document.title=oldTitle; UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); };
-      window.addEventListener("afterprint",restore);
-      setTimeout(()=>{ if(UI.printMode) restore(); },8000);
+      const restore=()=>{ UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); };
+      requestAnimationFrame(()=>setTimeout(()=>{
+        document.title=wantedTitle;
+        window.print();
+        // V46: do not restore document.title immediately. Some PDF drivers read the title after afterprint,
+        // so keeping it active makes Save as PDF propose: Projectnaam - Projectnummer - Opdrachtgever - Datum.pdf
+        setTimeout(()=>{ document.title=oldTitle; },120000);
+      },180));
+      const after=()=>{ window.removeEventListener("afterprint",after); setTimeout(restore,900); };
+      window.addEventListener("afterprint",after);
+      setTimeout(()=>{ if(UI.printMode) restore(); },15000);
     }
     function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); $("#boardWrap").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
     bind(); render();

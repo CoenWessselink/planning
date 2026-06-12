@@ -72,4 +72,12 @@ console.log(`${v45pass ? "OK" : "FAIL"} - V45 dependencylijnen zichtbaarer en pr
 if(!v45pass) ok = false;
 
 if (!ok) process.exit(1);
+function check(label,pass){ console.log(`${pass ? "OK" : "FAIL"} - ${label}`); if(!pass) process.exitCode=1; }
+
+check("V46 PDF filename title retention", gantt.includes("setTimeout(()=>{ document.title=oldTitle; },120000)"));
+check("V46 dependency halo aanwezig", gantt.includes("const halo=") && gantt.includes("Better side-connection"));
+check("V46 print kolombreedte op inhoud", gantt.includes("longestName") && gantt.includes("--v46-print-left-w"));
+check("V46 lichtere print daglijnen", gantt.includes("--v46-print-grid:.20px") && gantt.includes("--v46-print-day:#9aa4b2"));
+
+if(process.exitCode) process.exit(process.exitCode);
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");

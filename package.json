@@ -25,7 +25,8 @@
     "preflight:v42": "node scripts/v42-print-template-deps-preflight.mjs",
     "preflight:v43": "node scripts/v43-capacity-print-a0-preflight.mjs",
     "preflight:v44": "node scripts/v44-gantt-print-raster-preflight.mjs",
-    "preflight:v45": "node scripts/v45-dependency-print-preflight.mjs"
+    "preflight:v45": "node scripts/v45-dependency-print-preflight.mjs",
+    "preflight:v46": "node scripts/v46-print-dependency-filename-preflight.mjs"
   },
   "devDependencies": {}
 }
