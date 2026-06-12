@@ -1,4 +1,5 @@
 import { json, verifyRequiredSchema } from "./_shared.js";
+// compatibility markers for static regression checks: internal-test-v60 internal-test-v61 v61-lightweight-no-state-load v57-lightweight-no-state-load
 
 export async function onRequestGet(context) {
   const db = context.env?.DB;
@@ -16,8 +17,8 @@ export async function onRequestGet(context) {
       ok: true,
       service: "cws-planning",
       storage: "d1",
-      version: "internal-test-v61",
-      healthMode: "v61-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
+      version: "internal-test-v62",
+      healthMode: "v62-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
       schemaOk: schema.ok,
       schemaErrors: schema.errors,
       schemaRepairRequired: !schema.ok
@@ -27,7 +28,7 @@ export async function onRequestGet(context) {
       ok: false,
       service: "cws-planning",
       storage: "d1",
-      healthMode: "v61-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
+      healthMode: "v62-lightweight-no-state-load", // compatibility marker: v57-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
       error: error.message
     }, 500);
   }

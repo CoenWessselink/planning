@@ -212,3 +212,8 @@ De test is bruikbaar wanneer:
 - Viewer kan niet opslaan.
 - Admin kan demo resetten.
 - Browserdata wissen verwijdert geen D1-data.
+
+## V62
+- D1 schema recovery guard toegevoegd.
+- Herstelde 76-projecten state wordt via projects.order/byId gelezen.
+- Demo/lege overwrite client- en server-side geblokkeerd.

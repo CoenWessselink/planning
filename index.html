@@ -91,6 +91,11 @@
 
         document.getElementById("resetDemo").addEventListener("click", () => {
           if(!Permissions.can(CWS.getState().ui.role, "edit_planning")) return UI.toast("Geen rechten");
+          const metrics = CWS.getStateMetrics?.() || {};
+          if(CWS.storageStatus?.mode === "api" && Number(metrics.projectCount || 0) >= 20){
+            const typed = prompt(`V62 beveiliging: D1 bevat ${metrics.projectCount} projecten. Demo data kan deze planning overschrijven. Typ exact DEMO OVERSCHRIJVEN om toch door te gaan.`);
+            if(typed !== "DEMO OVERSCHRIJVEN") return UI.toast("Demo data geblokkeerd; bestaande D1-planning blijft veilig.");
+          }
           CWS.resetDemo();
           try{
             const now = new Date().toISOString();
@@ -103,6 +108,11 @@
 
         document.getElementById("clearData").addEventListener("click", () => {
           if(!CWS.hasPermission("admin_settings")) return UI.toast("Geen rechten");
+          const metrics = CWS.getStateMetrics?.() || {};
+          if(CWS.storageStatus?.mode === "api" && Number(metrics.projectCount || 0) >= 20){
+            const typed = prompt(`V62 beveiliging: D1 bevat ${metrics.projectCount} projecten. Data leegmaken kan deze planning verwijderen. Typ exact DATA LEEGMAKEN om toch door te gaan.`);
+            if(typed !== "DATA LEEGMAKEN") return UI.toast("Data leegmaken geblokkeerd; bestaande D1-planning blijft veilig.");
+          }
           if(!confirm("Alle CWS Planning-data verwijderen? Deze actie kan niet ongedaan worden gemaakt.")) return;
           CWS.clearAll();
           try{ localStorage.removeItem("cws.v35.demoRequested"); localStorage.removeItem("cws.v33.demoLoadedAt"); }catch(_e){}

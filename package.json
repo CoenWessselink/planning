@@ -41,7 +41,8 @@
     "preflight:v58": "node scripts/v58-gantt-hours-ssot-preflight.mjs",
     "preflight:v59": "node scripts/v59-gantt-working-days-only-preflight.mjs",
     "preflight:v60": "node scripts/v60-d1-raw-state-recovery-preflight.mjs",
-    "preflight:v61": "node scripts/v61-store-boot-regression-preflight.mjs"
+    "preflight:v61": "node scripts/v61-store-boot-regression-preflight.mjs",
+    "preflight:v62": "node scripts/v62-d1-schema-recovery-guard-preflight.mjs"
   },
   "devDependencies": {}
 }

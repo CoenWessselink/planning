@@ -197,16 +197,63 @@ window.CWS = window.CWS || {};
     });
   };
 
-  const stateHasBusinessData = (candidate) => {
+  const stateMetrics = (candidate) => {
     const st = candidate || {};
-    return Boolean(
-      (st.projects?.order || []).length ||
-      Object.keys(st.projects?.byId || {}).length ||
-      Object.keys(st.ganttV2?.byProject || {}).length ||
-      Object.keys(st.tasks?.byProject || {}).length ||
-      Object.keys(st.gantt?.hoursByDay || {}).length ||
-      (Array.isArray(st.projects?.deptHours) && st.projects.deptHours.length)
-    );
+    const projectOrder = Array.isArray(st.projects?.order) ? st.projects.order.length : 0;
+    const projectById = st.projects?.byId && typeof st.projects.byId === "object" && !Array.isArray(st.projects.byId) ? Object.keys(st.projects.byId).length : 0;
+    const legacyProjectArray = Array.isArray(st.projects) ? st.projects.length : 0;
+    const ganttProjectCount = st.ganttV2?.byProject && typeof st.ganttV2.byProject === "object" && !Array.isArray(st.ganttV2.byProject) ? Object.keys(st.ganttV2.byProject).length : 0;
+    const ganttRowCount = Object.values(st.ganttV2?.byProject || {}).reduce((sum, model) => sum + (Array.isArray(model?.rows) ? model.rows.length : 0), 0);
+    const tasksProjectCount = st.tasks?.byProject && typeof st.tasks.byProject === "object" && !Array.isArray(st.tasks.byProject) ? Object.keys(st.tasks.byProject).length : 0;
+    const taskPhaseCount = Object.values(st.tasks?.byProject || {}).reduce((sum, model) => sum + (Array.isArray(model?.phases) ? model.phases.length : 0), 0);
+    const hourDays = st.gantt?.hoursByDay && typeof st.gantt.hoursByDay === "object" && !Array.isArray(st.gantt.hoursByDay) ? Object.keys(st.gantt.hoursByDay).length : 0;
+    const sourceCount = Object.values(st.gantt?.sourcesByDay || {}).reduce((sum, byDept) => sum + Object.values(byDept || {}).reduce((n, rows) => n + (Array.isArray(rows) ? rows.length : 0), 0), 0);
+    const deptHours = Array.isArray(st.projects?.deptHours) ? st.projects.deptHours.length : 0;
+    const projectCount = Math.max(projectOrder, projectById, legacyProjectArray);
+    return {
+      projectCount,
+      projectOrder,
+      projectById,
+      legacyProjectArray,
+      ganttProjectCount,
+      ganttRowCount,
+      tasksProjectCount,
+      taskPhaseCount,
+      hourDays,
+      sourceCount,
+      deptHours,
+      hasLegacyObjectSchema: Boolean(st.projects?.order && st.projects?.byId && !Array.isArray(st.projects)),
+      hasArraySchema: Array.isArray(st.projects) || Array.isArray(st.ganttTasks)
+    };
+  };
+
+  const stateHasBusinessData = (candidate) => {
+    const m = stateMetrics(candidate);
+    return Boolean(m.projectCount || m.ganttProjectCount || m.ganttRowCount || m.tasksProjectCount || m.hourDays || m.deptHours);
+  };
+
+  let remoteSafetySnapshot = { projectCount:0, ganttRowCount:0, bytes:0, version:0, loadedAt:null };
+
+  const protectAgainstCatastrophicOverwrite = (snapshot, reason="save") => {
+    const local = stateMetrics(snapshot);
+    const remote = remoteSafetySnapshot || {};
+    const remoteProjects = Number(remote.projectCount || 0);
+    const localProjects = Number(local.projectCount || 0);
+    const remoteRows = Number(remote.ganttRowCount || 0);
+    const localRows = Number(local.ganttRowCount || 0);
+    const looksLikeDemoOrEmpty = localProjects <= 5 || (localProjects < 10 && localRows <= 20);
+    const projectDrop = remoteProjects >= 20 && localProjects < Math.max(10, Math.floor(remoteProjects * 0.6));
+    const ganttDrop = remoteRows >= 50 && localRows < Math.max(20, Math.floor(remoteRows * 0.5));
+    if(storageStatus.mode === "api" && (projectDrop || ganttDrop || (remoteProjects >= 20 && looksLikeDemoOrEmpty))){
+      const msg = `V62 beveiliging: ${reason} geblokkeerd. D1 bevat ${remoteProjects} projecten/${remoteRows} Gantt-rijen, maar de browser wil ${localProjects} projecten/${localRows} Gantt-rijen opslaan. Dit voorkomt overschrijven door demo/lege data.`;
+      const error = new Error(msg);
+      error.status = 409;
+      error.cwsGuard = "v62-catastrophic-overwrite";
+      error.remoteMetrics = remote;
+      error.localMetrics = local;
+      throw error;
+    }
+    return true;
   };
 
   const readStateFromLocalKey = (key) => {
@@ -242,6 +289,37 @@ window.CWS = window.CWS || {};
   };
 
   const normalizeState = (st) => {
+    // V62 recovery normalizer: D1 can contain the older rich object schema
+    // (projects.order/byId, ganttV2.byProject, gantt.hoursByDay) or, in older
+    // trial exports, a flat array schema. Keep the rich schema intact and only
+    // convert legacy arrays when needed.
+    if(!st || typeof st !== "object" || Array.isArray(st)) st = {};
+    if(Array.isArray(st.projects)){
+      const rows = st.projects;
+      st.projects = { order:[], byId:{}, deptHours:[] };
+      rows.forEach((p, index) => {
+        if(!p || typeof p !== "object") return;
+        const id = String(p.id || p.projectId || p.nr || p.code || `LEGACY-${index+1}`);
+        st.projects.order.push(id);
+        st.projects.byId[id] = { id, ...p };
+      });
+    }
+    if(st.projects && typeof st.projects === "object" && !Array.isArray(st.projects)){
+      st.projects.byId = st.projects.byId && typeof st.projects.byId === "object" && !Array.isArray(st.projects.byId) ? st.projects.byId : {};
+      st.projects.order = Array.isArray(st.projects.order) && st.projects.order.length ? st.projects.order : Object.keys(st.projects.byId);
+    }
+    if(Array.isArray(st.ganttTasks)){
+      st.ganttV2 = st.ganttV2 || { expanded:{}, byProject:{}, ui:{} };
+      st.ganttV2.byProject = st.ganttV2.byProject || {};
+      st.ganttTasks.forEach(row => {
+        if(!row || typeof row !== "object") return;
+        const pid = String(row.projectId || row.project || "legacy");
+        st.ganttV2.byProject[pid] = st.ganttV2.byProject[pid] || { rows:[], sched:{} };
+        const id = String(row.id || row.taskId || `${pid}-LEGACY-${st.ganttV2.byProject[pid].rows.length+1}`);
+        st.ganttV2.byProject[pid].rows.push({ id, ...row });
+        if(row.start || row.end) st.ganttV2.byProject[pid].sched[id] = { start:row.start, end:row.end || row.start };
+      });
+    }
     // Hard reconcile against the full local schema. This is intentionally defensive,
     // because older D1 test rows may only contain a tiny partial object
     // ({schemaVersion, projects, settings, gantt, ...}) without ui/user/roles.
@@ -448,6 +526,7 @@ window.CWS = window.CWS || {};
     },
     async save(snapshot){
       if(storageStatus.mode !== "api") return { ok:true, local:true };
+      protectAgainstCatastrophicOverwrite(snapshot, "remote save");
       // V60/V57: send the raw state JSON, not a wrapper object. This removes an extra
       // Worker-side JSON.parse(JSON.stringify(state)) pass and prevents 1102/503
       // resource-limit failures on larger planning datasets.
@@ -498,7 +577,10 @@ window.CWS = window.CWS || {};
       }catch(error){
         storageStatus.unsynced = true;
         storageStatus.lastError = error.message;
-        if(error.status === 409){
+        if(error.cwsGuard === "v62-catastrophic-overwrite"){
+          storageStatus.label = "D1 beveiligd - demo/lege overwrite geblokkeerd";
+          try{ window.UI?.toast?.("Opslaan geblokkeerd: D1 bevat meer projecten dan deze browserstate."); }catch(_){}
+        }else if(error.status === 409){
           storageStatus.label = "D1 conflict - herladen nodig";
           try{ window.UI?.toast?.("Data is gewijzigd door een andere gebruiker. Herlaad om overschrijven te voorkomen."); }catch(_){}
         }else{
@@ -1580,7 +1662,12 @@ window.CWS = window.CWS || {};
           const validation = validateState(incoming);
           if(validation.valid){
             state = incoming;
+            remoteSafetySnapshot = { ...stateMetrics(state), bytes:Number(remote.bytes || 0), version:remoteVersion, loadedAt:new Date().toISOString() };
             writeLocalSnapshot(state);
+            storageStatus.label = `Cloudflare D1 - gedeelde interne testdata (${remoteSafetySnapshot.projectCount} projecten)`;
+          }else{
+            storageStatus.unsynced = true;
+            storageStatus.lastError = `D1-state validatie mislukt: ${validation.errors[0] || "onbekend"}`;
           }
         }else{
           // Do not overwrite an empty D1 row with an accidental empty default when a
@@ -1634,6 +1721,8 @@ window.CWS = window.CWS || {};
     storage: storageAdapter,
     storageStatus,
     getRemoteVersion: () => remoteVersion,
+    getStateMetrics: () => stateMetrics(state),
+    getRemoteSafetyMetrics: () => ({ ...remoteSafetySnapshot }),
     getCurrentUser: () => ({ ...currentUser, name:state.user?.name || currentUser.email }),
     subscribe,
     resetDemo,

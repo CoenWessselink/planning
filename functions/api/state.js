@@ -39,6 +39,51 @@ function parseBaseVersion(context, url) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function stateMetricsFromRaw(raw) {
+  if (!raw) return { projectCount: 0, projectOrder: 0, projectById: 0, ganttProjectCount: 0, ganttRowCount: 0, bytes: 0 };
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (_) {
+    return { projectCount: 0, projectOrder: 0, projectById: 0, ganttProjectCount: 0, ganttRowCount: 0, bytes: textByteLength(raw), parseError: true };
+  }
+  const projectOrder = Array.isArray(parsed?.projects?.order) ? parsed.projects.order.length : 0;
+  const projectById = parsed?.projects?.byId && typeof parsed.projects.byId === "object" && !Array.isArray(parsed.projects.byId) ? Object.keys(parsed.projects.byId).length : 0;
+  const legacyProjectArray = Array.isArray(parsed?.projects) ? parsed.projects.length : 0;
+  const ganttByProject = parsed?.ganttV2?.byProject && typeof parsed.ganttV2.byProject === "object" && !Array.isArray(parsed.ganttV2.byProject) ? parsed.ganttV2.byProject : {};
+  const ganttProjectCount = Object.keys(ganttByProject).length;
+  const ganttRowCount = Object.values(ganttByProject).reduce((sum, model) => sum + (Array.isArray(model?.rows) ? model.rows.length : 0), 0);
+  return {
+    projectCount: Math.max(projectOrder, projectById, legacyProjectArray),
+    projectOrder,
+    projectById,
+    legacyProjectArray,
+    ganttProjectCount,
+    ganttRowCount,
+    bytes: textByteLength(raw)
+  };
+}
+
+function assertNoCatastrophicOverwrite(currentRaw, incomingRaw) {
+  const current = stateMetricsFromRaw(currentRaw);
+  const incoming = stateMetricsFromRaw(incomingRaw);
+  const currentProjects = Number(current.projectCount || 0);
+  const incomingProjects = Number(incoming.projectCount || 0);
+  const currentRows = Number(current.ganttRowCount || 0);
+  const incomingRows = Number(incoming.ganttRowCount || 0);
+  const looksLikeDemoOrEmpty = incomingProjects <= 5 || (incomingProjects < 10 && incomingRows <= 20);
+  const projectDrop = currentProjects >= 20 && incomingProjects < Math.max(10, Math.floor(currentProjects * 0.6));
+  const ganttDrop = currentRows >= 50 && incomingRows < Math.max(20, Math.floor(currentRows * 0.5));
+  if (projectDrop || ganttDrop || (currentProjects >= 20 && looksLikeDemoOrEmpty)) {
+    const error = new Error(`V62 D1 save guard: overschrijven geblokkeerd. Huidige D1 bevat ${currentProjects} projecten/${currentRows} Gantt-rijen; inkomende state bevat ${incomingProjects} projecten/${incomingRows} Gantt-rijen.`);
+    error.status = 409;
+    error.currentMetrics = current;
+    error.incomingMetrics = incoming;
+    throw error;
+  }
+  return { current, incoming };
+}
+
 function wantsRawStateResponse(context, url) {
   return context.request.headers.get("X-CWS-State-Response") === "raw-state" ||
     url.searchParams.get("payload") === "raw-state" ||
@@ -189,9 +234,10 @@ export async function onRequestPut(context) {
     const incoming = await readIncomingState(context);
 
     const current = await db.prepare(
-      "SELECT version FROM app_state WHERE tenant_id = ? AND state_key = ?"
+      "SELECT version, state_json FROM app_state WHERE tenant_id = ? AND state_key = ?"
     ).bind(TENANT_ID, STATE_KEY).first();
     const currentVersion = Number(current?.version || 0);
+    const guardMetrics = assertNoCatastrophicOverwrite(current?.state_json || "", incoming.stateJson);
     const baseVersion = Number(incoming.baseVersion ?? 0);
     if (currentVersion > 0 && baseVersion !== currentVersion) {
       return json({
@@ -220,12 +266,13 @@ export async function onRequestPut(context) {
       baseVersion,
       bytes: incoming.bytes,
       rawMode: incoming.rawMode,
-      v60: true
+      v60: true,
+      v62: { d1SaveGuard: true, currentMetrics: guardMetrics.current, incomingMetrics: guardMetrics.incoming }
     }, "app_state", STATE_KEY);
 
-    return json({ ok: true, version: nextVersion, updatedBy: email, bytes: incoming.bytes, v60: { rawStateSave: incoming.rawMode } });
+    return json({ ok: true, version: nextVersion, updatedBy: email, bytes: incoming.bytes, v60: { rawStateSave: incoming.rawMode }, v62: { d1SaveGuard: true, metrics: guardMetrics.incoming } });
   } catch (error) {
-    return json({ ok: false, error: error.message }, error.status || 500);
+    return json({ ok: false, error: error.message, currentMetrics: error.currentMetrics || null, incomingMetrics: error.incomingMetrics || null, v62: error.status === 409 ? { d1SaveGuard: Boolean(error.currentMetrics || error.incomingMetrics) } : undefined }, error.status || 500);
   }
 }
 
