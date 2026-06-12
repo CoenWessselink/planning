@@ -110,3 +110,5 @@ check("V54 Capaciteit horizontale scrollbar dock altijd zichtbaar", capacity.inc
 
 check("V55 Projecten alles op één pagina met infinite scroll", projects.includes("V55 — Projecten: alles op één pagina met infinite scroll") && projects.includes('data-projects-mode="infinite-scroll"') && projects.includes('const ids = idsAll;') && projects.includes('Alles op 1 pagina • Infinite scroll') && projects.includes('prevBtn.disabled = true') && fs.readFileSync("package.json", "utf8").includes('"preflight:v55"'));
 if(process.exitCode) process.exit(process.exitCode);
+check("V56 Gantt daglijnen zichtbaar in schermdiagram", gantt.includes("V56 — Gantt schermdiagram: dunne daglijnen altijd zichtbaar") && gantt.includes("const dayGridLineHtml=days.map") && gantt.includes("--v56-screen-day-line-width:.5px") && gantt.includes(".lane .bar{z-index:8!important;}"));
+if(process.exitCode) process.exit(process.exitCode);

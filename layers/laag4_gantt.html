@@ -924,6 +924,57 @@
     }
 
 
+    /* V56 — Gantt schermdiagram: dunne daglijnen altijd zichtbaar
+       - daglijnen worden ook in normale schermweergave als echte spans gerenderd
+       - lijnen liggen boven werkbare/niet-werkbare achtergrondvlakken, maar onder taakbalken
+       - niet-werkbare dagen blijven herkenbaar zonder dikke donkere strepen */
+    :root{
+      --v56-screen-day-line-color:rgba(15,23,42,.18);
+      --v56-screen-day-line-width:.5px;
+      --v56-screen-nonwork-fill:#e6eaef;
+    }
+    .lane{
+      background-image:none!important;
+      background-color:#fff!important;
+    }
+    .lane:nth-child(even){background-color:#fbfdff!important;}
+    .day-grid-line{
+      display:block!important;
+      position:absolute!important;
+      top:0!important;
+      bottom:0!important;
+      width:var(--v56-screen-day-line-width)!important;
+      background:var(--v56-screen-day-line-color)!important;
+      opacity:1!important;
+      pointer-events:none!important;
+      z-index:2!important;
+    }
+    .nonwork-shade{
+      background:var(--v56-screen-nonwork-fill)!important;
+      border:0!important;
+      opacity:.82!important;
+      z-index:1!important;
+    }
+    .lane .baseline{z-index:4!important;}
+    .lane .bar{z-index:8!important;}
+    .lane .bar-text-before,.lane .bar-text-after{z-index:9!important;}
+    @media print{
+      .printing .day-grid-line{
+        width:var(--v50-day-line-width-print,.10px)!important;
+        background:var(--v50-print-day-line-color,rgba(17,24,39,.24))!important;
+        opacity:.78!important;
+        display:block!important;
+        z-index:2!important;
+      }
+      .printing .nonwork-shade{
+        background:var(--v50-nonwork-fill,#e6eaef)!important;
+        border:0!important;
+        opacity:.96!important;
+        z-index:1!important;
+      }
+    }
+
+
 
   </style>
 </head>
@@ -1566,7 +1617,7 @@ var CWS = window.CWS;</script>
       UI.originStart=range.start;
       updatePrintHeader(model, range);
       const days=buildTimeline(range);
-      const dayGridLineHtml=UI.printMode?days.map((iso,i)=>`<span class="day-grid-line" style="left:${i*pxPerDay()}px"></span>`).join(""):"";
+      const dayGridLineHtml=days.map((iso,i)=>`<span class="day-grid-line" style="left:${i*pxPerDay()}px"></span>`).join("");
       const nonWorkShadeHtml=days.map((iso,i)=>isNonWorkingIso(st,iso)?`<span class="nonwork-shade" style="left:${i*pxPerDay()}px;width:${pxPerDay()}px"></span>`:"").join("");
       $("#ganttHead").innerHTML=cols.map((c,i)=>`<th draggable="true" data-col="${c.id}" style="width:${widths[i]}px">${esc(c.label)} <span class="smallmuted" title="Sleep kolom">↔</span></th>`).join("");
       $("#tableRows").innerHTML=rows.map(({row,index,sc})=>{
