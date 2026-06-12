@@ -32,7 +32,8 @@
     "preflight:v49": "node scripts/v49-nonwork-daylines-preflight.mjs",
     "preflight:v50": "node scripts/v50-gantt-thin-grid-yellow-table-preflight.mjs",
     "preflight:v51": "node scripts/v51-print-calendar-top-bottom-preflight.mjs",
-    "preflight:v52": "node scripts/v52-projectoverview-capacity-hardening-preflight.mjs"
+    "preflight:v52": "node scripts/v52-projectoverview-capacity-hardening-preflight.mjs",
+    "preflight:v53": "node scripts/v53-gantt-bottom-calendar-inverted-preflight.mjs"
   },
   "devDependencies": {}
 }

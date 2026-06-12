@@ -887,6 +887,42 @@
       .printing .today-line{top:0!important;}
     }
 
+    /* V53 — onderste printkalender omgekeerd
+       De kalender onder de tabel/het diagram leest van boven naar beneden:
+       dag -> week -> maand -> jaar. De bovenste kalender blijft ongewijzigd direct
+       boven de tabel staan. */
+    @media print{
+      .printing .print-calendar-bottom .print-calendar-left{
+        height:72px!important;
+        min-height:72px!important;
+        max-height:72px!important;
+        background:#fff!important;
+      }
+      .printing .print-calendar-bottom .timeline{
+        grid-template-rows:20px 17px 17px 18px!important;
+        height:72px!important;
+        min-height:72px!important;
+        max-height:72px!important;
+      }
+      .printing .print-calendar-bottom .tl-cell{
+        font-size:5px!important;
+        line-height:1!important;
+      }
+      .printing .print-calendar-bottom .tl-cell.day{
+        font-size:5px!important;
+        font-weight:900!important;
+      }
+      .printing .print-calendar-bottom .tl-cell.year{
+        font-size:6px!important;
+        font-weight:900!important;
+        background:#fff!important;
+        letter-spacing:.01em!important;
+      }
+      .printing .print-calendar-bottom .tl-row-years .tl-cell{
+        border-bottom:0!important;
+      }
+    }
+
 
 
   </style>
@@ -1455,15 +1491,48 @@ var CWS = window.CWS;</script>
     function buildTimeline(range){ const w=pxPerDay(); document.documentElement.style.setProperty("--dayW",w+"px"); const days=[]; for(let i=0;i<range.days;i++) days.push(addDays(range.start,i)); const totalW=days.length*w; const groups=(kind)=>{ const out=[]; days.forEach((iso,i)=>{ const d=parseDate(iso); const key=kind==="month"?`${d.getUTCFullYear()}-${d.getUTCMonth()}`:`${isoWeek(d).year}-W${isoWeek(d).week}`; const label=kind==="month"?d.toLocaleDateString("nl-NL",{month:"short",year:"numeric",timeZone:"UTC"}):`W${String(isoWeek(d).week).padStart(2,"0")}`; let g=out[out.length-1]; if(!g||g.key!==key) out.push({key,label,count:1}); else g.count++; }); return out; };
       const stForDays=state();
       const months=groups("month").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const weeks=groups("week").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const today=toIso(new Date()); const dayHtml=days.map(iso=>{ const d=parseDate(iso), wknd=[0,6].includes(d.getUTCDay()), nonwork=isNonWorkingIso(stForDays,iso); const wd=d.toLocaleDateString("nl-NL",{weekday:"short",timeZone:"UTC"}); const dom=pad(d.getUTCDate()); return `<div class="tl-cell day ${wknd?"weekend":""} ${nonwork?"nonwork":""} ${iso===today?"today":""}">${UI.printMode?`<span>${wd}</span><span>${dom}</span>`:`${wd} ${dom}`}</div>`; }).join(""); const tl=$("#timeline"); tl.style.width=totalW+"px"; tl.innerHTML=`<div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${months}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${weeks}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${dayHtml}</div>`; return days; }
+    function v53TimelineCellSpan(el){
+      const raw=el?.getAttribute?.("style")||"";
+      const m=raw.match(/grid-column\s*:\s*span\s+(\d+)/i);
+      return m ? Math.max(1, Number(m[1])||1) : 1;
+    }
+    function v53BottomPrintTimelineHtml(timelineInnerHtml){
+      const tpl=document.createElement("template");
+      tpl.innerHTML=timelineInnerHtml||"";
+      const rows=Array.from(tpl.content.querySelectorAll(".tl-row"));
+      if(rows.length<3) return timelineInnerHtml||"";
+      const monthRow=rows[0];
+      const weekRow=rows[1];
+      const dayRow=rows[2];
+      const bottomMonthRow=monthRow.cloneNode(true);
+      Array.from(bottomMonthRow.children).forEach(cell=>{
+        const txt=(cell.textContent||"").trim();
+        const stripped=txt.replace(/\s+\d{4}$/,"");
+        cell.textContent=stripped||txt;
+      });
+      const yearGroups=[];
+      Array.from(monthRow.children).forEach(cell=>{
+        const txt=(cell.textContent||"").trim();
+        const y=(txt.match(/(\d{4})\s*$/)||[])[1]||"jaar";
+        const count=v53TimelineCellSpan(cell);
+        const last=yearGroups[yearGroups.length-1];
+        if(last&&last.label===y) last.count+=count;
+        else yearGroups.push({label:y,count});
+      });
+      const style=(dayRow.getAttribute("style")||weekRow.getAttribute("style")||monthRow.getAttribute("style")||"").replace(/"/g,"&quot;");
+      const yearHtml=yearGroups.map(g=>`<div class="tl-cell year" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join("");
+      return `${dayRow.outerHTML}${weekRow.outerHTML}${bottomMonthRow.outerHTML}<div class="tl-row tl-row-years" style="${style}">${yearHtml}</div>`;
+    }
     function renderPrintCalendars(timelineInnerHtml, chartW){
       const top=$("#printCalendarTop"), bottom=$("#printCalendarBottom");
       if(!top||!bottom) return;
       if(!timelineInnerHtml){ top.innerHTML=""; bottom.innerHTML=""; return; }
-      const left=`<div class="print-calendar-left"><table><colgroup><col style="width:var(--v47-col-no,var(--v46-col-no))"><col style="width:var(--v47-col-name,var(--v46-col-name))"><col style="width:var(--v47-col-res,var(--v46-col-res))"><col style="width:var(--v47-col-dur,var(--v46-col-dur))"></colgroup><thead><tr><th>Regel nr</th><th>Naam</th><th>Resource</th><th>Duur</th></tr></thead></table></div>`;
-      const right=`<div class="print-calendar-right"><div class="timeline print-calendar-timeline" style="width:${Number(chartW)||0}px;min-width:${Number(chartW)||0}px">${timelineInnerHtml}</div></div>`;
-      const html=left+right;
-      top.innerHTML=html;
-      bottom.innerHTML=html;
+      const topLeft=`<div class="print-calendar-left"><table><colgroup><col style="width:var(--v47-col-no,var(--v46-col-no))"><col style="width:var(--v47-col-name,var(--v46-col-name))"><col style="width:var(--v47-col-res,var(--v46-col-res))"><col style="width:var(--v47-col-dur,var(--v46-col-dur))"></colgroup><thead><tr><th>Regel nr</th><th>Naam</th><th>Resource</th><th>Duur</th></tr></thead></table></div>`;
+      const bottomLeft=`<div class="print-calendar-left print-calendar-left-bottom" aria-hidden="true"></div>`;
+      const topRight=`<div class="print-calendar-right"><div class="timeline print-calendar-timeline" style="width:${Number(chartW)||0}px;min-width:${Number(chartW)||0}px">${timelineInnerHtml}</div></div>`;
+      const bottomRight=`<div class="print-calendar-right"><div class="timeline print-calendar-timeline print-calendar-timeline-bottom" style="width:${Number(chartW)||0}px;min-width:${Number(chartW)||0}px">${v53BottomPrintTimelineHtml(timelineInnerHtml)}</div></div>`;
+      top.innerHTML=topLeft+topRight;
+      bottom.innerHTML=bottomLeft+bottomRight;
     }
     function xFor(iso, range){ return Math.max(0,dayDiff(range.start,iso)*pxPerDay()); }
     function criticalIds(model){ const ids=new Set(); model.rows.forEach(r=>{ if(r.type==="task"&&parsePred(r.predecessor).length) ids.add(r.id); }); const maxEnd=Object.values(model.sched||{}).map(s=>s.end).filter(Boolean).sort().at(-1); model.rows.forEach(r=>{ if(model.sched[r.id]?.end===maxEnd) ids.add(r.id); }); return ids; }

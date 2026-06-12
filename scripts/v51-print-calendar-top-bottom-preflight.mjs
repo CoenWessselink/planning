@@ -7,7 +7,7 @@ const fallback = fs.readFileSync("scripts/e2e-fallback.mjs", "utf8");
 const checks = [
   ["V51 CSS marker aanwezig", html.includes("V51 — kalender direct boven én onder de printtabel")],
   ["Printkalender top en bottom DOM aanwezig", html.includes('id="printCalendarTop"') && html.includes('id="printCalendarBottom"')],
-  ["Kalender renderfunctie vult boven en onder dezelfde kalender", html.includes("function renderPrintCalendars") && html.includes("top.innerHTML=html") && html.includes("bottom.innerHTML=html")],
+  ["Kalender renderfunctie vult boven en onder printkalenders", html.includes("function renderPrintCalendars") && html.includes("top.innerHTML=") && html.includes("bottom.innerHTML=") && html.includes("printCalendarTop") && html.includes("printCalendarBottom")],
   ["Printkalender gebruikt dezelfde timeline-opbouw", html.includes("print-calendar-timeline") && html.includes("timelineInnerHtml")],
   ["Kalender staat in print als grid boven tabel/diagram", html.includes(".printing .print-calendar") && html.includes("grid-template-columns:var(--v47-print-left-w")],
   ["Originele chart timeline verborgen in print om dubbele kalender/witruimte te voorkomen", html.includes(".printing .chart-pane > .timeline{display:none!important")],
