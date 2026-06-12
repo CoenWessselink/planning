@@ -21,6 +21,8 @@ window.CWS = window.CWS || {};
     const n = (typeof v === 'number') ? v : parseFloat(String(v ?? '').replace(',', '.'));
     return Number.isFinite(n) ? n : 0;
   };
+  const num = baseNum;
+
   // V58 — Gantt urenbron hard gemaakt. Projecturen per afdeling zijn standaard de SSOT.
   // Alleen wanneer een taak expliciet op handmatige override staat, gebruikt Gantt taakuren.
   const ganttTaskHoursMode = (row) => {
@@ -696,8 +698,6 @@ window.CWS = window.CWS || {};
   // - If no employees table exists yet, we fall back to demo resources.
 
   const DAY_KEYS = ["ma","di","wo","do","vr","za","zo"]; // NL
-
-  const num = baseNum;
 
 
   const getEmployees = (st) => {

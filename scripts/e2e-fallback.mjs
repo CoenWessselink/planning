@@ -123,3 +123,6 @@ if(process.exitCode) process.exit(process.exitCode);
 
 check("V60 D1 raw-state recovery", read("functions/api/health.js").includes("internal-test-v60") && read("functions/api/state.js").includes("rawStateResponse(row?.state_json || \"\"") && read("js/core/store.js").includes("X-CWS-State-Response") && read("js/core/store.js").includes("KEY_BACKUP") && fs.readFileSync("package.json", "utf8").includes('"preflight:v60"'));
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V61 store boot-regressie: CWS.init blijft beschikbaar", read("js/core/store.js").includes("const num = baseNum;") && read("js/core/store.js").indexOf("const num = baseNum;") < read("js/core/store.js").indexOf("const load = () =>") && read("functions/api/health.js").includes("internal-test-v61") && fs.readFileSync("package.json", "utf8").includes('"preflight:v61"'));
+if(process.exitCode) process.exit(process.exitCode);
