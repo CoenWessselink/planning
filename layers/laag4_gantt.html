@@ -16,7 +16,7 @@
     .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);background:#fff}.toolbar-group{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding-right:8px;border-right:1px solid var(--line)}.toolbar-group:last-child{border-right:0}.input,.select{height:38px;min-width:150px;border:1px solid #d7dee8;border-radius:11px;background:#fff;color:#0f172a;padding:0 10px;font-size:13px;outline:none}.select.project{min-width:260px}.btn{height:38px;border:1px solid #d7dee8;border-radius:11px;background:#f8fafc;color:#111827;font-weight:700;padding:0 12px;font-size:13px;cursor:pointer;white-space:nowrap}.btn:hover{background:#eff6ff;border-color:#bfdbfe}.btn.primary{background:#e8f1ff;border-color:#9cc4ff;color:#0b5cac}.btn.active{background:#dbeafe;border-color:#60a5fa;color:#1d4ed8}.btn.danger{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.btn:disabled{opacity:.55;cursor:not-allowed}
     .notice{margin:12px 18px;padding:10px 12px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:13px}.notice.hidden{display:none}.meta-line{display:flex;justify-content:center;color:#7b8797;font-size:12px;padding:8px 18px 12px 18px}
     .board-wrap{margin:0 18px 18px;border:1px solid var(--line);border-radius:13px;overflow:auto;background:#fff;position:relative}.board{display:grid;grid-template-columns:minmax(620px,var(--leftW)) max-content;min-width:1180px}.board.table-only{grid-template-columns:1fr}.board.table-only .chart-pane{display:none}.board.diagram-only{grid-template-columns:max-content}.board.diagram-only .table-pane{display:none}.table-pane{position:sticky;left:0;z-index:5;background:#fff;border-right:1px solid var(--line);box-shadow:4px 0 10px rgba(15,23,42,.03)}
-    table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}.gantt-table thead th{height:var(--headH);vertical-align:bottom;position:sticky;top:0;z-index:7;background:linear-gradient(#fff,#f8fafc);border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;color:#334155;white-space:nowrap}.gantt-table tbody tr{height:var(--rowH)}.gantt-table td{height:var(--rowH);padding:0 8px;border-bottom:1px solid #eef2f7;vertical-align:middle;white-space:nowrap}.gantt-table tr:hover td{background:#f8fbff}.gantt-table tr.selected td{background:#eaf3ff}.taskcell{display:flex;align-items:center;gap:6px;min-width:230px}.twisty{width:16px;text-align:center;color:#334155}.taskname{border:0;background:transparent;height:34px;min-width:160px;width:100%;font-weight:650}.taskname:focus,.cellinput:focus{outline:2px solid #bfdbfe;border-radius:8px;background:#fff}.summary .taskname{font-weight:900}.cellinput{border:0;background:transparent;height:34px;width:100%;min-width:74px}.smallinput{min-width:56px;width:66px}.color-select,.resource-select,.dept-select{width:100%;height:34px;border:0;background:transparent}.lockbox{width:18px;height:18px}.chart-pane{min-width:900px;position:relative;background:#fff}.timeline{height:var(--headH);position:sticky;top:0;z-index:4;background:linear-gradient(#fff,#f8fafc);border-bottom:1px solid var(--line);display:grid;grid-template-rows:34px 34px 34px}.tl-row{display:grid;min-width:max-content}.tl-cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:#475569;font-weight:700}.tl-cell.day.weekend{background:#fafafa;color:#94a3b8}.tl-cell.today{background:#fef2f2;color:#b91c1c}.lane{height:var(--rowH);position:relative;border-bottom:1px solid #eef2f7;background-image:linear-gradient(to right,#e7ecf3 1px,transparent 1px);background-size:var(--dayW) 100%}.lane:nth-child(even){background-color:#fbfdff}.bar{position:absolute;top:2px;height:45px;border-radius:8px;background:var(--blue);color:#fff;display:flex;align-items:center;padding:0 9px;font-size:12px;font-weight:800;box-shadow:0 4px 10px rgba(47,111,189,.22);cursor:grab;overflow:hidden}.bar.locked{opacity:.65;filter:grayscale(.25);cursor:not-allowed}.bar.critical{box-shadow:0 0 0 2px rgba(220,38,38,.65),0 4px 10px rgba(47,111,189,.22)}.bar.summary{background:transparent!important;box-shadow:none;cursor:default;color:#111827;padding:0}.bar.summary:before{content:"";position:absolute;left:0;right:0;top:20px;border-top:4px solid rgba(15,23,42,.90);border-radius:2px}.bar.summary:after{content:"";position:absolute;left:0;right:0;top:29px;border-top:2px solid rgba(15,23,42,.85);border-radius:2px}.bar-label{position:relative;z-index:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.handle{position:absolute;top:0;width:8px;height:100%;background:rgba(255,255,255,.26);cursor:ew-resize}.handle.left{left:0}.handle.right{right:0}.summary .handle{display:none}.baseline{position:absolute;height:7px;border-radius:4px;background:#111827;opacity:.32;bottom:3px}.dep-svg{position:absolute;left:0;top:var(--headH);width:100%;height:calc(100% - var(--headH));pointer-events:none;overflow:visible}.empty{margin:18px;padding:24px;border:1px dashed #cbd5e1;border-radius:14px;text-align:center;color:#64748b;background:#f8fafc}.context{margin:0 18px 18px;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}.context-head{padding:11px 13px;border-bottom:1px solid var(--line);font-weight:900}.context-body{padding:12px;color:#475569;font-size:13px}.ctx-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px}.ctx-card{border:1px solid #e2e8f0;border-radius:10px;padding:9px;background:#f8fafc}.ctx-card b{display:block;color:#0f172a;margin-bottom:3px}.modalback{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:1000}.modalback.show{display:flex}.modal{width:min(920px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 18px 60px rgba(15,23,42,.28);border:1px solid #e2e8f0}.modal-head,.modal-foot{padding:14px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center}.modal-foot{border-top:1px solid #e2e8f0;border-bottom:0;justify-content:flex-end;gap:8px}.modal-body{padding:16px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#64748b;font-weight:700}.field input,.field select,.field textarea{height:38px;border:1px solid #d7dee8;border-radius:10px;padding:0 10px;background:#fff}.field textarea{height:76px;padding:10px;resize:vertical}.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#172033;color:#fff;border-radius:999px;padding:10px 14px;font-weight:800;font-size:13px;box-shadow:0 12px 30px rgba(15,23,42,.25);opacity:0;pointer-events:none;transition:.18s;z-index:1200}.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}@media print{@page{size:A3 landscape;margin:10mm}.toolbar,.notice,.context,.module-head .status{display:none!important}body{padding:0;background:#fff}.gantt-shell,.board-wrap{box-shadow:none;border:0;margin:0}.board{min-width:0}.table-pane{position:relative}.chart-pane{overflow:visible}.bar{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+    table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}.gantt-table thead th{height:var(--headH);vertical-align:bottom;position:sticky;top:0;z-index:7;background:linear-gradient(#fff,#f8fafc);border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;color:#334155;white-space:nowrap}.gantt-table tbody tr{height:var(--rowH)}.gantt-table td{height:var(--rowH);padding:0 8px;border-bottom:1px solid #eef2f7;vertical-align:middle;white-space:nowrap}.gantt-table tr:hover td{background:#f8fbff}.gantt-table tr.selected td{background:#eaf3ff}.taskcell{display:flex;align-items:center;gap:6px;min-width:230px}.twisty{width:16px;text-align:center;color:#334155}.taskname{border:0;background:transparent;height:34px;min-width:160px;width:100%;font-weight:650}.taskname:focus,.cellinput:focus{outline:2px solid #bfdbfe;border-radius:8px;background:#fff}.summary .taskname{font-weight:900}.cellinput{border:0;background:transparent;height:34px;width:100%;min-width:74px}.smallinput{min-width:56px;width:66px}.color-select,.resource-select,.dept-select{width:100%;height:34px;border:0;background:transparent}.lockbox{width:18px;height:18px}.row-actions{display:flex;gap:5px;align-items:center;justify-content:center}.iconbtn{width:28px;height:28px;border:1px solid #d7dee8;border-radius:8px;background:#fff;color:#0f172a;font-weight:900;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.iconbtn:hover{background:#eff6ff;border-color:#93c5fd}.iconbtn.danger:hover{background:#fef2f2;border-color:#fca5a5;color:#991b1b}.iconbtn:disabled{opacity:.45;cursor:not-allowed}.chart-pane{min-width:900px;position:relative;background:#fff}.timeline{height:var(--headH);position:sticky;top:0;z-index:4;background:linear-gradient(#fff,#f8fafc);border-bottom:1px solid var(--line);display:grid;grid-template-rows:34px 34px 34px}.tl-row{display:grid;min-width:max-content}.tl-cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:#475569;font-weight:700}.tl-cell.day.weekend{background:#fafafa;color:#94a3b8}.tl-cell.today{background:#fef2f2;color:#b91c1c}.lane{height:var(--rowH);position:relative;border-bottom:1px solid #eef2f7;background-image:linear-gradient(to right,#e7ecf3 1px,transparent 1px);background-size:var(--dayW) 100%}.lane:nth-child(even){background-color:#fbfdff}.bar{position:absolute;top:2px;height:45px;border-radius:8px;background:var(--blue);color:#fff;display:flex;align-items:center;padding:0 9px;font-size:12px;font-weight:800;box-shadow:0 4px 10px rgba(47,111,189,.22);cursor:grab;overflow:hidden}.bar.locked{opacity:.65;filter:grayscale(.25);cursor:not-allowed}.bar.critical{box-shadow:0 0 0 2px rgba(220,38,38,.65),0 4px 10px rgba(47,111,189,.22)}.bar.summary{background:transparent!important;box-shadow:none;cursor:default;color:#111827;padding:0}.bar.summary:before{content:"";position:absolute;left:0;right:0;top:20px;border-top:4px solid rgba(15,23,42,.90);border-radius:2px}.bar.summary:after{content:"";position:absolute;left:0;right:0;top:29px;border-top:2px solid rgba(15,23,42,.85);border-radius:2px}.bar-label{position:relative;z-index:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar-progress{position:absolute;left:0;top:0;bottom:0;background:rgba(187,247,208,.62);border-right:2px solid rgba(22,101,52,.72);z-index:1;pointer-events:none}.bar-progress.done{background:rgba(220,252,231,.82)}.bar-feedback-dot{position:absolute;right:5px;top:5px;width:14px;height:14px;border-radius:999px;background:#fff;color:#1d4ed8;border:1px solid rgba(29,78,216,.35);font-size:10px;line-height:12px;text-align:center;font-weight:900;z-index:3;box-shadow:0 1px 3px rgba(15,23,42,.18)}.handle{position:absolute;top:0;width:8px;height:100%;background:rgba(255,255,255,.26);cursor:ew-resize}.handle.left{left:0}.handle.right{right:0}.summary .handle{display:none}.baseline{position:absolute;height:7px;border-radius:4px;background:#111827;opacity:.32;bottom:3px}.dep-svg{position:absolute;left:0;top:var(--headH);width:100%;height:calc(100% - var(--headH));pointer-events:none;overflow:visible}.empty{margin:18px;padding:24px;border:1px dashed #cbd5e1;border-radius:14px;text-align:center;color:#64748b;background:#f8fafc}.context{margin:0 18px 18px;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}.context-head{padding:11px 13px;border-bottom:1px solid var(--line);font-weight:900}.context-body{padding:12px;color:#475569;font-size:13px}.ctx-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px}.ctx-card{border:1px solid #e2e8f0;border-radius:10px;padding:9px;background:#f8fafc}.ctx-card b{display:block;color:#0f172a;margin-bottom:3px}.modalback{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:1000}.modalback.show{display:flex}.modal{width:min(920px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 18px 60px rgba(15,23,42,.28);border:1px solid #e2e8f0}.modal-head,.modal-foot{padding:14px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center}.modal-foot{border-top:1px solid #e2e8f0;border-bottom:0;justify-content:flex-end;gap:8px}.modal-body{padding:16px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#64748b;font-weight:700}.field input,.field select,.field textarea{height:38px;border:1px solid #d7dee8;border-radius:10px;padding:0 10px;background:#fff}.field textarea{height:76px;padding:10px;resize:vertical}.gantt-context-menu{position:fixed;z-index:1600;min-width:230px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 18px 48px rgba(15,23,42,.22);padding:6px;display:none}.gantt-context-menu.show{display:block}.gantt-context-menu button{width:100%;height:34px;border:0;background:#fff;border-radius:9px;text-align:left;padding:0 10px;font-size:13px;font-weight:700;color:#0f172a;cursor:pointer}.gantt-context-menu button:hover{background:#eff6ff;color:#1d4ed8}.gantt-context-menu button.danger:hover{background:#fef2f2;color:#991b1b}.gantt-context-menu .sep{height:1px;background:#e5e7eb;margin:5px 4px}.gantt-context-menu .title{font-size:11px;font-weight:900;color:#64748b;padding:6px 10px 4px;text-transform:uppercase;letter-spacing:.04em}.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#172033;color:#fff;border-radius:999px;padding:10px 14px;font-weight:800;font-size:13px;box-shadow:0 12px 30px rgba(15,23,42,.25);opacity:0;pointer-events:none;transition:.18s;z-index:1200}.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}@media print{@page{size:A3 landscape;margin:10mm}.toolbar,.notice,.context,.module-head .status{display:none!important}body{padding:0;background:#fff}.gantt-shell,.board-wrap{box-shadow:none;border:0;margin:0}.board{min-width:0}.table-pane{position:relative}.chart-pane{overflow:visible}.bar{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 
 
     /* V12 Gantt alignment fix
@@ -151,9 +151,62 @@
     }
 
 
+    /* V25 — configureerbare tekst voor/in/achter taakbalken */
+    .bar-text-before,.bar-text-after{position:absolute;top:14px;height:20px;line-height:20px;font-size:12px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:9;text-shadow:0 1px 0 rgba(255,255,255,.85);}
+    .bar-text-before{text-align:right;}
+    .bar-text-after{text-align:left;}
+    .bar .bar-label{color:#fff!important;text-shadow:0 1px 1px rgba(15,23,42,.35);}
+    .bar.summary .bar-label{color:#111827!important;text-shadow:none!important;}
+    .label-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+    .label-panel{border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px;}
+    .label-panel h3{margin:0 0 8px 0;font-size:13px;color:#0f172a;}
+    .label-options{display:grid;gap:7px;max-height:330px;overflow:auto;padding-right:2px;}
+    .label-options label{display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;font-weight:700;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:7px 8px;}
+    .label-options input{width:16px;height:16px;flex:0 0 auto;}
+    @media(max-width:900px){.label-grid{grid-template-columns:1fr;}}
+    @media print{
+      .printing .bar-text-before,.printing .bar-text-after{top:4px!important;height:16px!important;line-height:16px!important;font-size:5.8px!important;color:#000!important;text-shadow:none!important;}
+      .printing .bar .bar-label{color:#fff!important;font-size:5.8px!important;}
+    }
+
+
+    /* V26 — revisiebeheer planning */
+    .hidden{display:none!important;}
+    .revision-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;border-radius:999px;padding:5px 9px;font-weight:900;font-size:12px;margin-left:8px;}
+    .revision-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;}
+    .revision-table th,.revision-table td{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left;vertical-align:middle;}
+    .revision-table th{background:#f8fafc;color:#334155;font-weight:900;}
+    .revision-table td.actions{white-space:nowrap;text-align:right;}
+    .revision-table .empty-row td{text-align:center;color:#64748b;padding:18px;}
+    .revision-readonly input,.revision-readonly select,.revision-readonly textarea{background:#f8fafc!important;color:#64748b!important;}
+    @media print{
+      .revision-pill{border-color:#111827!important;background:#fff!important;color:#111827!important;font-size:7px!important;padding:2px 4px!important;}
+    }
+
+
+    /* V27 — professionele algemene printheader met bedrijfslogo */
+    .print-header{display:none;background:#fff;color:#0f172a;border-bottom:1px solid #cbd5e1;margin:0 0 6px 0;padding:0 0 8px 0;align-items:flex-start;justify-content:space-between;gap:18px;}
+    .print-title{font-size:18px;font-weight:950;line-height:1.1;}
+    .print-sub{font-size:8px;color:#334155;margin-top:2px;line-height:1.25;}
+    .print-logo{max-width:135px;max-height:48px;object-fit:contain;}
+    body.printing .print-header{display:flex!important;}
+    @media print{.print-header{display:flex!important}.module-head{display:none!important}}
+
+  
+    /* V32 responsive module hardening */
+    .mobile-toolbar{display:none}
+    @media(max-width:1180px){
+      body{padding:10px}.module-head{padding:12px}.toolbar{padding:10px 12px;gap:7px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}.toolbar::-webkit-scrollbar{display:none}.toolbar-group{flex:0 0 auto;border-right:0;padding-right:0}.select.project{min-width:220px}.board-wrap{margin:0 10px 12px}.context{margin:0 10px 12px}.board{grid-template-columns:minmax(460px,720px) max-content;min-width:980px}.table-pane{max-width:72vw;overflow:auto}.ctx-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.modal{width:min(960px,calc(100vw - 16px))}.form-grid{grid-template-columns:1fr 1fr}.btn,.select,.input{min-height:42px}
+    }
+    @media(max-width:760px){
+      body{padding:8px;background:#f5f7fb}.mobile-toolbar{display:flex;position:sticky;top:0;z-index:30;gap:6px;padding:6px;background:rgba(245,247,251,.96);backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0}.mobile-toolbar button{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;font-weight:900;color:#1f2a44}.module-head{display:block;padding:10px 12px}.module-head h1{font-size:16px}.module-head .status{margin-top:8px}.toolbar{position:sticky;top:51px;z-index:25;padding:8px;overflow-x:auto;flex-wrap:nowrap;background:#fff}.toolbar-group{display:flex;flex-wrap:nowrap}.btn,.select,.input{min-height:44px;font-size:14px}.select.project{min-width:260px}.meta-line{justify-content:flex-start;overflow:auto;white-space:nowrap;padding:7px 10px}.board-wrap{margin:0 6px 10px;border-radius:12px}.board{display:block;min-width:0}.table-pane{position:relative;display:block;max-width:none;max-height:40dvh;overflow:auto;border-right:0;border-bottom:1px solid var(--line);box-shadow:none}.chart-pane{display:block;min-width:980px}.board.diagram-only .chart-pane{display:block}.board.table-only .table-pane{display:block}.gantt-table thead th{height:48px}.gantt-table tbody tr,.gantt-table td{height:44px}.timeline{height:78px;grid-template-rows:26px 26px 26px}.lane{height:44px}.bar{height:38px;top:3px}.context{margin:0 6px 10px}.ctx-grid{grid-template-columns:1fr}.modalback{align-items:flex-end}.modal{width:100vw;max-height:92dvh;border-radius:18px 18px 0 0}.modal-head,.modal-foot{padding:12px}.modal-body{padding:12px}.form-grid{grid-template-columns:1fr}.gantt-context-menu{min-width:250px;max-width:calc(100vw - 16px)}.gantt-context-menu button{height:42px;font-size:14px}.print-header{display:none!important}
+      .cws-compact-mode .table-pane{display:none}.cws-compact-mode .chart-pane{min-width:760px}.cws-compact-mode .toolbar-group:nth-child(n+4){display:none}
+    }
+
   </style>
 </head>
 <body>
+  <div class="print-header" id="printHeader"></div>
   <div class="gantt-shell" data-testid="gantt-root">
     <div class="module-head">
       <div><h1>Laag 4 — Gantt Planning</h1><p>SSOT-koppeling: Projecturen per afdeling → Gantt-taakplanning → Capaciteit.</p></div>
@@ -162,10 +215,11 @@
     <div class="toolbar" data-testid="gantt-toolbar">
       <div class="toolbar-group"><select class="select project" id="projectSel"></select><select class="select" id="deptSel"><option value="">Alle afdelingen</option></select><select class="select" id="resourceSel"><option value="">Alle resources</option></select></div>
       <div class="toolbar-group"><button class="btn" id="todayBtn">Vandaag</button><button class="btn" data-zoom="day">Dag</button><button class="btn active" data-zoom="week">Week</button><button class="btn" data-zoom="month">Maand</button></div>
-      <div class="toolbar-group"><button class="btn primary" id="generateBtn">Genereer fasen</button><button class="btn" id="recalcBtn">Herbereken planning</button><button class="btn" id="hoursBtn">Herbereken uren</button></div>
+      <div class="toolbar-group"><button class="btn primary" id="generateBtn">Genereer fasen</button><button class="btn primary" id="addTaskBtn">Taak toevoegen</button><button class="btn" id="recalcBtn">Herbereken planning</button></div>
       <div class="toolbar-group"><button class="btn active" id="depsBtn">Afhankelijkheden</button><button class="btn" id="criticalBtn">Kritiek pad</button><button class="btn" id="baselineBtn">Baseline</button><button class="btn" id="setBaselineBtn">Baseline = actueel</button></div>
+      <div class="toolbar-group"><button class="btn primary" id="saveRevisionBtn">Planning opslaan als revisie</button><button class="btn" id="revisionsBtn">Revisies</button><button class="btn danger hidden" id="liveBtn">Live planning</button></div>
       <div class="toolbar-group"><button class="btn" id="indentBtn">Inspringen</button><button class="btn" id="outdentBtn">Uitspringen</button><button class="btn" id="undoBtn">Undo</button><button class="btn" id="redoBtn">Redo</button></div>
-      <div class="toolbar-group columns-group"><button class="btn" id="columnsBtn">Kolommen</button></div><div class="toolbar-group"><button class="btn" data-view="table">Tabel</button><button class="btn active" data-view="both">Beide</button><button class="btn" data-view="diagram">Diagram</button><button class="btn" id="printBtn">Print A3</button><button class="btn" id="exportBtn">Export</button></div>
+      <div class="toolbar-group columns-group"><button class="btn" id="columnsBtn">Kolommen</button><button class="btn" id="labelsBtn">Tekst balken</button></div><div class="toolbar-group"><button class="btn" data-view="table">Tabel</button><button class="btn active" data-view="both">Beide</button><button class="btn" data-view="diagram">Diagram</button><button class="btn" id="printBtn">Print A3</button><button class="btn" id="exportBtn">Export</button></div>
     </div>
     <div class="notice hidden" id="notice"></div>
     <div class="meta-line" id="metaLine">—</div>
@@ -173,11 +227,32 @@
     <div class="context"><div class="context-head">Context / WHY</div><div class="context-body" id="contextBody">Selecteer een taak of balk om details te zien.</div></div>
   </div>
   <div class="modalback" id="modalBack"><div class="modal"><div class="modal-head"><b id="modalTitle">Taak bewerken</b><button class="btn" id="modalClose">Sluiten</button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot"><button class="btn primary" id="modalSave">Opslaan</button></div></div></div>
+  <div class="gantt-context-menu" id="ganttContextMenu" role="menu" aria-hidden="true"></div>
   <div class="toast" id="toast"></div>
+  <script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
+<script>
+(function(){
+  try{
+    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
+    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
+    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
+      window.CWS.resetDemo();
+      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
+    }
+  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
+})();
+</script>
+
   <script src="../js/core/ui.js"></script>
   <script>
   (function(){
-    const CWS = window.parent?.CWS || window.CWS;
+    var CWS = window.CWS; try{ CWS = (window.parent && window.parent !== window && window.parent.CWS) ? window.parent.CWS : window.CWS; }catch(_e){ CWS = window.CWS; }
     const $ = (s, r=document) => r.querySelector(s);
     const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
     const esc = (s) => String(s ?? "").replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -209,8 +284,25 @@
       const sw = wrap ? wrap.querySelector(".color-swatch") : null;
       if(sw) sw.style.background = colorHex(selectEl.value);
     }
-    const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false };
+
+    function companyName(st){ return CWS?.getCompanyName?.() || (Array.isArray(st.settings?.tables?.company)&&st.settings.tables.company[0]?.name) || st.company?.name || ""; }
+    function logoHtml(st){ const src=st.company?.logo?.dataUrl || CWS?.getCompanyLogo?.() || ""; return src ? `<img class="print-logo" src="${src}" alt="Bedrijfslogo">` : ""; }
+    function updatePrintHeader(model, range){
+      const st=state();
+      const p=projects(st).find(x=>String(x.id)===String(currentProjectId())) || {};
+      const rev=model?._revision;
+      const status=rev ? `Revisie ${rev.revNo||"—"} · datum ${toNL(rev.revisionDate)||rev.revisionDate||"—"} · status ${rev.status||"—"}` : "Live planning";
+      const start=range?.start ? toNL(range.start) : "—";
+      const end=range?.start && range?.days ? toNL(addDays(range.start, range.days-1)) : "—";
+      const title="Gantt planning A3";
+      const header=document.getElementById("printHeader");
+      if(!header) return;
+      header.innerHTML=`<div><div class="print-title">${esc(title)}</div><div class="print-sub"><b>${esc(companyName(st)||"Bedrijf")}</b> · Project: ${esc(projectLabel(p)||p.name||p.id||"—")}</div><div class="print-sub">${esc(status)} · Afdruk: ${new Date().toLocaleString("nl-NL")} · Bereik: ${esc(start)} t/m ${esc(end)}</div><div class="print-sub">Tabel: Taaknaam / Resource / Dagen · Diagram: maand / week / dag / dagnummer · Niet-werkbare dagen lichtgrijs</div></div><div>${logoHtml(st)}</div>`;
+    }
+
+    const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null };
     const COL_KEY = "cws.gantt.visibleColumns.v20";
+    const COL_ORDER_KEY = "cws.gantt.columnOrder.v28";
     const ALL_COLUMNS = [
       {id:"id",label:"ID",min:72,control:"text"},
       {id:"name",label:"Taak",min:118,control:"task"},
@@ -218,27 +310,83 @@
       {id:"end",label:"Einde",min:82,control:"date"},
       {id:"duration",label:"Duur",min:54,control:"text"},
       {id:"progress",label:"Voortgang",min:78,control:"number"},
+      {id:"taskStatus",label:"Status",min:112,control:"select"},
+      {id:"feedback",label:"Terugkoppeling",min:170,control:"input"},
+      {id:"hours",label:"Uren",min:58,control:"number"},
       {id:"predecessor",label:"Voorganger",min:82,control:"input"},
       {id:"department",label:"Afdeling",min:78,control:"select"},
       {id:"resource",label:"Resource",min:70,control:"select"},
       {id:"color",label:"Kleur",min:126,control:"select"},
-      {id:"locked",label:"Lock",min:46,control:"checkbox"}
+      {id:"locked",label:"Lock",min:46,control:"checkbox"},
+      {id:"actions",label:"Acties",min:74,control:"actions"}
     ];
-    const DEFAULT_COLS = ["id","name","start","end","duration","progress","predecessor","department","resource","color","locked"];
-    const BASIC_COLS = ["id","name","start","end","duration","predecessor"];
+    const DEFAULT_COLS = ["id","name","start","end","duration","progress","taskStatus","feedback","hours","predecessor","department","resource","color","locked","actions"];
+    const BASIC_COLS = ["id","name","start","end","duration","hours","predecessor","actions"];
+    const LABEL_KEY = "cws.gantt.barLabels.v25";
+    const LABEL_POSITIONS = [
+      {id:"before", label:"Voor taakbalk", note:"Zwarte tekst links van de balk"},
+      {id:"inside", label:"In taakbalk", note:"Witte tekst in de balk"},
+      {id:"after", label:"Achter taakbalk", note:"Zwarte tekst rechts van de balk"}
+    ];
+    const LABEL_FIELDS = [
+      {id:"name", label:"Taaknaam"},
+      {id:"project", label:"Project"},
+      {id:"department", label:"Afdeling"},
+      {id:"resource", label:"Resource"},
+      {id:"start", label:"Startdatum"},
+      {id:"end", label:"Einddatum"},
+      {id:"duration", label:"Aantal dagen"},
+      {id:"hours", label:"Uren"},
+      {id:"progress", label:"Voortgang"},
+      {id:"predecessor", label:"Voorganger"},
+      {id:"status", label:"Status"},
+      {id:"why", label:"WHY / notitie"},
+      {id:"feedback", label:"Terugkoppeling"}
+    ];
+    const DEFAULT_LABELS = { before:[], inside:["name"], after:["resource","duration"] };
+    function cleanLabelConfig(raw){
+      const allowed=new Set(LABEL_FIELDS.map(f=>f.id));
+      const next={before:[],inside:["name"],after:["resource","duration"]};
+      LABEL_POSITIONS.forEach(pos=>{
+        const arr=Array.isArray(raw?.[pos.id]) ? raw[pos.id] : DEFAULT_LABELS[pos.id];
+        next[pos.id]=arr.filter(id=>allowed.has(id));
+      });
+      return next;
+    }
+    function loadLabelConfig(){
+      try{ return cleanLabelConfig(JSON.parse(localStorage.getItem(LABEL_KEY)||"null")); }catch(e){ return cleanLabelConfig(DEFAULT_LABELS); }
+    }
+    function saveLabelConfig(cfg){ try{ localStorage.setItem(LABEL_KEY, JSON.stringify(cleanLabelConfig(cfg))); }catch(e){} }
     function loadVisibleCols(){
       try{
         const arr=JSON.parse(localStorage.getItem(COL_KEY)||"null");
         if(Array.isArray(arr)&&arr.length){
           const allowed=new Set(ALL_COLUMNS.map(c=>c.id));
           const clean=arr.filter(id=>allowed.has(id));
-          if(clean.length) return new Set(clean);
+          if(clean.length){
+            // V23: urenkolom standaard zichtbaar maken bij bestaande browsers.
+            if(clean.includes("progress") && !clean.includes("hours")) clean.splice(clean.indexOf("progress")+1,0,"hours");
+            return new Set(clean);
+          }
         }
       }catch(e){}
       return new Set(DEFAULT_COLS);
     }
     function saveVisibleCols(set){ try{ localStorage.setItem(COL_KEY, JSON.stringify(Array.from(set))); }catch(e){} }
-    function visibleColumns(){ const set=loadVisibleCols(); return ALL_COLUMNS.filter(c=>set.has(c.id)); }
+    function loadColumnOrder(){
+      try{
+        const raw=JSON.parse(localStorage.getItem(COL_ORDER_KEY)||"null");
+        if(Array.isArray(raw)&&raw.length){
+          const allowed=new Set(ALL_COLUMNS.map(c=>c.id));
+          const clean=raw.filter(id=>allowed.has(id));
+          ALL_COLUMNS.forEach(c=>{ if(!clean.includes(c.id)) clean.push(c.id); });
+          return clean;
+        }
+      }catch(e){}
+      return ALL_COLUMNS.map(c=>c.id);
+    }
+    function saveColumnOrder(ids){ try{ localStorage.setItem(COL_ORDER_KEY, JSON.stringify(ids)); }catch(e){} }
+    function visibleColumns(){ const set=loadVisibleCols(); const order=loadColumnOrder(); const byId=new Map(ALL_COLUMNS.map(c=>[c.id,c])); return order.map(id=>byId.get(id)).filter(c=>c&&set.has(c.id)); }
     function textForCol(col,row,sc){
       const d=duration(sc.start,sc.end);
       if(col.id==="id") return row.id;
@@ -247,12 +395,23 @@
       if(col.id==="end") return toNL(sc.end);
       if(col.id==="duration") return `${d} d`;
       if(col.id==="progress") return `${Number(row.progress||0)} %`;
+      if(col.id==="taskStatus") return row.status || (Number(row.progress||0)>=100 ? "Gereed" : Number(row.progress||0)>0 ? "In uitvoering" : "Niet gestart");
+      if(col.id==="feedback") return row.feedback || row.why || "";
+      if(col.id==="hours") return Number(row.hours||0) ? `${Number(row.hours||0)} u` : "auto";
       if(col.id==="predecessor") return row.predecessor||"";
       if(col.id==="department") { const st=state(); const d=departments(st).find(x=>String(x.id||x.name)===String(row.department)||String(x.name)===String(row.department)); return d?(d.name||d.id):(row.department||""); }
       if(col.id==="resource") { const st=state(); const r=(st.resources?.byId||{})[row.resourceId]; return r?(r.name||r.id):(row.resourceId||"—"); }
       if(col.id==="color") return colorLabel(row.colorKey);
       if(col.id==="locked") return row.locked?"ja":"nee";
+      if(col.id==="actions") return "";
+      if(col.id==="project") { const p=state().projects?.byId?.[currentProjectId()]||{}; return p.nr||p.code||p.name||p.id||""; }
+      if(col.id==="status") return row.status || (row.locked ? "Vastgezet" : row.type==="summary" ? "Fase" : "Taak");
+      if(col.id==="why") return row.why || "";
       return "";
+    }
+    function labelTextForField(id,row,sc){ return textForCol({id},row,sc); }
+    function labelText(ids,row,sc){
+      return (ids||[]).map(id=>labelTextForField(id,row,sc)).map(v=>String(v||"").trim()).filter(Boolean).join(" | ");
     }
     function textMeasure(){
       if(textMeasure.ctx) return textMeasure.ctx;
@@ -272,6 +431,7 @@
       if(col.id==="color") return 74;       // swatch + kleurdropdown
       if(col.control==="select") return 52;     // celpadding + dropdownpijl
       if(col.control==="checkbox") return 24;
+      if(col.control==="actions") return 26;
       if(col.control==="number") return 34;
       if(col.control==="input" || col.control==="date") return 30;
       return 24;
@@ -290,21 +450,27 @@
       });
     }
     function buildCell(col,row,sc,st,indent){
-      const dis=row.locked?"disabled":"";
+      const readOnly=!!UI.revisionId;
+      const dis=(row.locked||readOnly)?"disabled":"";
       if(col.id==="id") return esc(row.id);
       if(col.id==="name") return `<div class="taskcell"><span class="twisty">${row.type==="summary"?"▾":""}</span><span style="width:${indent}px"></span><input class="taskname" data-k="name" value="${esc(row.name)}" ${dis}></div>`;
-      if(col.id==="start") return `<input class="cellinput" data-k="start" value="${esc(toNL(sc.start))}" ${row.type==="summary"||row.locked?"disabled":""}>`;
-      if(col.id==="end") return `<input class="cellinput" data-k="end" value="${esc(toNL(sc.end))}" ${row.type==="summary"||row.locked?"disabled":""}>`;
+      if(col.id==="start") return `<input class="cellinput" data-k="start" value="${esc(toNL(sc.start))}" ${row.type==="summary"||row.locked||readOnly?"disabled":""}>`;
+      if(col.id==="end") return `<input class="cellinput" data-k="end" value="${esc(toNL(sc.end))}" ${row.type==="summary"||row.locked||readOnly?"disabled":""}>`;
       if(col.id==="duration") return `${duration(sc.start,sc.end)} d`;
       if(col.id==="progress") return `<input class="cellinput smallinput" data-k="progress" value="${Number(row.progress||0)}" ${dis}>%`;
+      if(col.id==="taskStatus") return `<select class="resource-select" data-k="status" ${dis}>${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select>`;
+      if(col.id==="feedback") return `<input class="cellinput" data-k="feedback" title="${esc(row.feedback||row.why||"")}" value="${esc(row.feedback||row.why||"")}" ${dis}>`;
+      if(col.id==="hours") return `<input class="cellinput smallinput" data-k="hours" title="0 = automatisch uit projecturen per afdeling" value="${Number(row.hours||0)}" ${dis}>`;
       if(col.id==="predecessor") return `<input class="cellinput" data-k="predecessor" value="${esc(row.predecessor||"")}" ${dis}>`;
       if(col.id==="department") return `<select class="dept-select" data-k="department" ${dis}>${departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("")}</select>`;
       if(col.id==="resource") return `<select class="resource-select" data-k="resourceId" ${dis}><option value="">—</option>${resources(st).map(r=>`<option value="${esc(r.id)}" ${row.resourceId===r.id?"selected":""}>${esc(r.name||r.id)}</option>`).join("")}</select>`;
       if(col.id==="color") return colorPickerHtml("colorKey", row.colorKey, dis);
       if(col.id==="locked") return `<input class="lockbox" type="checkbox" data-k="locked" ${row.locked?"checked":""}>`;
+      if(col.id==="actions") return `<div class="row-actions"><button class="iconbtn" type="button" data-action="duplicate" title="Taak dupliceren" ${readOnly?"disabled":""}>⧉</button><button class="iconbtn danger" type="button" data-action="delete" title="Taak verwijderen" ${readOnly?"disabled":""}>×</button></div>`;
       return esc(textForCol(col,row,sc));
     }
     function openColumns(){
+      $("#modalSave").textContent="Opslaan";
       const set=loadVisibleCols();
       $("#modalTitle").textContent="Gantt tabelkolommen";
       $("#modalBody").innerHTML=`
@@ -335,6 +501,40 @@
       };
     }
 
+
+    function openLabels(){
+      $("#modalSave").textContent="Opslaan";
+      const cfg=loadLabelConfig();
+      const fieldBox=(pos)=>LABEL_FIELDS.map(f=>`<label><input type="checkbox" data-pos="${pos}" data-field="${f.id}" ${cfg[pos].includes(f.id)?"checked":""}> <span>${esc(f.label)}</span></label>`).join("");
+      $("#modalTitle").textContent="Tekst voor / in / achter taakbalk";
+      $("#modalBody").innerHTML=`
+        <p style="margin-top:0;color:#64748b;line-height:1.45">
+          Kies welke tabelinformatie rond de taakbalk zichtbaar is. Tekst vóór en achter de balk wordt zwart getoond. Tekst in de taakbalk wordt wit getoond. Lange tekst wordt automatisch afgekapt met … zodat het diagram leesbaar blijft.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px 0">
+          <button class="btn" type="button" id="labelsDefault">Standaard</button>
+          <button class="btn" type="button" id="labelsMinimal">Alleen taaknaam in balk</button>
+          <button class="btn" type="button" id="labelsClear">Alles leeg</button>
+        </div>
+        <div class="label-grid">
+          ${LABEL_POSITIONS.map(pos=>`<section class="label-panel"><h3>${esc(pos.label)}</h3><p style="margin:0 0 8px 0;color:#64748b;font-size:12px">${esc(pos.note)}</p><div class="label-options">${fieldBox(pos.id)}</div></section>`).join("")}
+        </div>`;
+      const apply=(preset)=>{
+        $$("#modalBody input[data-field]").forEach(cb=>{ cb.checked=(preset[cb.dataset.pos]||[]).includes(cb.dataset.field); });
+      };
+      $("#labelsDefault").onclick=()=>apply(DEFAULT_LABELS);
+      $("#labelsMinimal").onclick=()=>apply({before:[],inside:["name"],after:[]});
+      $("#labelsClear").onclick=()=>apply({before:[],inside:[],after:[]});
+      $("#modalBack").classList.add("show");
+      $("#modalSave").onclick=()=>{
+        const next={before:[],inside:[],after:[]};
+        $$("#modalBody input[data-field]:checked").forEach(cb=>next[cb.dataset.pos].push(cb.dataset.field));
+        saveLabelConfig(next);
+        $("#modalBack").classList.remove("show");
+        toast("Taakbalk-teksten bijgewerkt");
+        render();
+      };
+    }
 
     function toast(msg, type){ const el=$("#toast"); el.textContent=msg; el.style.background=type==="bad"?"#991b1b":type==="warn"?"#92400e":"#172033"; el.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove("show"),2200); }
     function setNotice(msg, kind="warn"){ const n=$("#notice"); if(!msg){ n.classList.add("hidden"); return; } n.textContent=msg; n.className="notice"; if(kind==="bad"){ n.style.borderColor="#fecaca"; n.style.background="#fef2f2"; n.style.color="#991b1b"; } else { n.style.borderColor="#fed7aa"; n.style.background="#fff7ed"; n.style.color="#9a3412"; } }
@@ -369,7 +569,37 @@
     function currentProjectId(){ return UI.projectId || $("#projectSel")?.value || projects()[0]?.id || null; }
     function projectLabel(p){ return `${p.nr||p.code||p.id} - ${p.name||"Project"}`; }
     function getModel(projectId){ const m = CWS?.gantt?.getProjectGantt ? CWS.gantt.getProjectGantt(projectId) : (state().ganttV2?.byProject?.[projectId] || {rows:[],sched:{}}); m.rows = Array.isArray(m.rows)?m.rows:[]; m.sched = m.sched || {}; return m; }
-    function saveModel(projectId, model, msg="Opgeslagen"){ if(!projectId) return; if(CWS?.gantt?.saveProjectGantt){ CWS.gantt.saveProjectGantt(projectId, model); } else if(CWS?.setState){ CWS.setState(s=>{ s.ganttV2=s.ganttV2||{byProject:{},ui:{}}; s.ganttV2.byProject[projectId]=model; return s; }); } setSave(msg,"ok"); }
+    function saveModel(projectId, model, msg="Opgeslagen"){ if(!projectId) return; model.revisions = Array.isArray(model.revisions) ? model.revisions : []; if(CWS?.gantt?.saveProjectGantt){ CWS.gantt.saveProjectGantt(projectId, model); } else if(CWS?.setState){ CWS.setState(s=>{ s.ganttV2=s.ganttV2||{byProject:{},ui:{}}; s.ganttV2.byProject[projectId]=model; return s; }); } setSave(msg,"ok"); }
+    function deepClone(value){ return JSON.parse(JSON.stringify(value ?? null)); }
+    function revisionList(model){ model.revisions = Array.isArray(model.revisions) ? model.revisions : []; return model.revisions; }
+    function revisionById(model, id){ return revisionList(model).find(r=>String(r.id)===String(id)); }
+    function nextRevisionNo(model){
+      const nums=revisionList(model).map(r=>String(r.revNo||"").match(/R(\d+)/i)).filter(Boolean).map(m=>Number(m[1]));
+      const n=(nums.length?Math.max(...nums):0)+1;
+      return `R${String(n).padStart(2,"0")}`;
+    }
+    function revisionSnapshot(projectId, model){
+      const st=state(), p=st.projects?.byId?.[projectId]||{};
+      return {
+        projectId,
+        projectLabel: projectLabel(p),
+        rows: deepClone(model.rows||[]),
+        sched: deepClone(model.sched||{}),
+        visibleColumns: Array.from(loadVisibleCols()),
+        barLabels: cleanLabelConfig(loadLabelConfig()),
+        ui: { zoom:UI.zoom, view:UI.view, showDeps:UI.showDeps, showCritical:UI.showCritical, showBaseline:UI.showBaseline },
+        createdFromRemoteVersion: CWS?.getRemoteVersion?.() || 0,
+        capacity: { hoursByDay: deepClone(st.gantt?.hoursByDay||{}), sourcesByDay: deepClone(st.gantt?.sourcesByDay||{}) }
+      };
+    }
+    function activeModelForRender(liveModel){
+      if(!UI.revisionId) return liveModel;
+      const rev=revisionById(liveModel, UI.revisionId);
+      if(!rev){ UI.revisionId=null; return liveModel; }
+      const snap=rev.snapshot||{};
+      return { rows:deepClone(snap.rows||[]), sched:deepClone(snap.sched||{}), revisions:revisionList(liveModel), _revision:rev, _readOnly:true };
+    }
+    function assertLiveMode(){ if(UI.revisionId){ toast("Je bekijkt een revisie. Ga eerst terug naar live planning.","warn"); return false; } return true; }
     function firstProjectStart(st, pid){ const p=st.projects?.byId?.[pid]||{}; return toIso(p.startDate||p.start||p.date)||toIso(new Date()); }
     function sanitizeIdPart(value, fallback){
       const s=String(value ?? fallback ?? "ID").trim().replace(/[^a-zA-Z0-9_-]+/g,"-").replace(/^-+|-+$/g,"");
@@ -490,7 +720,8 @@
       const st=state(), pid=currentProjectId();
       UI.projectId=pid;
       if(!pid){ $("#ganttHead").innerHTML=""; $("#tableRows").innerHTML=""; $("#lanes").innerHTML='<div class="empty">Geen projecten beschikbaar.</div>'; return; }
-      const model=ensureModel(pid);
+      const liveModel=ensureModel(pid);
+      const model=activeModelForRender(liveModel);
       const rows=filteredRows(model);
       const cids=UI.showCritical?criticalIds(model):new Set();
       const cols=visibleColumns();
@@ -503,11 +734,11 @@
       UI.originStart=range.start;
       const days=buildTimeline(range);
       const nonWorkShadeHtml=days.map((iso,i)=>isNonWorkingIso(st,iso)?`<span class="nonwork-shade" style="left:${i*pxPerDay()}px;width:${pxPerDay()}px"></span>`:"").join("");
-      $("#ganttHead").innerHTML=cols.map((c,i)=>`<th data-col="${c.id}" style="width:${widths[i]}px">${esc(c.label)}</th>`).join("");
+      $("#ganttHead").innerHTML=cols.map((c,i)=>`<th draggable="true" data-col="${c.id}" style="width:${widths[i]}px">${esc(c.label)} <span class="smallmuted" title="Sleep kolom">↔</span></th>`).join("");
       $("#tableRows").innerHTML=rows.map(({row,index,sc})=>{
         const indent=Math.max(0,Number(row.level||0))*18;
         const tds=cols.map((c,i)=>`<td data-col="${c.id}" style="width:${widths[i]}px">${buildCell(c,row,sc,st,indent)}</td>`).join("");
-        return `<tr data-id="${esc(row.id)}" class="${row.id===UI.selected?"selected":""} ${row.type==="summary"?"summary":""}">${tds}</tr>`;
+        return `<tr draggable="true" data-id="${esc(row.id)}" class="${row.id===UI.selected?"selected":""} ${row.type==="summary"?"summary":""}">${tds}</tr>`;
       }).join("");
       const chartW=days.length*pxPerDay();
       $("#chartPane").style.width=chartW+"px";
@@ -518,17 +749,31 @@
         const left=xFor(sc.start||range.start,range), width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay());
         const isCritical=cids.has(row.id);
         const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),duration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:"";
-        return `<div class="lane" data-id="${esc(row.id)}">${nonWorkShadeHtml}${base}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span><span class="bar-label" title="${esc(row.name)}">${esc(row.name)}</span><span class="handle right"></span></div></div>`;
+        const labels=loadLabelConfig();
+        const beforeText=labelText(labels.before,row,sc);
+        const insideText=labelText(labels.inside,row,sc);
+        const afterText=labelText(labels.after,row,sc);
+        const beforeGap=6, afterGap=6;
+        const beforeW=Math.max(0,Math.min(180,left-beforeGap));
+        const afterLeft=left+width+afterGap;
+        const afterW=Math.max(0,Math.min(220,chartW-afterLeft));
+        const beforeHtml=beforeText&&beforeW>=24?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,left-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
+        const afterHtml=afterText&&afterW>=24?`<span class="bar-text-after" title="${esc(afterText)}" style="left:${afterLeft}px;width:${afterW}px">${esc(afterText)}</span>`:"";
+        const title=[beforeText,insideText,afterText].filter(Boolean).join(" | ") || row.name;
+        return `<div class="lane" data-id="${esc(row.id)}">${nonWorkShadeHtml}${base}${beforeHtml}<div class="bar ${row.type==="summary"?"summary":""} ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${left}px;width:${width}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span>${row.type!=="summary"?`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`:""}<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>${(row.feedback||row.why)&&row.type!=="summary"?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>${afterHtml}</div>`;
       }).join("");
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");
       if(tl){ tl.style.display=(todayX>=0&&todayX<=chartW)?"block":"none"; tl.style.left=todayX+"px"; tl.style.height=`calc(var(--headH) + ${rows.length*(UI.printMode?22:48)}px)`; }
       $("#board").className="board "+(UI.view==="table"?"table-only":UI.view==="diagram"?"diagram-only":"");
-      $("#metaLine").textContent=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | dagen: ${days.length}`;
+      const revMeta=model._revision ? ` | revisie ${model._revision.revNo||""} | revisiedatum ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"} | status ${model._revision.status||"—"}${model._revision.description?` | ${model._revision.description}`:""}` : " | live planning";
+      $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
       renderLegend(rows);
       renderPrintTaskTable(rows);
+      wireColumnDrag();
       wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range); renderContext(model);
-      setNotice(CWS.storageStatus?.mode==="api"?"":"Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.","warn");
+      if(model._revision) setNotice(`Je bekijkt revisie ${model._revision.revNo||""} van ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"}. Deze snapshot is alleen-lezen en verandert niet mee met de live planning.`,"warn");
+      else setNotice(CWS.storageStatus?.mode==="api"?"":"Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.","warn");
       updateButtons();
     }
     function renderLegend(rows){
@@ -546,17 +791,183 @@
       }).join("");
       host.innerHTML=`<table><thead><tr><th>Taaknaam</th><th>Resource</th><th>Dagen</th></tr></thead><tbody>${body}</tbody></table>`;
     }
-    function updateButtons(){ $$('[data-zoom]').forEach(b=>b.classList.toggle('active',b.dataset.zoom===UI.zoom)); $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===UI.view)); $('#depsBtn').classList.toggle('active',UI.showDeps); $('#criticalBtn').classList.toggle('active',UI.showCritical); $('#baselineBtn').classList.toggle('active',UI.showBaseline); $('#undoBtn').disabled=!(CWS?.canUndo?.()); $('#redoBtn').disabled=!(CWS?.canRedo?.()); }
-    function updateRow(model,rowId,patch){ const row=model.rows.find(r=>r.id===rowId); if(!row) return; Object.assign(row,patch); saveModel(currentProjectId(),model); render(); }
+
+    function uniqueRowId(model, base){
+      const existing=new Set(model.rows.map(r=>String(r.id)));
+      const clean=sanitizeIdPart(base||"TA", "TA");
+      let n=1, id=`${clean}-K${n}`;
+      while(existing.has(id)){ n++; id=`${clean}-K${n}`; }
+      return id;
+    }
+    function blockRange(model, rowId){
+      const idx=model.rows.findIndex(r=>r.id===rowId);
+      if(idx<0) return [-1,-1];
+      const row=model.rows[idx];
+      if(row.type!=="summary") return [idx,idx];
+      let end=idx;
+      const lvl=Number(row.level||0);
+      for(let i=idx+1;i<model.rows.length;i++){
+        if(Number(model.rows[i].level||0)<=lvl) break;
+        end=i;
+      }
+      return [idx,end];
+    }
+    function removePredRefs(raw, removed){
+      return String(raw||"").split(/[;,]+/).map(x=>x.trim()).filter(Boolean).filter(part=>{
+        const m=part.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i);
+        const id=m?m[1].trim():part;
+        return !removed.has(id);
+      }).join(",");
+    }
+    function deleteRow(rowId){ if(!assertLiveMode()) return; 
+      const pid=currentProjectId(), model=getModel(pid);
+      const [a,b]=blockRange(model,rowId);
+      if(a<0) return;
+      const row=model.rows[a];
+      const label=row.type==="summary" ? "fase inclusief onderliggende taken" : "taak";
+      if(!window.confirm(`${label} verwijderen?`)) return;
+      const removedRows=model.rows.slice(a,b+1);
+      const removed=new Set(removedRows.map(r=>r.id));
+      model.rows.splice(a,b-a+1);
+      removed.forEach(id=>{ delete model.sched[id]; });
+      model.rows.forEach(r=>{ if(r.predecessor) r.predecessor=removePredRefs(r.predecessor, removed); if(removed.has(r.parent)) delete r.parent; });
+      UI.selected=null;
+      saveModel(pid,model,"Taak verwijderd");
+      toast(row.type==="summary" ? "Fase verwijderd" : "Taak verwijderd");
+      render();
+    }
+    function duplicateRow(rowId){ if(!assertLiveMode()) return; 
+      const pid=currentProjectId(), model=getModel(pid);
+      const [a,b]=blockRange(model,rowId);
+      if(a<0) return;
+      const source=model.rows.slice(a,b+1);
+      const idMap=new Map();
+      source.forEach(r=>idMap.set(r.id, uniqueRowId(model, r.id)));
+      const clones=source.map((r,idx)=>{
+        const c=JSON.parse(JSON.stringify(r));
+        c.id=idMap.get(r.id);
+        if(idx===0) c.name=`${c.name || "Taak"} kopie`;
+        if(c.parent && idMap.has(c.parent)) c.parent=idMap.get(c.parent);
+        if(c.predecessor){
+          c.predecessor=String(c.predecessor).split(/[;,]+/).map(part=>{
+            const x=part.trim();
+            const m=x.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i);
+            if(!m) return x;
+            const repl=idMap.get(m[1].trim()) || m[1].trim();
+            return `${repl}${m[2].toUpperCase()}${m[3]||""}`;
+          }).filter(Boolean).join(",");
+        }
+        return c;
+      });
+      clones.forEach((c,idx)=>{
+        const old=source[idx];
+        if(model.sched[old.id]) model.sched[c.id]=JSON.parse(JSON.stringify(model.sched[old.id]));
+      });
+      model.rows.splice(b+1,0,...clones);
+      UI.selected=clones[0]?.id || rowId;
+      saveModel(pid,model,"Taak gedupliceerd");
+      toast(source[0].type==="summary" ? "Fase gedupliceerd" : "Taak gedupliceerd");
+      render();
+    }
+    function addTask(){ if(!assertLiveMode()) return; 
+      const pid=currentProjectId(), model=getModel(pid), st=state();
+      let insertAt=model.rows.length;
+      let level=1, parent="", dept=departments(st)[0]?.id || departments(st)[0]?.name || "Engineering";
+      let start=firstProjectStart(st,pid), pred="";
+      if(UI.selected){
+        const [a,b]=blockRange(model,UI.selected);
+        const sel=model.rows.find(r=>r.id===UI.selected);
+        if(sel){
+          if(sel.type==="summary"){
+            insertAt=b+1;
+            level=Number(sel.level||0)+1;
+            parent=sel.id;
+            dept=sel.department || dept;
+            const lastChild=model.rows.slice(a+1,b+1).filter(r=>r.type!=="summary").at(-1);
+            const lastSc=lastChild ? model.sched[lastChild.id] : null;
+            if(lastSc?.end){ start=addDays(lastSc.end,1); pred=`${lastChild.id}FS`; }
+          } else {
+            insertAt=b+1;
+            level=Math.max(1,Number(sel.level||1));
+            parent=sel.parent || "";
+            dept=sel.department || dept;
+            const selSc=model.sched[sel.id];
+            if(selSc?.end){ start=addDays(selSc.end,1); pred=`${sel.id}FS`; }
+          }
+        }
+      } else if(model.rows.length){
+        const prev=model.rows.filter(r=>r.type!=="summary").at(-1);
+        if(prev){ const sc=model.sched[prev.id]; if(sc?.end){ start=addDays(sc.end,1); pred=`${prev.id}FS`; } level=Math.max(1,Number(prev.level||1)); parent=prev.parent||""; dept=prev.department||dept; }
+      }
+      const id=uniqueRowId(model, `${pid}-T`);
+      const row={id,name:"Nieuwe taak",type:"task",level,parent,department:dept,resourceId:"",progress:0,predecessor:pred,locked:false,colorKey:"c1",hours:0,why:""};
+      model.rows.splice(insertAt,0,row);
+      model.sched[id]={start,end:addDays(start,4)};
+      UI.selected=id;
+      saveModel(pid,model,"Taak toegevoegd");
+      render();
+      setTimeout(()=>openEdit(id),80);
+    }
+    function updateButtons(){ $$('[data-zoom]').forEach(b=>b.classList.toggle('active',b.dataset.zoom===UI.zoom)); $$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===UI.view)); $('#depsBtn').classList.toggle('active',UI.showDeps); $('#criticalBtn').classList.toggle('active',UI.showCritical); $('#baselineBtn').classList.toggle('active',UI.showBaseline); $('#undoBtn').disabled=!!UI.revisionId||!(CWS?.canUndo?.()); $('#redoBtn').disabled=!!UI.revisionId||!(CWS?.canRedo?.()); ['generateBtn','addTaskBtn','recalcBtn','setBaselineBtn','indentBtn','outdentBtn','saveRevisionBtn'].forEach(id=>{ const el=$('#'+id); if(el) el.disabled=!!UI.revisionId; }); const live=$('#liveBtn'); if(live) live.classList.toggle('hidden',!UI.revisionId); }
+    function updateRow(model,rowId,patch){ if(!assertLiveMode()) return; const row=model.rows.find(r=>r.id===rowId); if(!row) return; Object.assign(row,patch); saveModel(currentProjectId(),model); render(); }
+    function saveModelNoRender(pid, model, msg="Opgeslagen"){ saveModel(pid,model,msg); }
+    function scheduleRenderAfterInput(delay=220){ clearTimeout(UI.inputRenderTimer); UI.inputRenderTimer=setTimeout(()=>render(),delay); }
     function selectRow(model,rowId){
       UI.selected=rowId;
       $$("#tableRows tr").forEach(tr=>tr.classList.toggle("selected", tr.dataset.id===rowId));
       $$(".bar").forEach(b=>b.classList.toggle("selected", b.dataset.id===rowId));
       renderContext(model);
     }
+    function wireColumnDrag(){
+      const ths=$$("#ganttHead th[data-col]");
+      ths.forEach(th=>{
+        th.addEventListener("dragstart",e=>{ e.dataTransfer.setData("text/plain", th.dataset.col); e.dataTransfer.effectAllowed="move"; });
+        th.addEventListener("dragover",e=>{ e.preventDefault(); e.dataTransfer.dropEffect="move"; });
+        th.addEventListener("drop",e=>{
+          e.preventDefault();
+          const from=e.dataTransfer.getData("text/plain");
+          const to=th.dataset.col;
+          if(!from||!to||from===to) return;
+          const order=loadColumnOrder();
+          const a=order.indexOf(from), b=order.indexOf(to);
+          if(a<0||b<0) return;
+          const [moved]=order.splice(a,1);
+          order.splice(b,0,moved);
+          saveColumnOrder(order);
+          toast("Kolomvolgorde opgeslagen");
+          render();
+        });
+      });
+    }
     function wireRows(model,pid){
       $$("#tableRows tr").forEach(tr=>{
         const rowId=tr.dataset.id;
+        tr.addEventListener("dragstart",e=>{ if(e.target && ["INPUT","SELECT","OPTION","BUTTON","TEXTAREA"].includes(e.target.tagName)) { e.preventDefault(); return; } e.dataTransfer.setData("text/plain", rowId); e.dataTransfer.effectAllowed="move"; });
+        tr.addEventListener("dragover",e=>{ e.preventDefault(); e.dataTransfer.dropEffect="move"; });
+        tr.addEventListener("drop",e=>{
+          e.preventDefault();
+          if(!assertLiveMode()) return;
+          const from=e.dataTransfer.getData("text/plain"), to=rowId;
+          if(!from||!to||from===to) return;
+          const fromIdx=model.rows.findIndex(r=>r.id===from), toIdx=model.rows.findIndex(r=>r.id===to);
+          if(fromIdx<0||toIdx<0) return;
+          const [moved]=model.rows.splice(fromIdx,1);
+          model.rows.splice(toIdx,0,moved);
+          UI.selected=from;
+          saveModel(pid,model,"Rijvolgorde opgeslagen");
+          toast("Rij versleept");
+          render();
+        });
+        tr.querySelectorAll("button[data-action]").forEach(btn=>{
+          btn.addEventListener("click",e=>{
+            e.preventDefault(); e.stopPropagation();
+            const action=btn.dataset.action;
+            if(!assertLiveMode()) return;
+            if(action==="duplicate") duplicateRow(rowId);
+            if(action==="delete") deleteRow(rowId);
+          });
+        });
+        tr.addEventListener("contextmenu",e=>showGanttContextMenu(e,rowId,"row"));
         tr.addEventListener("click",()=>{selectRow(model,rowId);});
         tr.addEventListener("dblclick",(e)=>{
           if(e.target && ["SELECT","OPTION"].includes(e.target.tagName)) return;
@@ -569,6 +980,7 @@
         tr.querySelectorAll("input,select").forEach(el=>{
           el.addEventListener("click",()=>selectRow(model,rowId));
           el.addEventListener("change",()=>{
+            if(!assertLiveMode()){ render(); return; }
             const row=model.rows.find(r=>r.id===rowId);
             if(!row) return;
             const k=el.dataset.k;
@@ -579,6 +991,16 @@
               model.sched[rowId][k]=iso;
             } else if(k==="progress"){
               row.progress=Math.max(0,Math.min(100,Number(el.value)||0));
+              row.status=row.progress>=100?"Gereed":row.progress>0?(row.status||"In uitvoering"):(row.status||"Niet gestart");
+              row.progressUpdatedAt=new Date().toISOString();
+            } else if(k==="hours"){
+              row.hours=Math.max(0,Number(String(el.value).replace(",","."))||0);
+            } else if(k==="status"){
+              row.status=el.value;
+            } else if(k==="feedback"){
+              row.feedback=el.value.trim();
+              row.why=row.feedback || row.why || "";
+              row.feedbackUpdatedAt=row.feedback ? new Date().toISOString() : (row.feedbackUpdatedAt || "");
             } else if(k==="locked"){
               row.locked=el.checked;
             } else if(k==="predecessor"){
@@ -590,8 +1012,13 @@
             } else {
               row[k]=el.value;
             }
-            saveModel(pid,model);
-            render();
+            saveModelNoRender(pid,model);
+            if(k==="department"||k==="resourceId"||k==="colorKey"||k==="status"||k==="feedback"){
+              if(k==="colorKey") setColorPickerPreview(el);
+              scheduleRenderAfterInput(260);
+            }else{
+              render();
+            }
           });
         });
       });
@@ -602,13 +1029,14 @@
         const row=model.rows.find(r=>r.id===id);
         if(!row) return;
         bar.dataset.openable="1";
+        bar.addEventListener("contextmenu",e=>showGanttContextMenu(e,id,"bar"));
         bar.addEventListener("click",e=>{
           e.stopPropagation();
           selectRow(model,id);
           if(e.detail>=2){ e.preventDefault(); openEdit(id); }
         });
         bar.addEventListener("dblclick",e=>{ e.preventDefault(); e.stopPropagation(); selectRow(model,id); openEdit(id); });
-        if(row.type==="summary"||row.locked) return;
+        if(UI.revisionId||row.type==="summary"||row.locked) return;
         bar.addEventListener("pointerdown",e=>{
           if(e.detail>=2){ e.preventDefault(); return; }
           const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move";
@@ -619,15 +1047,16 @@
       });
     }
     window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc.start=addDays(UI.drag.orig.start,d); sc.end=addDays(UI.drag.orig.end,d); } else if(UI.drag.handle==="left"){ sc.start=addDays(UI.drag.orig.start,d); if(dayDiff(sc.start,sc.end)<0) sc.start=sc.end; } else { sc.end=addDays(UI.drag.orig.end,d); if(dayDiff(sc.start,sc.end)<0) sc.end=sc.start; } const bar=$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); if(bar){ bar.style.left=xFor(sc.start,{start:UI.originStart})+"px"; bar.style.width=Math.max(pxPerDay(),duration(sc.start,sc.end)*pxPerDay())+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
-    window.addEventListener("pointerup",()=>{ if(!UI.drag) return; const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]={start:bar.dataset.tmpStart,end:bar.dataset.tmpEnd}; saveModel(pid,model,"Balk bijgewerkt"); } UI.drag=null; render(); });
+    window.addEventListener("pointerup",()=>{ if(!UI.drag) return; if(UI.revisionId){ UI.drag=null; render(); return; } const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]={start:bar.dataset.tmpStart,end:bar.dataset.tmpEnd}; saveModel(pid,model,"Balk bijgewerkt"); } UI.drag=null; render(); });
     function drawDeps(model,rows,range){ const svg=$("#depSvg"); svg.innerHTML=""; if(!UI.showDeps) return; const rowH=UI.printMode?22:48; const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i])); const w=pxPerDay(); svg.setAttribute("width",Math.max(900,(range.days*w))); svg.setAttribute("height",rows.length*rowH); model.rows.forEach(row=>{ const i=rowIndex.get(row.id); if(i==null) return; parsePred(row.predecessor).forEach(p=>{ const pi=rowIndex.get(p.id); if(pi==null) return; const predSc=model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id)); const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id)); if(!predSc?.end||!sc?.start) return; const x1=xFor(predSc.end,range)+duration(predSc.start,predSc.end)*w, y1=pi*rowH+(rowH/2), x2=xFor(sc.start,range)+2, y2=i*rowH+(rowH/2); const mid=x1+Math.max(14,(x2-x1)/2); const path=document.createElementNS("http://www.w3.org/2000/svg","path"); path.setAttribute("d",`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`); path.setAttribute("fill","none"); path.setAttribute("stroke","rgba(15,23,42,.45)"); path.setAttribute("stroke-width",UI.printMode?"0.55":"1.1"); svg.appendChild(path); }); }); }
-    function renderContext(model){ const row=model.rows.find(r=>r.id===UI.selected); if(!row){ $("#contextBody").textContent="Selecteer een taak of balk om details te zien."; return; } const sc=model.sched[row.id]||{}; $("#contextBody").innerHTML=`<div class="ctx-grid"><div class="ctx-card"><b>Taak</b>${esc(row.name)}</div><div class="ctx-card"><b>Start / eind</b>${esc(toNL(sc.start))} — ${esc(toNL(sc.end))}</div><div class="ctx-card"><b>Afdeling</b>${esc(row.department||"—")}</div><div class="ctx-card"><b>Voorganger</b>${esc(row.predecessor||"—")}</div></div>`; }
-    function applyPredecessors(){ const pid=currentProjectId(), model=getModel(pid); let changed=0; model.rows.forEach(row=>{ if(row.type!=="task"||row.locked) return; parsePred(row.predecessor).forEach(p=>{ const pred=model.sched[p.id]; const cur=model.sched[row.id]; if(!pred||!cur) return; const min=addDays(pred.end,1+(p.lag||0)); if(cur.start<min){ const dur=duration(cur.start,cur.end); cur.start=min; cur.end=addDays(min,dur-1); changed++; } }); }); saveModel(pid,model,changed?"Planning herberekend":"Planning ongewijzigd"); toast(changed?`${changed} taak/taken verschoven`:"Planning al geldig"); render(); }
-    function setBaseline(){ const pid=currentProjectId(), model=getModel(pid); model.rows.forEach(row=>{ const sc=model.sched[row.id]; if(sc?.start&&sc?.end){ row.baselineStart=sc.start; row.baselineEnd=sc.end; }}); saveModel(pid,model,"Baseline ingesteld"); render(); }
-    function indent(delta){ const pid=currentProjectId(), model=getModel(pid); const row=model.rows.find(r=>r.id===UI.selected); if(!row||row.type==="summary"||row.locked){toast("Selecteer een ontgrendelde taak","warn");return;} row.level=Math.max(1,Number(row.level||1)+delta); saveModel(pid,model); render(); }
+    function renderContext(model){ const row=model.rows.find(r=>r.id===UI.selected); if(!row){ $("#contextBody").textContent="Selecteer een taak of balk om details te zien."; return; } const sc=model.sched[row.id]||{}; const status=row.status || (Number(row.progress||0)>=100?"Gereed":Number(row.progress||0)>0?"In uitvoering":"Niet gestart"); $("#contextBody").innerHTML=`<div class="ctx-grid"><div class="ctx-card"><b>Taak</b>${esc(row.name)}</div><div class="ctx-card"><b>Start / eind</b>${esc(toNL(sc.start))} — ${esc(toNL(sc.end))}</div><div class="ctx-card"><b>Afdeling</b>${esc(row.department||"—")}</div><div class="ctx-card"><b>Voortgang/status</b>${Number(row.progress||0)}% · ${esc(status)}</div><div class="ctx-card" style="grid-column:1/-1"><b>Terugkoppeling / WHY</b>${esc(row.feedback||row.why||"Geen terugkoppeling")}</div></div>`; }
+    function applyPredecessors(){ if(!assertLiveMode()) return;  const pid=currentProjectId(), model=getModel(pid); let changed=0; model.rows.forEach(row=>{ if(row.type!=="task"||row.locked) return; parsePred(row.predecessor).forEach(p=>{ const pred=model.sched[p.id]; const cur=model.sched[row.id]; if(!pred||!cur) return; const min=addDays(pred.end,1+(p.lag||0)); if(cur.start<min){ const dur=duration(cur.start,cur.end); cur.start=min; cur.end=addDays(min,dur-1); changed++; } }); }); saveModel(pid,model,changed?"Planning herberekend":"Planning ongewijzigd"); toast(changed?`${changed} taak/taken verschoven`:"Planning al geldig"); render(); }
+    function setBaseline(){ if(!assertLiveMode()) return;  const pid=currentProjectId(), model=getModel(pid); model.rows.forEach(row=>{ const sc=model.sched[row.id]; if(sc?.start&&sc?.end){ row.baselineStart=sc.start; row.baselineEnd=sc.end; }}); saveModel(pid,model,"Baseline ingesteld"); render(); }
+    function indent(delta){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid); const row=model.rows.find(r=>r.id===UI.selected); if(!row||row.type==="summary"||row.locked){toast("Selecteer een ontgrendelde taak","warn");return;} row.level=Math.max(1,Number(row.level||1)+delta); saveModel(pid,model); render(); }
     function openEdit(rowId){
-      const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId), rowIndex=model.rows.findIndex(r=>r.id===rowId), sc=rowSchedule(model,row||{},rowIndex)||{};
+      const pid=currentProjectId(), liveModel=getModel(pid), model=activeModelForRender(liveModel), row=model.rows.find(r=>r.id===rowId), rowIndex=model.rows.findIndex(r=>r.id===rowId), sc=rowSchedule(model,row||{},rowIndex)||{};
       if(!row) return;
+      const readOnly=!!UI.revisionId;
       const st=state();
       const deptOptions=departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("");
       const resOptions=`<option value="">—</option>`+resources(st).map(r=>`<option value="${esc(r.id)}" ${String(row.resourceId||"")===String(r.id)?"selected":""}>${esc(r.name||r.id)}</option>`).join("");
@@ -641,25 +1070,34 @@
         <label class="field">Einde<input id="mEnd" value="${esc(toNL(sc.end))}" ${row.type==="summary"?"disabled":""}></label>
         <label class="field">Duur<input id="mDur" value="${duration(sc.start,sc.end)} d" disabled></label>
         <label class="field">Voortgang<input id="mProg" type="number" min="0" max="100" value="${Number(row.progress||0)}"></label>
+        <label class="field">Status<select id="mStatus">${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select></label>
         <label class="field">Voorganger<input id="mPred" value="${esc(row.predecessor||"")}" placeholder="P-1001-T1FS, P-1001-T2SS+2"></label>
         <label class="field">Kleur${colorPickerHtml("mColor", row.colorKey, "")}</label>
-        <label class="field">Uren<input id="mHours" type="number" min="0" step="0.25" value="${Number(row.hours||0)}"></label>
+        <label class="field">Uren<input id="mHours" type="number" min="0" step="0.25" value="${Number(row.hours||0)}"><small style="color:#64748b;font-weight:600">0 = automatisch verdelen vanuit projecturen per afdeling.</small></label>
         <label class="field">Lock<select id="mLock"><option value="0" ${!row.locked?"selected":""}>Nee</option><option value="1" ${row.locked?"selected":""}>Ja</option></select></label>
-        <label class="field" style="grid-column:1/-1">WHY / notitie<textarea id="mWhy">${esc(row.why||"")}</textarea></label>
+        <label class="field" style="grid-column:1/-1">Terugkoppeling / WHY<textarea id="mWhy">${esc(row.feedback||row.why||"")}</textarea></label>
       </div>`;
       $("#modalBack").classList.add("show");
+      $("#modalBody").classList.toggle("revision-readonly", readOnly);
+      if(readOnly){ $$("#modalBody input,#modalBody select,#modalBody textarea").forEach(el=>el.disabled=true); }
       const colorSel=$("#modalBody select[data-k='mColor']");
       if(colorSel){ setColorPickerPreview(colorSel); colorSel.addEventListener("input",()=>setColorPickerPreview(colorSel)); }
+      $("#modalSave").textContent=readOnly?"Sluiten":"Opslaan";
       $("#modalSave").onclick=()=>{
+        if(readOnly){ $("#modalBack").classList.remove("show"); return; }
         row.name=$("#mName").value.trim()||row.name;
         row.department=$("#mDept").value.trim()||row.department;
         row.resourceId=$("#mResource").value.trim();
         row.progress=Math.max(0,Math.min(100,Number($("#mProg").value)||0));
+        row.status=$("#mStatus").value;
         row.predecessor=$("#mPred").value.trim();
         row.colorKey=normalizeColorKey(colorSel?.value||row.colorKey);
         row.hours=Math.max(0,Number($("#mHours").value)||0);
         row.locked=$("#mLock").value==="1";
-        row.why=$("#mWhy").value.trim();
+        row.feedback=$("#mWhy").value.trim();
+        row.why=row.feedback || row.why || "";
+        row.progressUpdatedAt=new Date().toISOString();
+        row.feedbackUpdatedAt=row.feedback ? new Date().toISOString() : (row.feedbackUpdatedAt || "");
         if(row.type!=="summary"){
           const start=toIso($("#mStart").value)||sc.start;
           const end=toIso($("#mEnd").value)||sc.end;
@@ -670,6 +1108,123 @@
         render();
       };
     }
+    function openSaveRevision(){
+      if(!assertLiveMode()) return;
+      const pid=currentProjectId(), model=getModel(pid);
+      const revNo=nextRevisionNo(model);
+      const today=toIso(new Date());
+      $("#modalSave").textContent="Revisie opslaan";
+      $("#modalTitle").textContent="Planning opslaan als revisie";
+      $("#modalBody").classList.remove("revision-readonly");
+      $("#modalBody").innerHTML=`<p style="margin-top:0;color:#64748b;line-height:1.45">Sla de huidige live planning op als vaste snapshot. Deze revisie verandert daarna niet meer mee met de live planning.</p>
+        <div class="form-grid">
+          <label class="field">Revisie<input id="revNo" value="${esc(revNo)}" placeholder="R01"></label>
+          <label class="field">Revisiedatum<input id="revDate" value="${esc(toNL(today))}" placeholder="dd-mm-jjjj"></label>
+          <label class="field">Status<select id="revStatus"><option>Concept</option><option selected>Ter controle</option><option>Definitief</option><option>Vervallen</option></select></label>
+          <label class="field">Omschrijving<input id="revDesc" value="" placeholder="Bijv. Eerste planning ter controle"></label>
+          <label class="field" style="grid-column:1/-1">Opmerking / reden wijziging<textarea id="revNote" placeholder="Wat is de reden van deze revisie?"></textarea></label>
+        </div>`;
+      $("#modalBack").classList.add("show");
+      $("#modalSave").onclick=()=>{
+        const date=toIso($("#revDate").value)||today;
+        const item={
+          id:`REV-${Date.now()}`,
+          revNo:$("#revNo").value.trim()||revNo,
+          revisionDate:date,
+          status:$("#revStatus").value.trim()||"Ter controle",
+          description:$("#revDesc").value.trim(),
+          note:$("#revNote").value.trim(),
+          createdAt:new Date().toISOString(),
+          createdBy:"Interne gebruiker",
+          snapshot:revisionSnapshot(pid, model)
+        };
+        revisionList(model).push(item);
+        saveModel(pid,model,`Revisie ${item.revNo} opgeslagen`);
+        $("#modalBack").classList.remove("show");
+        toast(`Revisie ${item.revNo} opgeslagen`);
+        render();
+      };
+    }
+    function openRevisions(){
+      const pid=currentProjectId(), model=getModel(pid), list=revisionList(model).slice().sort((a,b)=>String(b.revisionDate||"").localeCompare(String(a.revisionDate||"")) || String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+      $("#modalSave").textContent="Sluiten";
+      $("#modalTitle").textContent="Planningrevisies";
+      $("#modalBody").classList.remove("revision-readonly");
+      const rows=list.length?list.map(r=>`<tr data-rev="${esc(r.id)}"><td><b>${esc(r.revNo||"—")}</b></td><td>${esc(toNL(r.revisionDate)||r.revisionDate||"—")}</td><td>${esc(r.status||"—")}</td><td>${esc(r.description||"")}</td><td>${esc(toNL(String(r.createdAt||"").slice(0,10))||String(r.createdAt||"").slice(0,10)||"—")}</td><td class="actions"><button class="btn" data-rev-action="view">Bekijken</button> <button class="btn" data-rev-action="print">Print</button> <button class="btn primary" data-rev-action="restore">Zet live</button> <button class="btn danger" data-rev-action="delete">Verwijder</button></td></tr>`).join(""):`<tr class="empty-row"><td colspan="6">Nog geen revisies opgeslagen.</td></tr>`;
+      $("#modalBody").innerHTML=`<p style="margin-top:0;color:#64748b;line-height:1.45">Revisies zijn vaste snapshots. Bekijken en printen is alleen-lezen. Met <b>Zet live</b> maak je een kopie van die revisie de actuele werkplanning.</p><table class="revision-table"><thead><tr><th>Revisie</th><th>Revisiedatum</th><th>Status</th><th>Omschrijving</th><th>Opgeslagen</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      $("#modalBack").classList.add("show");
+      $("#modalBody").onclick=(e)=>{
+        const btn=e.target.closest("button[data-rev-action]");
+        if(!btn) return;
+        const tr=btn.closest("tr[data-rev]");
+        const rev=revisionById(model,tr?.dataset.rev);
+        if(!rev) return;
+        const action=btn.dataset.revAction;
+        if(action==="view"){
+          UI.revisionId=rev.id;
+          $("#modalBack").classList.remove("show");
+          toast(`Revisie ${rev.revNo||""} geopend`);
+          render();
+        }
+        if(action==="print"){
+          UI.revisionId=rev.id;
+          $("#modalBack").classList.remove("show");
+          render();
+          setTimeout(()=>printA3(),120);
+        }
+        if(action==="restore"){
+          if(!window.confirm(`Revisie ${rev.revNo||""} als live planning herstellen? De bestaande live planning wordt overschreven, revisies blijven bewaard.`)) return;
+          const keep=revisionList(model);
+          model.rows=deepClone(rev.snapshot?.rows||[]);
+          model.sched=deepClone(rev.snapshot?.sched||{});
+          model.revisions=keep;
+          UI.revisionId=null;
+          saveModel(pid,model,`Revisie ${rev.revNo||""} live gezet`);
+          $("#modalBack").classList.remove("show");
+          toast("Revisie als live planning hersteld");
+          render();
+        }
+        if(action==="delete"){
+          if(!window.confirm(`Revisie ${rev.revNo||""} definitief verwijderen?`)) return;
+          model.revisions=revisionList(model).filter(x=>x.id!==rev.id);
+          if(UI.revisionId===rev.id) UI.revisionId=null;
+          saveModel(pid,model,"Revisie verwijderd");
+          $("#modalBack").classList.remove("show");
+          toast("Revisie verwijderd");
+          render();
+        }
+      };
+      $("#modalSave").onclick=()=>{$("#modalBack").classList.remove("show");};
+    }
+    function exitRevision(){ UI.revisionId=null; toast("Live planning geopend"); render(); }
+
+
+    function childrenOf(model,rowId){ const [a,b]=blockRange(model,rowId); return a>=0 ? model.rows.slice(a+1,b+1) : []; }
+    function insertTaskAfter(rowId, asChild=false){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); const idx=model.rows.findIndex(r=>r.id===rowId); const sel=model.rows[idx]; if(!sel) return addTask(); const [a,b]=blockRange(model,rowId); const insertAt=asChild&&sel.type==="summary" ? a+1 : b+1; const parent=asChild&&sel.type==="summary" ? sel.id : (sel.parent||""); const level=asChild&&sel.type==="summary" ? Number(sel.level||0)+1 : Math.max(1,Number(sel.level||1)); const sc=model.sched[sel.id]||{}; const start=sc.end?addDays(sc.end,1):firstProjectStart(st,pid); const id=uniqueRowId(model,`${pid}-T`); const row={id,name:asChild?"Nieuwe subtaak":"Nieuwe taak",type:"task",level,parent,department:sel.department||departments(st)[0]?.id||"Engineering",resourceId:"",progress:0,status:"Niet gestart",predecessor:sel.type!=="summary"?`${sel.id}FS`:"",locked:false,colorKey:sel.colorKey||"c1",hours:0,why:"",feedback:""}; model.rows.splice(insertAt,0,row); model.sched[id]={start,end:addDays(start,4)}; UI.selected=id; saveModel(pid,model,"Taak toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
+    function insertSummaryAfter(rowId=null){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); let insertAt=model.rows.length, level=0, start=firstProjectStart(st,pid); if(rowId){ const [a,b]=blockRange(model,rowId); insertAt=b+1; level=Math.max(0,Number(model.rows[a]?.level||0)); const sc=model.sched[model.rows[a]?.id]||{}; if(sc.end) start=addDays(sc.end,1); } const id=uniqueRowId(model,`${pid}-F`); model.rows.splice(insertAt,0,{id,name:"Nieuwe fase",type:"summary",level,department:departments(st)[0]?.id||"Engineering",resourceId:"",progress:0,status:"Niet gestart",predecessor:"",locked:false,colorKey:"c1",hours:0,why:"",feedback:""}); model.sched[id]={start,end:addDays(start,4)}; UI.selected=id; saveModel(pid,model,"Fase toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
+    function insertMilestoneAfter(rowId=null){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), st=state(); let insertAt=model.rows.length, level=1, parent="", start=firstProjectStart(st,pid), dept=departments(st)[0]?.id||"Engineering"; if(rowId){ const [a,b]=blockRange(model,rowId); const sel=model.rows[a]; insertAt=b+1; level=Math.max(1,Number(sel?.level||1)); parent=sel?.parent||""; dept=sel?.department||dept; const sc=model.sched[sel?.id]||{}; if(sc.end) start=addDays(sc.end,1); } const id=uniqueRowId(model,`${pid}-M`); model.rows.splice(insertAt,0,{id,name:"Nieuwe mijlpaal",type:"task",level,parent,department:dept,resourceId:"",progress:0,status:"Niet gestart",predecessor:"",locked:false,colorKey:"c5",hours:0,why:"",feedback:"",milestone:true}); model.sched[id]={start,end:start}; UI.selected=id; saveModel(pid,model,"Mijlpaal toegevoegd via rechtermuisknop"); render(); setTimeout(()=>openEdit(id),80); }
+    function setTaskProgressFromMenu(rowId,progress){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; row.progress=Math.max(0,Math.min(100,Number(progress)||0)); row.status=row.progress>=100?"Gereed":row.progress>0?"In uitvoering":"Niet gestart"; row.progressUpdatedAt=new Date().toISOString(); saveModel(pid,model,"Voortgang aangepast via rechtermuisknop"); render(); }
+    function markBlockProgress(rowId,progress){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), [a,b]=blockRange(model,rowId); if(a<0) return; for(let i=a;i<=b;i++){ const r=model.rows[i]; r.progress=Math.max(0,Math.min(100,Number(progress)||0)); r.status=r.progress>=100?"Gereed":r.progress>0?"In uitvoering":"Niet gestart"; r.progressUpdatedAt=new Date().toISOString(); } saveModel(pid,model,"Fasevoortgang aangepast via rechtermuisknop"); render(); }
+    function promptSet(rowId,field,label){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; const current=field==="colorKey"?colorLabel(row.colorKey):(row[field]||""); const v=window.prompt(label,current); if(v==null) return; if(field==="colorKey") row.colorKey=normalizeColorKey(v,row.colorKey||"c1"); else row[field]=String(v).trim(); if(field==="feedback") { row.why=row.feedback||row.why||""; row.feedbackUpdatedAt=new Date().toISOString(); } saveModel(pid,model,`${label} bijgewerkt via rechtermuisknop`); render(); }
+    function toggleLock(rowId){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; row.locked=!row.locked; saveModel(pid,model,row.locked?"Taak vergrendeld":"Taak ontgrendeld"); render(); }
+    function applyPhaseColor(rowId){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), [a,b]=blockRange(model,rowId); if(a<0) return; const color=model.rows[a].colorKey||"c1"; for(let i=a+1;i<=b;i++) model.rows[i].colorKey=color; saveModel(pid,model,"Fasekleur toegepast op onderliggende taken"); render(); }
+    function runContextAction(action,rowId){ hideGanttContextMenu(); const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(action==="open") return rowId&&openEdit(rowId); if(action==="add-under") return rowId?insertTaskAfter(rowId,false):addTask(); if(action==="add-child") return rowId?insertTaskAfter(rowId,true):addTask(); if(action==="add-task") return addTask(); if(action==="add-phase") return insertSummaryAfter(rowId); if(action==="add-milestone") return insertMilestoneAfter(rowId); if(action==="duplicate") return duplicateRow(rowId); if(action==="delete") return deleteRow(rowId); if(action==="done") return row?.type==="summary"?markBlockProgress(rowId,100):setTaskProgressFromMenu(rowId,100); if(action==="zero") return row?.type==="summary"?markBlockProgress(rowId,0):setTaskProgressFromMenu(rowId,0); if(action==="progress"){ const v=window.prompt("Voortgang %",String(row?.progress??0)); if(v!=null) setTaskProgressFromMenu(rowId,v); return; } if(action==="color") return promptSet(rowId,"colorKey","Kleur wijzigen (Blauw/Groen/Geel/Rood/Paars/Turquoise/Oranje/Lime)"); if(action==="dept") return promptSet(rowId,"department","Afdeling wijzigen"); if(action==="resource") return promptSet(rowId,"resourceId","Resource wijzigen"); if(action==="pred") return promptSet(rowId,"predecessor","Voorganger instellen"); if(action==="lock") return toggleLock(rowId); if(action==="why") return promptSet(rowId,"feedback","Notitie / WHY / terugkoppeling"); if(action==="apply-color") return applyPhaseColor(rowId); if(action==="generate") { const m=generateModel(pid); saveModel(pid,m,"Fasen uit standaardtemplate gegenereerd"); toast("Standaard fasen/taken gegenereerd"); return render(); } if(action==="today") return $("#todayBtn")?.click(); if(action==="recalc") return applyPredecessors(); if(action==="print") return printA3(); }
+    function menuButtons(items){ return items.map(it=>it.sep?'<div class="sep"></div>':it.title?`<div class="title">${esc(it.title)}</div>`:`<button type="button" class="${it.danger?'danger':''}" data-ctx-action="${esc(it.action)}">${esc(it.label)}</button>`).join(""); }
+    function showGanttContextMenu(event,rowId=null,kind="empty"){
+      event.preventDefault(); event.stopPropagation();
+      const model=getModel(currentProjectId()); const row=rowId?model.rows.find(r=>r.id===rowId):null;
+      UI.selected=rowId||UI.selected; if(rowId) selectRow(model,rowId);
+      const phase=row?.type==="summary";
+      const items=row ? [
+        {title:phase?"Fase acties":"Taak acties"},{label:phase?"Fase openen":"Taak openen",action:"open"},{label:"Taak toevoegen onder deze regel",action:"add-under"}, phase?{label:"Taak toevoegen binnen fase",action:"add-child"}:{label:"Subtaak toevoegen",action:"add-child"},{label:phase?"Fase dupliceren met taken":"Taak dupliceren",action:"duplicate"},{label:phase?"Fase verwijderen met taken":"Taak verwijderen",action:"delete",danger:true},{sep:true},{label:phase?"Alle taken gereed melden":"Markeer als gereed",action:"done"},{label:phase?"Alle taken 0% zetten":"Voortgang instellen",action:phase?"zero":"progress"},{label:"Kleur wijzigen",action:"color"},{label:"Afdeling wijzigen",action:"dept"},{label:"Resource wijzigen",action:"resource"},{label:"Voorganger instellen",action:"pred"},{label:row.locked?"Ontgrendelen":"Vergrendelen",action:"lock"},{label:"Notitie / WHY toevoegen",action:"why"}, phase?{label:"Fasekleur toepassen op onderliggende taken",action:"apply-color"}:null
+      ].filter(Boolean) : [
+        {title:"Gantt"},{label:"Nieuwe taak toevoegen",action:"add-task"},{label:"Nieuwe fase toevoegen",action:"add-phase"},{label:"Nieuwe mijlpaal toevoegen",action:"add-milestone"},{label:"Genereer standaard fasen/taken",action:"generate"},{sep:true},{label:"Vandaag tonen",action:"today"},{label:"Planning herberekenen",action:"recalc"},{label:"Print A3",action:"print"}
+      ];
+      const menu=$("#ganttContextMenu"); menu.innerHTML=menuButtons(items); menu.dataset.rowId=rowId||""; menu.setAttribute("aria-hidden","false"); menu.classList.add("show");
+      const pad=8; const mw=240, mh=Math.min(520,items.length*38+40); let x=event.clientX, y=event.clientY; if(x+mw>window.innerWidth-pad) x=window.innerWidth-mw-pad; if(y+mh>window.innerHeight-pad) y=window.innerHeight-mh-pad; menu.style.left=Math.max(pad,x)+"px"; menu.style.top=Math.max(pad,y)+"px";
+      menu.querySelectorAll("button[data-ctx-action]").forEach(btn=>btn.onclick=()=>runContextAction(btn.dataset.ctxAction, menu.dataset.rowId||null));
+    }
+    function hideGanttContextMenu(){ const menu=$("#ganttContextMenu"); if(menu){ menu.classList.remove("show"); menu.setAttribute("aria-hidden","true"); } }
     function exportCsv(){
       const cols=visibleColumns();
       const lines=[cols.map(c=>c.label)];
@@ -688,8 +1243,16 @@
         URL.revokeObjectURL(a.href);
       }
     }
-    function printA3(){ const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW; UI.printMode=true; UI.view="both"; UI.zoom="print"; document.body.classList.add("printing"); render(); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(UI.printMode) restore(); },8000); }
-    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen uit standaardtemplate gegenereerd"); toast("Fasen uit standaardtemplate gegenereerd"); render();}; $("#recalcBtn").onclick=applyPredecessors; $("#hoursBtn").onclick=()=>{ CWS?.gantt?.recalculateHours?.(); toast("Uren herberekend voor Capaciteit"); render(); }; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; window.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#modalBack").classList.remove("show"); if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
+    function printA3(){
+      const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW;
+      UI.printMode=true; UI.view="both"; UI.zoom="print"; document.body.classList.add("printing");
+      render();
+      requestAnimationFrame(()=>setTimeout(()=>window.print(),140));
+      const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); };
+      window.addEventListener("afterprint",restore);
+      setTimeout(()=>{ if(UI.printMode) restore(); },8000);
+    }
+    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const m=generateModel(pid); saveModel(pid,m,"Fasen uit standaardtemplate gegenereerd"); toast("Fasen uit standaardtemplate gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); $("#boardWrap").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
     bind(); render();
   })();
   </script>

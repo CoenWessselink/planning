@@ -5,7 +5,7 @@
 <div class="panel">
   <div class="panel-head">
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <button class="btn" id="newProject">Nieuw project</button>
+      <button class="btn" id="newProject" onclick="window.CWS_Projecten_OpenNew&&window.CWS_Projecten_OpenNew()">Nieuw project</button>
       <button class="btn" id="openBron">Brondata</button>
       <button class="btn" id="openDeptHours">Uren per afdeling</button>
       <button class="btn" id="importExcelBtn">Import Excel</button>
@@ -84,7 +84,26 @@
   </div>
 </div>
 
-<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
+<script>
+(function(){
+  try{
+    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
+    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
+    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
+      window.CWS.resetDemo();
+      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
+    }
+  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
+})();
+</script>
+
 <script>
 (function(){
   const q=document.getElementById('fuzzyQ');
@@ -616,7 +635,8 @@ function bindNP(){
   function render(){
     const st = CWS.getState();
     const depts = ensureDeptColumns(st);
-    const active = st.ui.lastTab || "Alle";
+    const active = TABS.includes(st.ui.lastTab) ? st.ui.lastTab : "Alle";
+    if(st.ui.lastTab !== active){ try{ CWS.setState(x=>{ x.ui.lastTab = active; return x; }); }catch(_e){} }
     renderTabs(active);
 
     const q = document.getElementById("search").value;
@@ -732,7 +752,8 @@ function bindNP(){
   document.getElementById("prev").addEventListener("click", ()=>{ page=Math.max(1,page-1); render(); });
   document.getElementById("next").addEventListener("click", ()=>{ page=page+1; render(); });
 
-  document.getElementById("newProject").addEventListener("click", ()=> openProjectModal(null));
+  window.CWS_Projecten_OpenNew = () => openProjectModal(null);
+  document.getElementById("newProject").addEventListener("click", (e)=>{ e.preventDefault(); openProjectModal(null); });
 
   document.getElementById("search").addEventListener("input", ()=>{ page=1; render(); });
 
@@ -749,7 +770,7 @@ function bindNP(){
   const __exp = document.getElementById("exportBtn");
   if(__exp) __exp.addEventListener("click", ()=>{
     const st = CWS.getState();
-    const active = st.ui.lastTab || "Alle";
+    const active = TABS.includes(st.ui.lastTab) ? st.ui.lastTab : "Alle";
     const q = document.getElementById("search").value;
     const idsAll = filteredIds(st, active, q);
     const depts = getDeptList(st);
@@ -767,7 +788,7 @@ function bindNP(){
   const __prt = document.getElementById("printBtn");
   if(__prt) __prt.addEventListener("click", ()=>{
     const st = CWS.getState();
-    const active = st.ui.lastTab || "Alle";
+    const active = TABS.includes(st.ui.lastTab) ? st.ui.lastTab : "Alle";
     const q = document.getElementById("search").value;
     const title = "Projecten — " + active;
     const subtitle = q ? ("Filter: " + q) : "";
@@ -853,6 +874,7 @@ bindNP();
     });
   }
 
+  if(CWS?.subscribe){ CWS.subscribe(()=>{ try{ render(); }catch(e){ console.error("Projecten render na statewijziging mislukt", e); } }); }
   render();
 </script>
 </body></html>

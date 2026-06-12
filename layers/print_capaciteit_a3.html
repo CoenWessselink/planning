@@ -33,7 +33,10 @@
   <tbody id="rows"></tbody>
 </table>
 
-<script>const CWS = window.opener?.CWS || window.parent?.CWS || window.CWS;</script>
+<script>(function(){
+ var p=null; try{ p=(window.opener&&window.opener.CWS)||(window.parent&&window.parent!==window&&window.parent.CWS)||null; }catch(_e){ p=null; }
+ if(p){ window.CWS=p; } else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})(); var CWS=window.CWS;</script>
 <script>
   const st = CWS.getState();
   const proj = st.projects.byId;

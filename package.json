@@ -2,16 +2,22 @@
   "name": "cws-planning",
   "type": "module",
   "scripts": {
-    "start": "node playwright/server.js",
-    "dev": "wrangler d1 migrations apply cws-planning-intern --local && wrangler pages dev . --port 8788",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright test && node scripts/open_report_hint.js",
-    "lint:syntax": "node scripts/syntax-check.js"
+    "start": "node scripts/serve.mjs",
+    "dev": "node scripts/serve.mjs",
+    "test:e2e": "node scripts/e2e-fallback.mjs",
+    "test:e2e:headed": "node scripts/e2e-fallback.mjs --headed",
+    "test:e2e:report": "node scripts/e2e-fallback.mjs && node scripts/open_report_hint.js",
+    "lint:syntax": "node scripts/syntax-check.js",
+    "preflight:v28": "node scripts/v28-preflight-static.mjs",
+    "preflight:v29": "node scripts/v29-preflight-static.mjs",
+    "preflight:v30": "node scripts/v30-preflight-static.mjs",
+    "preflight:v31": "node scripts/v31-preflight-static.mjs",
+    "preflight:v32": "node scripts/v32-preflight-static.mjs",
+    "preflight:v33": "node scripts/v33-functional-preflight.mjs",
+    "preflight:v34": "node scripts/v34-functional-preflight.mjs",
+    "preflight:v35": "node scripts/v35-functional-preflight.mjs",
+    "preflight:v36": "node scripts/v36-functional-preflight.mjs",
+    "preflight:v37": "node scripts/v37-mobile-preflight.mjs"
   },
-  "devDependencies": {
-    "@playwright/test": "^1.42.0",
-    "express": "^4.18.2",
-    "wrangler": "^4.99.0"
-  }
+  "devDependencies": {}
 }

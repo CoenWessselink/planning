@@ -53,8 +53,11 @@ window.CWS = window.CWS || {};
     projectOverview: { notesByProject:{}, statusByProject:{} },
     projectPlanning: { byWeek:{}, columns:[] },
     transport: { vehicles:[], drivers:[], locations:[], trips:[] },
+    capacity: { availabilityOverrides:{}, updatedAt:null },
     gantt: { hoursByDay:{}, sourcesByDay:{} },
     templates: { taskSets: [ { id:"default", name:"Standaard", phases:[] } ] },
+    company: { name:"Tasche Staalbouw", logo:null },
+    print: { gantt:{ paper:"A3 landscape", rangeRule:"one-week-before-first-task-one-week-after-last-task" }, capacity:{ paper:"A0 landscape", mode:"matrix" } },
 
     settings: {
       activeSection: "Accountinformatie",
@@ -105,6 +108,12 @@ window.CWS = window.CWS || {};
   const deptRowName = (row) => String(row?.name ?? row?.afdeling ?? row?.Afdeling ?? row?.Naam ?? row?.dept ?? row?.department ?? row?.id ?? row?.code ?? "").trim();
   const deptRowCode = (row) => String(row?.code ?? row?.Code ?? row?.afdelingCode ?? row?.departmentCode ?? "").trim();
   const syncDepartments = (st) => {
+    st.company = st.company && typeof st.company === "object" && !Array.isArray(st.company) ? st.company : {};
+    st.company.name = (Array.isArray(st.settings?.tables?.company) && st.settings.tables.company[0]?.name) || st.company.name || "Tasche Staalbouw";
+    st.company.logo = st.company.logo && typeof st.company.logo === "object" ? st.company.logo : null;
+    st.print = st.print && typeof st.print === "object" && !Array.isArray(st.print) ? st.print : {};
+    st.print.gantt = st.print.gantt && typeof st.print.gantt === "object" ? st.print.gantt : { paper:"A3 landscape", rangeRule:"one-week-before-first-task-one-week-after-last-task" };
+    st.print.capacity = st.print.capacity && typeof st.print.capacity === "object" ? st.print.capacity : { paper:"A0 landscape", mode:"matrix" };
     st.settings = st.settings || {};
     st.settings.tables = st.settings.tables && typeof st.settings.tables === "object" ? st.settings.tables : {};
     st.settings.tables.departments = Array.isArray(st.settings.tables.departments) ? st.settings.tables.departments : [];
@@ -220,6 +229,12 @@ window.CWS = window.CWS || {};
     st.settings = st.settings || {};
     st.settings.tables = st.settings.tables && typeof st.settings.tables === "object" ? st.settings.tables : {};
     st.settings.datasets = st.settings.datasets && typeof st.settings.datasets === "object" ? st.settings.datasets : {};
+    st.company = st.company && typeof st.company === "object" && !Array.isArray(st.company) ? st.company : {};
+    st.company.name = st.company.name || (Array.isArray(st.settings.tables.company) && st.settings.tables.company[0]?.name) || "Tasche Staalbouw";
+    st.company.logo = st.company.logo && typeof st.company.logo === "object" ? st.company.logo : null;
+    st.print = st.print && typeof st.print === "object" && !Array.isArray(st.print) ? st.print : {};
+    st.print.gantt = st.print.gantt && typeof st.print.gantt === "object" ? st.print.gantt : { paper:"A3 landscape", rangeRule:"one-week-before-first-task-one-week-after-last-task" };
+    st.print.capacity = st.print.capacity && typeof st.print.capacity === "object" ? st.print.capacity : { paper:"A0 landscape", mode:"matrix" };
     syncDepartments(st);
     st.allocations = st.allocations || { byWeek:{} };
     st.allocations.byWeek = st.allocations.byWeek && typeof st.allocations.byWeek === "object" ? st.allocations.byWeek : {};
@@ -230,6 +245,10 @@ window.CWS = window.CWS || {};
     st.projectOverview = st.projectOverview || { notesByProject:{}, statusByProject:{} };
     st.projectOverview.notesByProject = st.projectOverview.notesByProject || {};
     st.projectOverview.statusByProject = st.projectOverview.statusByProject || {};
+    st.projectOverview.progressByProject = st.projectOverview.progressByProject || {};
+    st.projectOverview.feedbackByProject = st.projectOverview.feedbackByProject || {};
+    st.projectOverview.updatedAtByProject = st.projectOverview.updatedAtByProject || {};
+    st.projectOverview.taskProgressHistory = Array.isArray(st.projectOverview.taskProgressHistory) ? st.projectOverview.taskProgressHistory : [];
     st.projectPlanning = st.projectPlanning || { byWeek:{}, columns:[] };
     st.projectPlanning.byWeek = st.projectPlanning.byWeek || {};
     st.projectPlanning.columns = Array.isArray(st.projectPlanning.columns) ? st.projectPlanning.columns : [];
@@ -237,6 +256,9 @@ window.CWS = window.CWS || {};
     ["vehicles","drivers","locations","trips"].forEach(k => {
       st.transport[k] = Array.isArray(st.transport[k]) ? st.transport[k] : [];
     });
+    st.capacity = st.capacity && typeof st.capacity === "object" && !Array.isArray(st.capacity) ? st.capacity : {};
+    st.capacity.availabilityOverrides = st.capacity.availabilityOverrides && typeof st.capacity.availabilityOverrides === "object" && !Array.isArray(st.capacity.availabilityOverrides) ? st.capacity.availabilityOverrides : {};
+    st.capacity.updatedAt = st.capacity.updatedAt || null;
     st.gantt = st.gantt || { hoursByDay:{}, sourcesByDay:{} };
     st.gantt.hoursByDay = st.gantt.hoursByDay || {};
     st.gantt.sourcesByDay = st.gantt.sourcesByDay || {};
@@ -410,7 +432,9 @@ window.CWS = window.CWS || {};
     }
     try{
       localStorage.setItem(KEY_GLOBAL, JSON.stringify(state));
-      localStorage.removeItem(KEY_TENANT);
+      // V33 hardening: keep the tenant key in sync as load() reads it first.
+      // Earlier builds removed this key, which could leave stale state in some file/local tests.
+      localStorage.setItem(KEY_TENANT, JSON.stringify(state));
       if(storageStatus.mode === "api") scheduleRemoteSave();
       return true;
     }catch(error){
@@ -445,6 +469,7 @@ window.CWS = window.CWS || {};
     const resultValue = mutator(draft);
     const next = resultValue && typeof resultValue === "object" && !Array.isArray(resultValue) ? resultValue : draft;
     normalizeState(next);
+    rebuildGanttHoursByDay(next);
     if(viewerBlocked(before, next)){
       try{ window.UI?.toast?.("Viewer heeft alleen leesrechten."); }catch(_){}
       return state;
@@ -495,6 +520,7 @@ window.CWS = window.CWS || {};
     }
     const next = resultValue && typeof resultValue === "object" && !Array.isArray(resultValue) ? resultValue : draft;
     normalizeState(next);
+    rebuildGanttHoursByDay(next);
     if(viewerBlocked(before, next)){
       try{ window.UI?.toast?.("Viewer heeft alleen leesrechten."); }catch(_){}
       return { ok:false, errors:["Viewer heeft alleen leesrechten."], state };
@@ -522,6 +548,7 @@ window.CWS = window.CWS || {};
     if(!source.length) return false;
     target.push(deepClone(state));
     state = normalizeState(source.pop());
+    rebuildGanttHoursByDay(state);
     state.meta.updatedAt = new Date().toISOString();
     save();
     notify();
@@ -812,6 +839,30 @@ window.CWS = window.CWS || {};
     computeDeptCapacityForWeek: (wkKeyStr) => computeDeptCapacityForWeek(getState(), wkKeyStr),
     computePlannedWeekByDept: (wkKeyStr) => computePlannedWeekByDept(getState(), wkKeyStr),
     computeGanttDistributedHours: (projectId, deptName, wkKeyStr) => computeGanttDistributedHours(getState(), projectId, deptName, wkKeyStr),
+    getAvailabilityOverrides: () => getState().capacity?.availabilityOverrides || {},
+    setAvailabilityOverride: (dept, iso, hours, note="") => setState(s => {
+      s.capacity = s.capacity || { availabilityOverrides:{} };
+      s.capacity.availabilityOverrides = s.capacity.availabilityOverrides || {};
+      const d = String(dept || "").trim();
+      const day = String(iso || "").trim();
+      if(!d || !day) return s;
+      s.capacity.availabilityOverrides[d] = s.capacity.availabilityOverrides[d] || {};
+      const h = Math.max(0, num(hours));
+      const n = String(note || "").trim();
+      s.capacity.availabilityOverrides[d][day] = { hours:h, note:n, updatedAt:new Date().toISOString() };
+      s.capacity.updatedAt = new Date().toISOString();
+      return s;
+    }),
+    removeAvailabilityOverride: (dept, iso) => setState(s => {
+      const d = String(dept || "").trim();
+      const day = String(iso || "").trim();
+      if(s.capacity?.availabilityOverrides?.[d]?.[day]){
+        delete s.capacity.availabilityOverrides[d][day];
+        if(Object.keys(s.capacity.availabilityOverrides[d]).length===0) delete s.capacity.availabilityOverrides[d];
+        s.capacity.updatedAt = new Date().toISOString();
+      }
+      return s;
+    }),
     recalcDerivedCapacityFields
   };
 
@@ -899,6 +950,63 @@ window.CWS = window.CWS || {};
     st.projects.deptHours.forEach(r=>{ totals[r.projectId]=(totals[r.projectId]||0)+Number(r.hours||0); });
     st.projects.order.forEach(pid=>{ const p=st.projects.byId[pid]; if(p) p.needHours = totals[pid] || 0; });
 
+    // V33: seed full Gantt V2 models so Gantt/Projectoverzicht/Capaciteit are testable immediately.
+    st.ganttV2 = st.ganttV2 || { byProject:{}, ui:{} };
+    const iso = (d)=>d;
+    const makeModel = (pid, start, phases) => {
+      const model = { rows:[], sched:{}, revisions:[] };
+      let cursor = start;
+      const addDaysLocal = (value, days) => {
+        const dt = new Date(String(value).slice(0,10)+"T00:00:00Z");
+        dt.setUTCDate(dt.getUTCDate()+days);
+        return dt.toISOString().slice(0,10);
+      };
+      phases.forEach((ph, pi)=>{
+        const sid = `${pid}-PH${pi+1}`;
+        model.rows.push({ id:sid, name:ph.name, type:"summary", level:0, department:ph.dept||ph.name, resourceId:"", progress:ph.progress||0, status:ph.progress>=100?"Gereed":ph.progress>0?"In uitvoering":"Niet gestart", predecessor:"", locked:false, colorKey:ph.colorKey||`c${(pi%8)+1}`, hours:0, why:"", feedback:ph.feedback||"" });
+        (ph.tasks||[]).forEach((t, ti)=>{
+          const tid = `${pid}-T${pi+1}-${ti+1}`;
+          const days = Math.max(1, Number(t.days||5));
+          const startIso = t.start || cursor;
+          const endIso = t.end || addDaysLocal(startIso, days-1);
+          model.rows.push({ id:tid, name:t.name, type:"task", level:1, parent:sid, department:t.dept||ph.dept||ph.name, resourceId:t.resourceId||"", progress:Math.max(0,Math.min(100,Number(t.progress||0))), status:t.status || (Number(t.progress||0)>=100?"Gereed":Number(t.progress||0)>0?"In uitvoering":"Niet gestart"), predecessor:ti>0?`${pid}-T${pi+1}-${ti}FS`:"", locked:false, colorKey:t.colorKey||ph.colorKey||`c${(pi%8)+1}`, hours:Number(t.hours||0), why:t.why||"", feedback:t.feedback||"", progressUpdatedAt:new Date().toISOString() });
+          model.sched[tid] = { start:startIso, end:endIso };
+          cursor = addDaysLocal(endIso, 1);
+        });
+      });
+      return model;
+    };
+    st.ganttV2.byProject["P-1001"] = makeModel("P-1001", "2026-04-15", [
+      { name:"Engineering", dept:"Engineering", colorKey:"c1", progress:75, feedback:"Tekenwerk grotendeels gereed.", tasks:[
+        { name:"Model / tekeningen", days:6, hours:40, progress:100, feedback:"Ter controle verstuurd." },
+        { name:"Controle tekenwerk", days:4, hours:40, progress:50, feedback:"Wacht op opmerkingen opdrachtgever." }
+      ]},
+      { name:"Werkvoorbereiding", dept:"Werkvoorbereiding", colorKey:"c2", progress:40, tasks:[
+        { name:"Inkoop en werkvoorbereiding", days:5, hours:40, progress:40, feedback:"Materiaal deels besteld." }
+      ]},
+      { name:"Productie", dept:"Productie", colorKey:"c7", progress:10, tasks:[
+        { name:"Productie staal", days:8, hours:60, progress:10, feedback:"Start gepland." }
+      ]},
+      { name:"Montage", dept:"Montage", colorKey:"c5", progress:0, tasks:[
+        { name:"Montage op locatie", days:4, hours:20, progress:0, feedback:"Nog niet gestart." }
+      ]}
+    ]);
+    st.ganttV2.byProject["P-1002"] = makeModel("P-1002", "2026-05-02", [
+      { name:"Engineering", dept:"Engineering", colorKey:"c1", progress:100, tasks:[{ name:"Engineering update", days:3, hours:20, progress:100, feedback:"Gereed." }]},
+      { name:"Productie", dept:"Productie", colorKey:"c7", progress:35, tasks:[{ name:"Aanpassen machineframe", days:7, hours:40, progress:35, feedback:"In uitvoering." }]}
+    ]);
+    st.ganttV2.byProject["P-1003"] = makeModel("P-1003", "2026-05-18", [
+      { name:"Engineering", dept:"Engineering", colorKey:"c1", progress:0, tasks:[{ name:"Voorstudie", days:5, hours:10, progress:0, feedback:"Nog niet gestart." }]}
+    ]);
+
+    st.templates.taskSets = [{ id:"default", name:"Standaard", phases:[
+      { id:"ENG", name:"Engineering", colorKey:"c1", tasks:[{ id:"ENG-1", name:"Tekenwerk", days:5, hours:0, colorKey:"c1" },{ id:"ENG-2", name:"Controle tekenwerk", days:3, hours:0, colorKey:"c1" }]},
+      { id:"WVB", name:"Werkvoorbereiding", colorKey:"c2", tasks:[{ id:"WVB-1", name:"Werkvoorbereiding", days:4, hours:0, colorKey:"c2" }]},
+      { id:"PROD", name:"Productie", colorKey:"c7", tasks:[{ id:"PROD-1", name:"Productie", days:8, hours:0, colorKey:"c7" }]},
+      { id:"MONT", name:"Montage", colorKey:"c5", tasks:[{ id:"MONT-1", name:"Montage", days:4, hours:0, colorKey:"c5" }]}
+    ]}];
+
+
     // Demo tasks per project (used by Gantt to build rows)
     const mk = (id, name) => ({ id, name });
     // Phases are named as departments so capacity distribution can map tasks -> dept (SSOT rule)
@@ -944,7 +1052,18 @@ window.CWS = window.CWS || {};
 
 
     // Demo settings datasets
-    st.settings = st.settings || { activeSection:"Accountinformatie", datasets:{} };
+    st.settings = st.settings || { activeSection:"Accountinformatie", datasets:{}, tables:{} };
+    st.settings.tables = st.settings.tables || {};
+    st.settings.sections = [
+      { name:"Accountinformatie", hint:"Beheer profiel en beveiliging.", items:[{ id:"profiel", title:"Profiel", desc:"Naam, contactgegevens, handtekening.", icon:"👤" },{ id:"beveiliging", title:"Beveiliging", desc:"Wachtwoord, 2FA, sessies.", icon:"🔒" }]},
+      { name:"Organisatie", hint:"Bedrijfsdata, afdelingen en rechten.", items:[{ id:"bedrijf", title:"Bedrijf", desc:"Naam, adres, logo en printgegevens.", icon:"🏢" },{ id:"afdelingen", title:"Afdelingen", desc:"Afdelingen, kleuren, capaciteit.", icon:"🏷️" },{ id:"rollen", title:"Rollen & rechten", desc:"Admin/Planner/Viewer rechten.", icon:"🧩" }]},
+      { name:"Resources & Capaciteit", hint:"Werknemers, werkweken en kalenders.", items:[{ id:"werknemers", title:"Werknemers", desc:"Medewerkers, skills, werkweek.", icon:"👷" },{ id:"kalender", title:"Niet-werkbare dagen", desc:"Werkdag/Niet-werkdag per weekdag.", icon:"🗓️" },{ id:"capaciteit", title:"Capaciteit", desc:"Uurtypen, targets, overuren.", icon:"⏱️" }]},
+      { name:"Planning & Projectdefinities", hint:"Projectfasen, statussen, kolommen.", items:[{ id:"fasen", title:"Fasen & taken", desc:"Standaard fasen/taken, templates.", icon:"🧱" },{ id:"statussen", title:"Status & voortgang", desc:"Labels, kleuren, workflow.", icon:"🚦" },{ id:"kolommen", title:"Kolommenbeheer", desc:"Zichtbaarheid per module.", icon:"📐" }]},
+      { name:"Systeem & Data", hint:"Import/Export, audit en integraties.", items:[{ id:"io", title:"Import/Export", desc:"Excel/CSV, mapping, validatie.", icon:"📥" },{ id:"audit", title:"Auditlog", desc:"Wijzigingen, gebruikers, tijd.", icon:"🧾" },{ id:"integraties", title:"Integraties", desc:"API, webhooks, koppelingen.", icon:"🔌" }]}
+    ];
+    st.settings.tables.company = [{ name:"Tasche Staalbouw", kvk:"", btw:"", street:"", zip:"", city:"Albergen", country:"NL", email:"info@tasche.nl", phone:"", website:"" }];
+    st.company = st.company || {};
+    st.company.name = "Tasche Staalbouw";
     st.settings.datasets = st.settings.datasets || {};
     const ds = st.settings.datasets;
 
@@ -1045,34 +1164,156 @@ window.CWS = window.CWS || {};
     audit("reset_demo");
   };
 
-  const rebuildGanttHoursByDay = (target=state) => {
-    normalizeState(target);
-    const hoursByDay = {};
-    const sourcesByDay = {};
-    (target.projects?.deptHours || []).forEach(row => {
-      const dept = row.deptId || "(Geen)";
-      const days = [...getDeptWorkdaysSetForProject(target, row.projectId, dept)].sort();
-      if(!days.length) return;
-      const perDay = num(row.hours) / days.length;
-      days.forEach(iso => {
-        if(getGlobalNonWorkISO(target, iso)) return;
-        hoursByDay[iso] = hoursByDay[iso] || {};
-        hoursByDay[iso][dept] = (hoursByDay[iso][dept] || 0) + perDay;
-        sourcesByDay[iso] = sourcesByDay[iso] || {};
-        sourcesByDay[iso][dept] = sourcesByDay[iso][dept] || [];
-        sourcesByDay[iso][dept].push({ projectId:row.projectId, hours:perDay });
+  const getTaskWorkdays = (st, startIso, endIso) => {
+    const out = [];
+    if(!startIso || !endIso) return out;
+    let d0 = new Date(String(startIso).slice(0,10) + "T00:00:00Z");
+    let d1 = new Date(String(endIso).slice(0,10) + "T00:00:00Z");
+    if(!Number.isFinite(d0.getTime()) || !Number.isFinite(d1.getTime())) return out;
+    if(d1 < d0){ const t=d0; d0=d1; d1=t; }
+    let d = d0;
+    while(d <= d1){
+      if(isWorkdayUTC(st, d)){
+        const iso = isoDateUTC(d);
+        if(!getGlobalNonWorkISO(st, iso)) out.push(iso);
+      }
+      d = addDaysUTC(d, 1);
+    }
+    return out;
+  };
+
+  const getProjectDeptHoursTotal = (st, projectId, deptName) => {
+    const dept = String(deptName || "(Geen)").trim() || "(Geen)";
+    const p = st?.projects?.byId?.[projectId] || {};
+    let total = 0;
+
+    (Array.isArray(st?.projects?.deptHours) ? st.projects.deptHours : []).forEach(row => {
+      if(String(row?.projectId || row?.project || "") !== String(projectId)) return;
+      const rd = String(row?.deptId || row?.dept || row?.department || "(Geen)").trim() || "(Geen)";
+      if(rd === dept) total += Math.max(0, num(row?.hours));
+    });
+
+    if(total <= 0 && p.deptHours && typeof p.deptHours === "object"){
+      total = Math.max(0, num(p.deptHours[dept]));
+    }
+    if(total <= 0 && p.requiredDeptHours && typeof p.requiredDeptHours === "object"){
+      total = Math.max(0, num(p.requiredDeptHours[dept]));
+    }
+    return Math.round(total * 1000000) / 1000000;
+  };
+
+  const getGanttTaskGroups = (st) => {
+    const groups = new Map();
+    const byProject = st?.ganttV2?.byProject || {};
+    Object.entries(byProject).forEach(([projectId, model]) => {
+      const rows = Array.isArray(model?.rows) ? model.rows : [];
+      const sched = model?.sched || {};
+      rows.forEach((row, index) => {
+        if(!row || row.type === "summary" || row.type === "phase") return;
+        const sc = sched[row.id] || {};
+        if(!sc.start || !sc.end) return;
+        const dept = String(row.department || row.dept || row.afdeling || "(Geen)").trim() || "(Geen)";
+        const days = getTaskWorkdays(st, sc.start, sc.end);
+        if(!days.length) return;
+        const key = `${projectId}|${dept}`;
+        if(!groups.has(key)) groups.set(key, { projectId, dept, tasks:[] });
+        groups.get(key).tasks.push({
+          row,
+          index,
+          start: String(sc.start).slice(0,10),
+          end: String(sc.end).slice(0,10),
+          days,
+          explicitHours: Math.max(0, num(row.hours)),
+          weight: Math.max(1, Number(row.allocationWeight || row.weight || days.length) || days.length || 1)
+        });
       });
     });
+    return Array.from(groups.values());
+  };
+
+  const ganttHoursSignature = (gantt={}) => JSON.stringify({
+    hoursByDay:gantt.hoursByDay || {},
+    sourcesByDay:gantt.sourcesByDay || {},
+    allocationRule:gantt.allocationRule || ""
+  });
+
+  const rebuildGanttHoursByDay = (target=state) => {
+    normalizeState(target);
+    target.gantt = target.gantt || { hoursByDay:{}, sourcesByDay:{} };
+
+    const previousSignature = ganttHoursSignature(target.gantt);
+    const hoursByDay = {};
+    const sourcesByDay = {};
+    const taskGroups = getGanttTaskGroups(target);
+
+    taskGroups.forEach(group => {
+      const projectTotal = getProjectDeptHoursTotal(target, group.projectId, group.dept);
+      const explicitSum = group.tasks.reduce((sum, t) => sum + t.explicitHours, 0);
+      const tasksWithoutExplicit = group.tasks.filter(t => t.explicitHours <= 0);
+      const allWeight = group.tasks.reduce((sum, t) => sum + t.weight, 0) || group.tasks.length || 1;
+      const emptyWeight = tasksWithoutExplicit.reduce((sum, t) => sum + t.weight, 0) || tasksWithoutExplicit.length || 1;
+
+      group.tasks.forEach(task => {
+        let taskHours = 0;
+        let allocationMode = "none";
+
+        if(task.explicitHours > 0){
+          taskHours = task.explicitHours;
+          allocationMode = "task-hours";
+        }else if(projectTotal > 0 && tasksWithoutExplicit.length){
+          const remaining = Math.max(0, projectTotal - explicitSum);
+          taskHours = remaining > 0 ? remaining * (task.weight / emptyWeight) : 0;
+          allocationMode = "project-dept-hours-remaining";
+        }else if(projectTotal > 0 && explicitSum <= 0){
+          taskHours = projectTotal * (task.weight / allWeight);
+          allocationMode = "project-dept-hours";
+        }
+
+        taskHours = Math.round(taskHours * 1000000) / 1000000;
+        if(taskHours <= 0 || !task.days.length) return;
+        const perDay = Math.round((taskHours / task.days.length) * 1000000) / 1000000;
+
+        task.days.forEach(iso => {
+          if(getGlobalNonWorkISO(target, iso)) return;
+          hoursByDay[iso] = hoursByDay[iso] || {};
+          hoursByDay[iso][group.dept] = Math.round(((hoursByDay[iso][group.dept] || 0) + perDay) * 1000000) / 1000000;
+          sourcesByDay[iso] = sourcesByDay[iso] || {};
+          sourcesByDay[iso][group.dept] = sourcesByDay[iso][group.dept] || [];
+          sourcesByDay[iso][group.dept].push({
+            projectId: group.projectId,
+            taskId: task.row.id,
+            rowId: task.row.id,
+            taskName: task.row.name || task.row.id,
+            phaseId: task.row.parent || "",
+            resourceId: task.row.resourceId || "",
+            start: task.start,
+            end: task.end,
+            dept: group.dept,
+            hours: perDay,
+            taskHours,
+            workdays: task.days.length,
+            allocationMode
+          });
+        });
+      });
+    });
+
     target.gantt.hoursByDay = hoursByDay;
     target.gantt.sourcesByDay = sourcesByDay;
+    target.gantt.allocationRule = "task-hours-first-project-dept-hours-fallback-workdays-only-auto";
+    const nextSignature = ganttHoursSignature(target.gantt);
+    if(previousSignature !== nextSignature || !target.gantt.recalculatedAt){
+      target.gantt.recalculatedAt = new Date().toISOString();
+      target.gantt.autoRecalculated = true;
+    }
     return target.gantt;
   };
 
   const recalculateGanttHoursIfChanged = () => {
-    const before = JSON.stringify(state.gantt || { hoursByDay:{}, sourcesByDay:{} });
+    const before = ganttHoursSignature(state.gantt || { hoursByDay:{}, sourcesByDay:{} });
     const next = deepClone(state);
     rebuildGanttHoursByDay(next);
-    const after = JSON.stringify(next.gantt || { hoursByDay:{}, sourcesByDay:{} });
+    const after = ganttHoursSignature(next.gantt || { hoursByDay:{}, sourcesByDay:{} });
     if(before === after){
       return { changed:false, state, gantt:state.gantt };
     }
@@ -1161,6 +1402,7 @@ window.CWS = window.CWS || {};
       }
     }
     state = normalizeState(state);
+    rebuildGanttHoursByDay(state);
     state.user = state.user || {};
     state.user.email = currentUser.email;
     state.ui = state.ui || deepClone(defaultState().ui);
@@ -1198,6 +1440,8 @@ window.CWS = window.CWS || {};
     audit,
     hasPermission,
     setUserRole,
+    getCompanyLogo: () => state.company?.logo?.dataUrl || "",
+    getCompanyName: () => (Array.isArray(state.settings?.tables?.company) && state.settings.tables.company[0]?.name) || state.company?.name || "",
     colors: { map:CWS_COLOR_MAP, names:CWS_COLOR_NAMES, normalize:normalizeColorKey }
   };
 })();

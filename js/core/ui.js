@@ -53,29 +53,46 @@ const UI = (() => {
     downloadText(filename, csv, "text/csv;charset=utf-8");
   };
 
-  const printA3 = (title, subtitle, html) => {
+  const companyPrintInfo = () => {
+    const root = window.parent?.CWS || window.CWS || {};
+    const st = root.getState?.() || {};
+    const companyName = root.getCompanyName?.() || (Array.isArray(st.settings?.tables?.company) && st.settings.tables.company[0]?.name) || st.company?.name || "CWS Planning";
+    const logo = root.getCompanyLogo?.() || st.company?.logo?.dataUrl || "";
+    return { companyName, logo };
+  };
+
+  const printA3 = (title, subtitle, html, options = {}) => {
     const w = window.open("", "_blank");
     if(!w) return toast("Pop-up geblokkeerd");
+    const { companyName, logo } = companyPrintInfo();
+    const logoHtml = logo ? `<img class="print-logo" src="${logo}" alt="Bedrijfslogo">` : `<div class="print-logo-placeholder">${escapeHtml(companyName).slice(0,2).toUpperCase()}</div>`;
+    const paper = options.paper || "A3 landscape";
+    const printDate = new Date().toLocaleString("nl-NL");
     w.document.open();
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"/>
-      <title>${title}</title>
+      <title>${escapeHtml(title)}</title>
       <style>
-        @page { size: A3 landscape; margin: 12mm; }
-        body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#111827; }
-        .hdr{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid #cbd5e1; padding-bottom:8px; margin-bottom:10px;}
-        .hdr h1{ margin:0; font-size:18px;}
-        .hdr .sub{ font-size:12px; color:#475569;}
-        table{ width:100%; border-collapse:collapse; font-size:11px;}
-        th,td{ border:1px solid #e2e8f0; padding:6px 8px; text-align:left; }
-        th{ background:#f8fafc; }
+        @page { size: ${paper}; margin: 12mm; }
+        *{box-sizing:border-box;}
+        body{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#111827; margin:0; background:#fff; }
+        .hdr{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; border-bottom:1px solid #cbd5e1; padding-bottom:10px; margin-bottom:12px;}
+        .hdr h1{ margin:0; font-size:20px; line-height:1.15;}
+        .hdr .sub{ font-size:11px; color:#475569; margin-top:3px;}
+        .hdr .logo-wrap{min-width:150px;text-align:right;}
+        .print-logo{max-width:170px;max-height:64px;object-fit:contain;}
+        .print-logo-placeholder{display:inline-flex;align-items:center;justify-content:center;width:78px;height:44px;border:1px solid #cbd5e1;border-radius:10px;color:#475569;font-weight:900;background:#f8fafc;}
+        table{ width:100%; border-collapse:collapse; font-size:10.5px; page-break-inside:auto;}
+        tr{ page-break-inside:avoid; page-break-after:auto;}
+        th,td{ border:1px solid #dbe3ef; padding:5px 7px; text-align:left; vertical-align:top;}
+        th{ background:#f8fafc; font-weight:900; color:#334155;}
+        .print-meta{font-size:10px;color:#64748b;margin-top:5px;}
       </style></head><body>
-      <div class="hdr"><div><h1>${title}</h1><div class="sub">${subtitle||""}</div></div>
-      <div class="sub">${new Date().toLocaleString()}</div></div>
+      <div class="hdr"><div><h1>${escapeHtml(title)}</h1><div class="sub"><b>${escapeHtml(companyName)}</b>${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</div><div class="print-meta">Afdruk: ${escapeHtml(printDate)}</div></div><div class="logo-wrap">${logoHtml}</div></div>
       ${html}
     </body></html>`);
     w.document.close();
     w.focus();
-    try{ CWS.audit?.('print_a3', { title }); }catch(e){}
+    try{ CWS.audit?.('print_a3', { title, paper }); }catch(e){}
     w.print();
   };
 

@@ -79,7 +79,26 @@
   </div>
 </div>
 
-<script>const CWS = window.parent?.CWS || window.CWS;</script>
+<script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
+<script>
+(function(){
+  try{
+    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
+    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
+    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
+      window.CWS.resetDemo();
+      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
+    }
+  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
+})();
+</script>
+
 <script>
 (function(){
   const q=document.getElementById('fuzzyQ');
@@ -99,6 +118,7 @@
 </script>
 <script src="../js/core/permissions.js"></script>
 <script src="../js/core/ui.js"></script>
+<script src="../js/core/attention.js"></script>
 <script>
   
   function weekCapByDept(){
@@ -162,7 +182,12 @@ function norm(s){ return (s||"").toString().toLowerCase().trim(); }
 
   function ensureReports(){
     const st = CWS.getState();
-    if(st.reports && st.reports.templates && st.reports.templates.length) return;
+    if(st.reports && st.reports.templates && st.reports.templates.length){
+      if(!st.reports.templates.some(t=>t.id==="attention")){
+        CWS.setState(s=>{ s.reports.templates.push({ id:"attention", title:"Aandachtspuntenrapport", tag:"Overzicht", desc:"Alle rode/oranje aandachtspunten met oorzaak, ernst, afdeling en doorklikrichting." }); return s; });
+      }
+      return;
+    }
     const seed = {
       active: "cap_week",
       templates: [
@@ -172,6 +197,7 @@ function norm(s){ return (s||"").toString().toLowerCase().trim(); }
         { id:"res_load", title:"Resource belasting (week)", tag:"Planbord", desc:"Uren per resource in geselecteerde week." },
         { id:"proj_kpis", title:"Project KPI overzicht", tag:"Projecten", desc:"Status, voortgang en ingeplande uren per project." },
         { id:"dept_load", title:"Afdeling belasting (week)", tag:"Capaciteit", desc:"Benutting per afdeling in geselecteerde week." },
+        { id:"attention", title:"Aandachtspuntenrapport", tag:"Overzicht", desc:"Alle rode/oranje aandachtspunten met oorzaak, ernst, afdeling en doorklikrichting." },
       ]
     };
     CWS.setState(s=>{ s.reports = seed; return s; });
@@ -334,7 +360,28 @@ function norm(s){ return (s||"").toString().toLowerCase().trim(); }
       tbody.appendChild(tr);
     };
 
-    if(t.id==="dept_load"){
+
+    if(t.id==="attention"){
+      const dash=CWS.attention.dashboard(st);
+      const visible=dash.items.filter(i=>!q || JSON.stringify(i).toLowerCase().includes(q));
+      kpis.innerHTML="";
+      kpis.append(
+        kpiBox("Rode punten", visible.filter(i=>i.severity==='red').length),
+        kpiBox("Oranje punten", visible.filter(i=>i.severity==='orange').length),
+        kpiBox("Capaciteit", visible.filter(i=>String(i.type).includes('capacity')).length),
+        kpiBox("Project/taken", visible.filter(i=>!String(i.type).includes('capacity')).length)
+      );
+      setHeads("Ernst","Project / afdeling","Aandachtspunt","Actie");
+      if(!visible.length) emptyRow(4,"Geen aandachtspunten voor huidige filters.");
+      visible.slice(0,80).forEach(i=>{
+        const p=i.projectId ? (st.projects?.byId?.[i.projectId]||{}) : null;
+        const tr=document.createElement("tr");
+        const sev=CWS.attention.severityLabel(i.severity);
+        tr.innerHTML=`<td><strong>${sev}</strong></td><td>${p?`<strong>${p.nr||i.projectId}</strong><br><span class="smallmuted">${p.name||""}</span>`:(i.dept||"—")}</td><td><strong>${i.title}</strong><br><span class="smallmuted">${i.message}</span></td><td>${i.action||"Open"} · ${i.module||"dashboard"}</td>`;
+        tbody.appendChild(tr);
+      });
+    } else if(t.id==="dept_load"){
+
       setHeads("Afdeling","Capaciteit (h)","Ingepland (h)","Benutting");
       const byDept = (function(){
         const out={};

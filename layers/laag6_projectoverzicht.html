@@ -8,16 +8,17 @@
   <style>
     body{padding:14px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .content{padding:14px}.tablewrap{overflow:auto;border:1px solid var(--border);border-radius:8px}
-    table{width:100%;border-collapse:separate;border-spacing:0}th,td{padding:9px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left}
-    th{position:sticky;top:0;background:#f8fafc;z-index:2}.progress{width:110px;height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden}
-    .progress i{display:block;height:100%;background:#2f6fbd}.tabs360{display:flex;gap:6px;margin-bottom:12px}.tab360.active{background:#dbeafe}
-    .section360{min-height:220px}.status-select{min-width:110px}
+    table{width:100%;border-collapse:separate;border-spacing:0}th,td{padding:9px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left;vertical-align:middle}
+    th{position:sticky;top:0;background:#f8fafc;z-index:2}.progress{width:130px;height:10px;background:#e5e7eb;border-radius:99px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06)}
+    .progress i{display:block;height:100%;background:#2f6fbd;border-radius:99px}.progress-click{cursor:pointer}.tabs360{display:flex;gap:6px;margin-bottom:12px}.tab360.active{background:#dbeafe}
+    .section360{min-height:220px}.status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid #dbe4f0;background:#f8fafc;font-weight:800;font-size:12px}.status-badge.gereed{background:#ecfdf5;border-color:#bbf7d0;color:#166534}.status-badge.uitvoering{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.status-badge.aandacht{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.status-badge.vertraagd{background:#fef2f2;border-color:#fecaca;color:#991b1b}.status-badge.niet{background:#f1f5f9;border-color:#cbd5e1;color:#334155}
+    .task-progress-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}.task-progress-table th{position:static;background:#f8fafc}.task-progress-table td,.task-progress-table th{padding:8px;border-bottom:1px solid #e2e8f0}.task-progress-table tr:last-child td{border-bottom:0}.task-progress-table input,.task-progress-table select,.task-progress-table textarea{width:100%;border:1px solid #d7dee8;border-radius:9px;padding:7px;background:#fff}.task-progress-table textarea{min-width:230px;min-height:44px;resize:vertical}.task-progress-table input[type=checkbox]{width:18px;height:18px}.summary-cards{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:0 0 12px}.summary-card{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#f8fafc}.summary-card b{display:block;color:#0f172a;margin-bottom:3px}.quickchips{display:flex;gap:5px;flex-wrap:wrap}.chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 8px;font-size:12px;font-weight:800;cursor:pointer}.chip:hover{background:#eff6ff;border-color:#93c5fd}.feedback-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis}.clickable-row{cursor:pointer}.clickable-row:hover td{background:#f8fbff}.health-badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;border:1px solid #e2e8f0;font-weight:900;font-size:12px}.att-red{background:#fef2f2!important;border-color:#fecaca!important;color:#991b1b}.att-orange{background:#fff7ed!important;border-color:#fed7aa!important;color:#92400e}.att-green{background:#ecfdf5!important;border-color:#bbf7d0!important;color:#166534}.att-blue{background:#eff6ff!important;border-color:#bfdbfe!important;color:#1d4ed8}.att-gray{background:#f8fafc!important;border-color:#e2e8f0!important;color:#475569}.attention-list{list-style:none;padding:0;margin:8px 0;display:grid;gap:8px}.attention-list li{border:1px solid #e2e8f0;border-radius:12px;padding:10px}.why-link{cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-weight:800}
   </style>
 </head>
 <body>
   <div class="panel">
     <div class="panel-head">
-      <div><strong>Laag 6 - Projectoverzicht</strong><div class="smallmuted">Projectstatus, Gantt-voortgang en Project 360</div></div>
+      <div><strong>Laag 6 - Projectoverzicht</strong><div class="smallmuted">Projectstatus komt uit Gantt-taken: voortgang, gereedmelding en terugkoppeling</div></div>
       <div class="toolbar">
         <input class="input search" id="search" placeholder="Zoeken...">
         <button class="btn" id="undo">Undo</button>
@@ -31,63 +32,236 @@
       <div class="smallmuted" id="count" style="margin-top:8px"></div>
     </div>
   </div>
-  <script>const CWS = window.parent?.CWS || window.CWS;</script>
+  <script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
+<script>
+(function(){
+  try{
+    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
+    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
+    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
+      window.CWS.resetDemo();
+      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
+    }
+  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
+})();
+</script>
+
   <script src="../js/core/ui.js"></script>
+  <script src="../js/core/attention.js"></script>
   <script>
     const $ = s => document.querySelector(s);
     const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-    const projects = st => (st.projects.order || []).map(id => st.projects.byId[id]).filter(Boolean);
-    const taskNames = st => {
-      const names = [];
-      Object.values(st.tasks?.byProject || {}).forEach(pack => (pack.phases || []).forEach(ph => (ph.tasks || []).forEach(t => {
-        if(t.name && !names.includes(t.name)) names.push(t.name);
-      })));
-      return names.slice(0, 8);
-    };
-    function progressFor(st, projectId){
-      const phases = st.ganttV2?.byProject?.[projectId]?.rows || [];
-      if(phases.length){
-        const values = phases.filter(r => r.type === "task").map(r => Number(r.progress || 0));
-        return values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : 0;
+    const cssEsc = v => (window.CSS && CSS.escape) ? CSS.escape(String(v)) : String(v).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+    const projects = st => (st.projects?.order || []).map(id => st.projects.byId[id]).filter(Boolean);
+    const pad = n => String(n).padStart(2,"0");
+    function parseDate(v){ if(!v) return null; const s=String(v).slice(0,10); let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) return new Date(Date.UTC(+m[1],+m[2]-1,+m[3])); m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/); if(m) return new Date(Date.UTC(+m[3],+m[2]-1,+m[1])); return null; }
+    function toNL(v){ const d=parseDate(v); return d?`${pad(d.getUTCDate())}-${pad(d.getUTCMonth()+1)}-${d.getUTCFullYear()}`:""; }
+    function dayDiff(a,b){ const da=parseDate(a), db=parseDate(b); if(!da||!db) return 0; return Math.round((db-da)/86400000); }
+    function duration(s,e){ if(!s||!e) return 1; return Math.max(1,dayDiff(s,e)+1); }
+    function nowIso(){ return new Date().toISOString(); }
+    function clampPct(v){ return Math.max(0,Math.min(100,Math.round(Number(v)||0))); }
+    function projectTasks(st, projectId){
+      const model = st.ganttV2?.byProject?.[projectId] || { rows:[], sched:{} };
+      return (model.rows || []).filter(r => r.type !== "summary").map((r, index) => ({ row:r, sc:model.sched?.[r.id] || {}, index }));
+    }
+    function taskWeight(item){
+      const hours = Number(item.row.hours || 0);
+      if(hours > 0) return hours;
+      return duration(item.sc.start, item.sc.end);
+    }
+    function progressSummary(st, projectId){
+      const tasks = projectTasks(st, projectId);
+      const weighted = tasks.map(t => ({ pct:clampPct(t.row.progress), weight:taskWeight(t), status:String(t.row.status||"").toLowerCase(), feedback:String(t.row.feedback||t.row.why||"").trim(), updatedAt:t.row.progressUpdatedAt||t.row.feedbackUpdatedAt||"" }));
+      const totalWeight = weighted.reduce((n,t)=>n+t.weight,0);
+      const pct = totalWeight ? Math.round(weighted.reduce((n,t)=>n+(t.pct*t.weight),0)/totalWeight) : 0;
+      const blocked = weighted.some(t => ["geblokkeerd","aandacht","probleem"].includes(t.status));
+      const completed = weighted.length && weighted.every(t => t.pct >= 100);
+      const started = weighted.some(t => t.pct > 0);
+      const today = new Date(); today.setUTCHours(0,0,0,0);
+      const overdue = tasks.some(t => { const e=parseDate(t.sc.end); return e && e < today && clampPct(t.row.progress) < 100; });
+      let status = "Niet gestart";
+      if(completed) status = "Gereed";
+      else if(blocked) status = "Aandacht";
+      else if(overdue) status = "Vertraagd";
+      else if(started) status = "In uitvoering";
+      const latest = weighted.filter(t=>t.feedback).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)))[0]?.feedback || "";
+      return { pct, status, count:tasks.length, latestFeedback:latest, tasks };
+    }
+    function statusClass(status){ const s=String(status||"").toLowerCase(); if(s.includes("gereed")) return "gereed"; if(s.includes("vertraagd")) return "vertraagd"; if(s.includes("aandacht")||s.includes("blok")) return "aandacht"; if(s.includes("uitvoering")) return "uitvoering"; return "niet"; }
+    function updateProjectDerived(draft, projectId){
+      const summary = progressSummary(draft, projectId);
+      draft.projectOverview = draft.projectOverview || {};
+      draft.projectOverview.progressByProject = draft.projectOverview.progressByProject || {};
+      draft.projectOverview.statusByProject = draft.projectOverview.statusByProject || {};
+      draft.projectOverview.feedbackByProject = draft.projectOverview.feedbackByProject || {};
+      draft.projectOverview.updatedAtByProject = draft.projectOverview.updatedAtByProject || {};
+      draft.projectOverview.progressByProject[projectId] = summary.pct;
+      draft.projectOverview.statusByProject[projectId] = summary.status;
+      draft.projectOverview.feedbackByProject[projectId] = summary.latestFeedback;
+      draft.projectOverview.updatedAtByProject[projectId] = nowIso();
+      if(draft.projects?.byId?.[projectId]){
+        draft.projects.byId[projectId].status = summary.status;
+        draft.projects.byId[projectId].progressPct = summary.pct;
+        draft.projects.byId[projectId].lastFeedback = summary.latestFeedback;
+        draft.projects.byId[projectId].statusUpdatedAt = draft.projectOverview.updatedAtByProject[projectId];
       }
-      const p = st.projects.byId[projectId];
-      return p?.status === "Gereed" ? 100 : p?.status === "In uitvoering" ? 60 : p?.status === "Ingepland" ? 25 : 0;
+      return summary;
+    }
+    function taskNames(st){
+      const names = [];
+      Object.values(st.ganttV2?.byProject || {}).forEach(model => (model.rows || []).filter(r=>r.type!=="summary").forEach(t => {
+        if(t.name && !names.includes(t.name)) names.push(t.name);
+      }));
+      return names.slice(0, 8);
     }
     function taskStatus(st, projectId, name){
-      const rows = st.ganttV2?.byProject?.[projectId]?.rows || [];
-      const row = rows.find(r => r.name === name);
+      const row = (st.ganttV2?.byProject?.[projectId]?.rows || []).find(r => r.type!=="summary" && r.name === name);
       if(!row) return "NVT";
-      return Number(row.progress || 0) >= 100 ? "Gereed" : "Open";
+      return clampPct(row.progress) >= 100 ? "Gereed" : `${clampPct(row.progress)}%`;
     }
     function render(){
       const st = CWS.getState();
       const dynamic = taskNames(st);
-      $("#head").innerHTML = `<tr><th>Project</th><th>Opdrachtgever</th><th>Status</th><th>Start</th><th>Uren</th><th>Voortgang</th>${dynamic.map(n=>`<th>${esc(n)}</th>`).join("")}<th>Actie</th></tr>`;
+      $("#head").innerHTML = `<tr><th>Gezondheid</th><th>Project</th><th>Opdrachtgever</th><th>Status uit Gantt</th><th>Start</th><th>Uren</th><th>Voortgang</th><th>Waarom aandacht?</th><th>Laatste terugkoppeling</th>${dynamic.map(n=>`<th>${esc(n)}</th>`).join("")}<th>Actie</th></tr>`;
       const q = $("#search").value.toLowerCase().trim();
       const rows = projects(st).filter(p => JSON.stringify(p).toLowerCase().includes(q));
       $("#body").innerHTML = rows.map(p => {
-        const progress = progressFor(st,p.id);
-        const status = st.projectOverview?.statusByProject?.[p.id] || p.status || "In te plannen";
-        return `<tr data-id="${esc(p.id)}">
+        const summary = progressSummary(st,p.id);
+        const storedStatus = st.projectOverview?.statusByProject?.[p.id] || summary.status;
+        const progress = st.projectOverview?.progressByProject?.[p.id] ?? summary.pct;
+        const feedback = st.projectOverview?.feedbackByProject?.[p.id] || summary.latestFeedback || p.lastFeedback || "";
+        const health = CWS.attention?.healthForProject ? CWS.attention.healthForProject(st,p.id) : {severity:"green",label:"Op schema",reasons:[],planningComplete:true};
+        const why = health.reasons?.[0]?.message || (health.planningComplete ? "Geen aandachtspunten" : "Planning controleren");
+        return `<tr class="clickable-row" data-id="${esc(p.id)}">
+          <td><span class="health-badge ${CWS.attention?.severityClass?.(health.severity)||"att-green"}" data-why-open>${esc(health.label)}</span><br><span class="smallmuted">${health.planningComplete ? "Planning compleet" : "Planning incompleet"}</span></td>
           <td><strong>${esc(p.nr || p.id)}</strong><br><span class="smallmuted">${esc(p.name)}</span></td>
           <td>${esc(p.client)}</td>
-          <td><select class="input status-select" data-status><option${status==="In te plannen"?" selected":""}>In te plannen</option><option${status==="Ingepland"?" selected":""}>Ingepland</option><option${status==="In uitvoering"?" selected":""}>In uitvoering</option><option${status==="Gereed"?" selected":""}>Gereed</option></select></td>
+          <td><span class="status-badge ${statusClass(storedStatus)}">${esc(storedStatus)}</span><br><span class="smallmuted">${summary.count} Gantt-taken</span></td>
           <td>${esc(p.start || "-")}</td><td>${Number(p.needHours || 0).toFixed(1)}</td>
-          <td><div class="progress"><i style="width:${progress}%"></i></div><span class="smallmuted">${progress}%</span></td>
+          <td class="progress-click" data-progress><div class="progress"><i style="width:${clampPct(progress)}%"></i></div><span class="smallmuted">${clampPct(progress)}% gereed</span></td>
+          <td class="feedback-cell why-link" data-why-open title="${esc(why)}">${esc(why)}</td>
+          <td class="feedback-cell" title="${esc(feedback)}">${feedback ? esc(feedback) : '<span class="smallmuted">Geen terugkoppeling</span>'}</td>
           ${dynamic.map(n=>`<td>${taskStatus(st,p.id,n)}</td>`).join("")}
-          <td><button class="btn" data-360>Project 360</button></td>
+          <td><button class="btn primary" data-progress-open>Voortgang bijwerken</button> <button class="btn" data-360>Project 360</button></td>
         </tr>`;
       }).join("");
       $("#count").textContent = `${rows.length} projecten`;
-      $("#body").querySelectorAll("[data-status]").forEach(el => el.addEventListener("change", e => {
-        const id = e.target.closest("tr").dataset.id;
-        CWS.mutate("projectoverview_status", {projectId:id,status:e.target.value}, s => {
-          s.projectOverview.statusByProject[id] = e.target.value;
-          s.projects.byId[id].status = e.target.value;
-        });
-        render();
-      }));
-      $("#body").querySelectorAll("[data-360]").forEach(el => el.addEventListener("click", e => open360(e.target.closest("tr").dataset.id)));
+      $("#body").querySelectorAll("[data-progress-open],[data-progress]").forEach(el => el.addEventListener("click", e => { e.stopPropagation(); openProgress(e.target.closest("tr").dataset.id); }));
+      $("#body").querySelectorAll("[data-360]").forEach(el => el.addEventListener("click", e => { e.stopPropagation(); open360(e.target.closest("tr").dataset.id); }));
+      $("#body").querySelectorAll("[data-why-open]").forEach(el => el.addEventListener("click", e => { e.stopPropagation(); openWhy(e.target.closest("tr").dataset.id); }));
+      $("#body").querySelectorAll("tr.clickable-row").forEach(tr => tr.addEventListener("dblclick", () => openProgress(tr.dataset.id)));
+    }
+
+    function openWhy(projectId){
+      const st=CWS.getState(), p=st.projects.byId[projectId] || {};
+      const health=CWS.attention?.healthForProject ? CWS.attention.healthForProject(st,projectId) : {severity:"green",label:"Op schema",reasons:[]};
+      const wrap=document.createElement("div");
+      wrap.innerHTML=`<p><span class="health-badge ${CWS.attention?.severityClass?.(health.severity)||"att-green"}">${esc(health.label)}</span> <strong>${esc(p.nr||projectId)} - ${esc(p.name||"Project")}</strong></p><p class="smallmuted">Voortgang ${health.pct||0}% · Status ${esc(health.status||"")}</p>${CWS.attention?.reasonHtml ? CWS.attention.reasonHtml(health.reasons) : ""}<div class="toolbar" style="margin-top:12px"><button class="btn" data-open="gantt">Open Gantt</button><button class="btn" data-open="capaciteit">Open Capaciteit</button><button class="btn primary" id="whyProgress">Voortgang bijwerken</button><button class="btn" data-open="preflight">Open Preflight</button></div>`;
+      wrap.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click",()=>CWS.attention?.openModule?.(b.dataset.open)));
+      wrap.querySelector("#whyProgress")?.addEventListener("click",()=>openProgress(projectId));
+      UI.openModal({title:"Waarom aandacht?",subtitle:`${p.nr||projectId} - ${p.name||"Project"}`,contentEl:wrap,actions:[{label:"Sluiten",onClick:({close})=>close()}]});
+    }
+    function openProgress(projectId){
+      const st=CWS.getState(), p=st.projects.byId[projectId];
+      const summary=progressSummary(st, projectId);
+      const wrap=document.createElement("div");
+      if(!summary.tasks.length){
+        wrap.innerHTML=`<p>Voor dit project zijn nog geen Gantt-taken aanwezig. Genereer eerst fasen/taken in de Gantt.</p>`;
+        UI.openModal({title:"Voortgang bijwerken",subtitle:`${p.nr||p.id} - ${p.name||"Project"}`,contentEl:wrap,actions:[{label:"Sluiten",onClick:({close})=>close()}]});
+        return;
+      }
+      wrap.innerHTML=`
+        <div class="summary-cards">
+          <div class="summary-card"><b>Project</b>${esc(p.nr||p.id)}<br><span class="smallmuted">${esc(p.name||"")}</span></div>
+          <div class="summary-card"><b>Opdrachtgever</b>${esc(p.client||"—")}</div>
+          <div class="summary-card"><b>Totaal gereed</b><div class="progress" style="width:100%;margin-top:4px"><i id="modalTotalBar" style="width:${summary.pct}%"></i></div><span id="modalTotalText">${summary.pct}%</span></div>
+          <div class="summary-card"><b>Status</b><span id="modalStatus" class="status-badge ${statusClass(summary.status)}">${esc(summary.status)}</span></div>
+        </div>
+        <p class="smallmuted" style="margin:0 0 10px 0">Gantt-taken zijn de bron. Gereedmeldingen en terugkoppeling worden direct teruggeschreven naar de Gantt, Projectoverzicht en D1-state.</p>
+        <div style="overflow:auto;max-height:58vh;border-radius:12px">
+          <table class="task-progress-table">
+            <thead><tr><th>Taak</th><th>Afdeling</th><th>Periode</th><th>Uren</th><th>Voortgang</th><th>Gereed</th><th>Status</th><th>Snelle keuze</th><th>Terugkoppeling</th></tr></thead>
+            <tbody>
+              ${summary.tasks.map(({row,sc})=>`
+                <tr data-task-id="${esc(row.id)}">
+                  <td><strong>${esc(row.name||row.id)}</strong><br><span class="smallmuted">${esc(row.id)}</span></td>
+                  <td>${esc(row.department||"—")}</td>
+                  <td>${esc(toNL(sc.start)||"—")} t/m ${esc(toNL(sc.end)||"—")}</td>
+                  <td>${Number(row.hours||0)>0?`${Number(row.hours).toFixed(1)} u`:"auto"}</td>
+                  <td><input data-field="progress" type="number" min="0" max="100" value="${clampPct(row.progress)}"></td>
+                  <td style="text-align:center"><input data-field="done" type="checkbox" ${clampPct(row.progress)>=100?"checked":""}></td>
+                  <td><select data-field="status">
+                    ${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(s=>`<option value="${s}" ${String(row.status||"")===s || (!row.status && ((clampPct(row.progress)>=100&&s==="Gereed")||(clampPct(row.progress)>0&&clampPct(row.progress)<100&&s==="In uitvoering")||(clampPct(row.progress)===0&&s==="Niet gestart")))?"selected":""}>${s}</option>`).join("")}
+                  </select></td>
+                  <td><div class="quickchips">${[0,25,50,75,100].map(n=>`<button type="button" class="chip" data-chip="${n}">${n}%</button>`).join("")}</div></td>
+                  <td><textarea data-field="feedback" placeholder="Korte terugkoppeling / WHY">${esc(row.feedback||row.why||"")}</textarea></td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>`;
+      function recalcModal(){
+        const rows=Array.from(wrap.querySelectorAll("tr[data-task-id]")).map(tr=>({
+          pct:clampPct(tr.querySelector('[data-field="progress"]').value),
+          status:tr.querySelector('[data-field="status"]').value,
+          weight:Number(tr.dataset.weight||1)||1
+        }));
+        const total=rows.length?Math.round(rows.reduce((n,r)=>n+r.pct*r.weight,0)/rows.reduce((n,r)=>n+r.weight,0)):0;
+        const blocked=rows.some(r=>["Aandacht","Geblokkeerd"].includes(r.status));
+        const done=rows.length&&rows.every(r=>r.pct>=100);
+        const started=rows.some(r=>r.pct>0);
+        const status=done?"Gereed":blocked?"Aandacht":started?"In uitvoering":"Niet gestart";
+        wrap.querySelector("#modalTotalBar").style.width=total+"%";
+        wrap.querySelector("#modalTotalText").textContent=total+"%";
+        const badge=wrap.querySelector("#modalStatus"); badge.textContent=status; badge.className="status-badge "+statusClass(status);
+      }
+      summary.tasks.forEach(({row}, idx)=>{ const tr=wrap.querySelectorAll("tr[data-task-id]")[idx]; tr.dataset.weight=taskWeight(summary.tasks[idx]); });
+      wrap.querySelectorAll("[data-chip]").forEach(btn=>btn.addEventListener("click",()=>{ const tr=btn.closest("tr"); const pct=Number(btn.dataset.chip); tr.querySelector('[data-field="progress"]').value=pct; tr.querySelector('[data-field="done"]').checked=pct>=100; tr.querySelector('[data-field="status"]').value=pct>=100?"Gereed":pct>0?"In uitvoering":"Niet gestart"; recalcModal(); }));
+      wrap.querySelectorAll('[data-field="done"]').forEach(cb=>cb.addEventListener("change",()=>{ const tr=cb.closest("tr"); if(cb.checked){ tr.querySelector('[data-field="progress"]').value=100; tr.querySelector('[data-field="status"]').value="Gereed"; } recalcModal(); }));
+      wrap.querySelectorAll('[data-field="progress"],[data-field="status"]').forEach(el=>el.addEventListener("input",()=>{ const tr=el.closest("tr"); const pct=clampPct(tr.querySelector('[data-field="progress"]').value); tr.querySelector('[data-field="done"]').checked=pct>=100; if(el.dataset.field==="progress") tr.querySelector('[data-field="status"]').value=pct>=100?"Gereed":pct>0?"In uitvoering":"Niet gestart"; recalcModal(); }));
+      UI.openModal({
+        title:"Voortgang Gantt-taken bijwerken",
+        subtitle:`${p.nr||p.id} - ${p.name||"Project"}`,
+        contentEl:wrap,
+        actions:[
+          {label:"Annuleren",onClick:({close})=>close()},
+          {label:"Opslaan",primary:true,onClick:({close})=>{
+            const changes=[];
+            CWS.mutate("projectoverview_gantt_task_progress", {projectId}, draft => {
+              const model=draft.ganttV2?.byProject?.[projectId];
+              if(!model) throw new Error("Gantt-model niet gevonden.");
+              model.rows=(model.rows||[]).map(row=>{
+                const tr=wrap.querySelector(`tr[data-task-id="${cssEsc(row.id)}"]`);
+                if(!tr) return row;
+                const before={ progress:clampPct(row.progress), status:row.status||"", feedback:row.feedback||row.why||"" };
+                const progress=clampPct(tr.querySelector('[data-field="progress"]').value);
+                const status=tr.querySelector('[data-field="status"]').value;
+                const feedback=tr.querySelector('[data-field="feedback"]').value.trim();
+                row.progress=progress;
+                row.status=status;
+                row.feedback=feedback;
+                row.why=feedback || row.why || "";
+                row.progressUpdatedAt=nowIso();
+                row.feedbackUpdatedAt=feedback ? nowIso() : (row.feedbackUpdatedAt || "");
+                if(before.progress!==progress || before.status!==status || before.feedback!==feedback){ changes.push({taskId:row.id, taskName:row.name, before, after:{progress,status,feedback}, ts:nowIso()}); }
+                return row;
+              });
+              draft.projectOverview = draft.projectOverview || {};
+              draft.projectOverview.taskProgressHistory = Array.isArray(draft.projectOverview.taskProgressHistory) ? draft.projectOverview.taskProgressHistory : [];
+              draft.projectOverview.taskProgressHistory.push(...changes.map(c=>({ projectId, ...c })));
+              if(draft.projectOverview.taskProgressHistory.length>1000) draft.projectOverview.taskProgressHistory=draft.projectOverview.taskProgressHistory.slice(-1000);
+              updateProjectDerived(draft, projectId);
+            });
+            UI.toast("Voortgang opgeslagen en teruggekoppeld naar Gantt");
+            close(); render();
+          }}
+        ]
+      });
     }
     function open360(projectId){
       const st=CWS.getState(), p=st.projects.byId[projectId];
@@ -98,14 +272,15 @@
         const fresh=CWS.getState();
         const allocations=Object.entries(fresh.allocations.byWeek||{}).flatMap(([week,rs])=>(rs||[]).filter(r=>r.projectId===projectId).map(r=>({...r,week})));
         const notes=fresh.projectOverview.notesByProject[projectId]||"";
-        const history=(fresh.auditLog||[]).filter(a=>a.meta?.projectId===projectId).slice(-20).reverse();
+        const summary=progressSummary(fresh,projectId);
+        const history=(fresh.projectOverview.taskProgressHistory||[]).filter(a=>a.projectId===projectId).slice(-20).reverse();
         const html={
           Algemeen:`<h3>${esc(p.nr)} - ${esc(p.name)}</h3><p>Opdrachtgever: ${esc(p.client)}</p><p>Startdatum: ${esc(p.start||"-")}</p>`,
           Planning:`<h3>Planning</h3><p>${allocations.length} toewijzingen, ${allocations.reduce((n,r)=>n+Number(r.hours||0),0)} uur ingepland.</p>`,
           Capaciteit:`<h3>Capaciteit</h3><p>Benodigd: ${Number(p.needHours||0)} uur.</p>`,
-          Status:`<h3>Status</h3><p>${esc(p.status||"In te plannen")} | ${progressFor(fresh,projectId)}% voortgang</p>`,
+          Status:`<h3>Status uit Gantt</h3><p><span class="status-badge ${statusClass(summary.status)}">${esc(summary.status)}</span> ${summary.pct}% voortgang</p><p>${esc(summary.latestFeedback||"Geen terugkoppeling")}</p><p><button class="btn primary" id="openProgressFrom360">Voortgang bijwerken</button></p>`,
           Notities:`<h3>Notities</h3><textarea class="input" id="notes360" style="width:100%;min-height:140px">${esc(notes)}</textarea><p><button class="btn" id="saveNotes">Opslaan</button></p>`,
-          Historie:`<h3>Historie</h3>${history.length?history.map(a=>`<p><strong>${esc(a.action)}</strong> <span class="smallmuted">${esc(a.ts)}</span></p>`).join(""):"<p>Geen historie.</p>"}`
+          Historie:`<h3>Historie voortgang</h3>${history.length?history.map(a=>`<p><strong>${esc(a.taskName||a.taskId)}</strong>: ${esc(a.before?.progress)}% → ${esc(a.after?.progress)}% <span class="smallmuted">${esc(a.ts)}</span><br>${esc(a.after?.feedback||"")}</p>`).join(""):"<p>Geen historie.</p>"}`
         };
         wrap.querySelector("#section360").innerHTML=html[tab];
         wrap.querySelector("#saveNotes")?.addEventListener("click",()=>{
@@ -113,6 +288,7 @@
           CWS.mutate("projectoverview_note",{projectId},s=>{s.projectOverview.notesByProject[projectId]=value;});
           UI.toast("Notitie opgeslagen");
         });
+        wrap.querySelector("#openProgressFrom360")?.addEventListener("click",()=>openProgress(projectId));
       };
       wrap.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
         wrap.querySelectorAll("[data-tab]").forEach(x=>x.classList.remove("active")); b.classList.add("active"); show(b.dataset.tab);
@@ -123,7 +299,7 @@
     $("#search").addEventListener("input",render);
     $("#undo").addEventListener("click",()=>{CWS.undo();render();});
     $("#redo").addEventListener("click",()=>{CWS.redo();render();});
-    $("#export").addEventListener("click",()=>{const st=CWS.getState();UI.downloadCSV("projectoverzicht.csv",[["Project","Naam","Klant","Status","Voortgang"],...projects(st).map(p=>[p.nr,p.name,p.client,p.status,progressFor(st,p.id)])]);});
+    $("#export").addEventListener("click",()=>{const st=CWS.getState();UI.downloadCSV("projectoverzicht.csv",[["Project","Naam","Klant","Status","Voortgang","Terugkoppeling"],...projects(st).map(p=>{const s=progressSummary(st,p.id);return [p.nr,p.name,p.client,s.status,s.pct,s.latestFeedback];})]);});
     $("#print").addEventListener("click",()=>UI.printA3("Projectoverzicht","CWS Planning",document.querySelector(".tablewrap").innerHTML));
     render();
   </script>

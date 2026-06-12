@@ -1,382 +1,80 @@
-<!doctype html><html lang="nl"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<link rel="stylesheet" href="../css/theme.css"/></head>
-<body style="background:transparent">
-<div class="panel">
-  <div class="panel-head">
-    <div class="panel-tools">
-      <button class="btn" onclick="UI.openAppsMenuSafe()">Apps Menu</button>
-      <span class="smallmuted">Dashboard</span>
-      <span class="pill" id="wkPill">Week 15 - 2026</span>
-    </div>
-    <div class="panel-tools">
-      <button class="btn" id="refreshBtn">Ververs</button>
-    
-      <button class="btn" id="exportBtn">Export</button>
-      <button class="btn" id="printBtn">Print A3</button>
-      <select class="input" id="scenarioSel" style="min-width:180px;"><option value="">Scenario: Live</option><option value="A">Scenario A</option><option value="B">Scenario B</option></select>
-</div>
-  </div>
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    body{padding:14px;background:#f5f7fb}.dash{display:grid;gap:14px}.hero{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.tile{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:14px;box-shadow:0 8px 22px rgba(15,23,42,.06);cursor:pointer}.tile:hover{border-color:#93c5fd;background:#f8fbff}.tile b{display:block;font-size:26px;line-height:1;color:#0f172a}.tile span{display:block;color:#64748b;font-size:12px;font-weight:800;margin-top:6px}.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:14px}.panelx{border:1px solid #e2e8f0;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 8px 22px rgba(15,23,42,.05)}.panelx h2{font-size:16px;margin:0}.panelx-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-bottom:1px solid #e2e8f0;background:linear-gradient(#fff,#f8fafc)}.content{padding:14px}.attention-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}.attention-list li{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff}.att-red{border-color:#fecaca!important;background:#fef2f2!important;color:#991b1b}.att-orange{border-color:#fed7aa!important;background:#fff7ed!important;color:#92400e}.att-green{border-color:#bbf7d0!important;background:#ecfdf5!important;color:#166534}.att-blue{border-color:#bfdbfe!important;background:#eff6ff!important;color:#1d4ed8}.att-gray{border-color:#e2e8f0!important;background:#f8fafc!important;color:#475569}.health-table{width:100%;border-collapse:separate;border-spacing:0}.health-table th,.health-table td{padding:9px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:middle}.health-table th{background:#f8fafc;color:#334155;font-size:12px}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-weight:900;font-size:12px;border:1px solid #e2e8f0}.progress{width:120px;height:10px;border-radius:99px;background:#e5e7eb;overflow:hidden}.progress i{display:block;height:100%;background:#2f6fbd}.small{font-size:12px;color:#64748b}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.input{min-width:220px}.click{cursor:pointer}.click:hover td{background:#f8fbff}@media(max-width:900px){.grid{grid-template-columns:1fr}.hero{display:block}}
+  
+    /* V32 responsive module hardening */
+    .mobile-toolbar{display:none}
+    @media(max-width:1180px){body{padding:10px}.grid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}.panelx-head{align-items:flex-start;flex-wrap:wrap}.health-table{min-width:760px}.panelx .content{overflow:auto}}
+    @media(max-width:760px){body{padding:8px}.mobile-toolbar{display:flex;position:sticky;top:0;z-index:20;gap:6px;padding:6px;background:rgba(245,247,251,.96);backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0}.mobile-toolbar button{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;font-weight:900;color:#1f2a44}.hero{display:block}.hero h1{font-size:18px;margin:6px 0}.toolbar{overflow:auto;flex-wrap:nowrap}.tiles{grid-template-columns:1fr 1fr;gap:8px}.tile{padding:11px}.tile b{font-size:22px}.grid{grid-template-columns:1fr;gap:10px}.panelx{border-radius:14px}.panelx-head{padding:11px}.content{padding:10px}.health-table{min-width:0}.health-table thead{display:none}.health-table,.health-table tbody,.health-table tr,.health-table td{display:block;width:100%}.health-table tr{border:1px solid #e2e8f0;border-radius:12px;margin:8px 0;overflow:hidden}.health-table td{display:grid;grid-template-columns:118px 1fr;gap:8px;border-bottom:1px solid #eef2f7}.health-table td:before{content:attr(data-label);font-size:11px;font-weight:900;color:#64748b}.progress{width:100%}}
 
+  </style>
+</head>
+<body>
   <div class="dash">
-    <div class="dash-grid">
-      <div class="card">
-        <h3>Overzicht (week)</h3>
-        <div class="sub">KPI's gebaseerd op huidige week (allocations) + projecten.</div>
-
-        <div class="kpi2" id="kpis"></div>
-
-        <div style="margin-top:14px; display:grid; grid-template-columns: 1.2fr .8fr; gap:12px; align-items:start;">
-          <div class="card" style="box-shadow:none; border-radius:14px;">
-            <h3>Top projecten (uren)</h3>
-            <div class="sub">Meest ingeplande uren in geselecteerde week.</div>
-            <div id="topProjects"></div>
-          </div>
-          <div class="card" style="box-shadow:none; border-radius:14px;">
-            <h3>Status verdeling</h3>
-            <div class="sub">Aantallen projecten per status.</div>
-            <div class="pie" id="pie"></div>
-            <div class="legend" id="legend"></div>
-          </div>
-        </div>
+    <div class="panelx">
+      <div class="panelx-head hero">
+        <div><h2>Dashboard — Vandaag aandacht nodig</h2><div class="small">Automatische signalering uit Projecten, Gantt, Capaciteit, Revisies en terugkoppelingen.</div></div>
+        <div class="toolbar"><input class="input" id="q" placeholder="Zoeken in projecten/aandachtspunten…"><button class="btn" id="refresh">Ververs</button><button class="btn" id="report">Aandachtspuntenrapport</button></div>
       </div>
-
-      <div class="card">
-        <h3>Resource belasting (week)</h3>
-        <div class="sub">Ingepland vs beschikbaar (5 dagen).</div>
-        <div id="resLoad" style="margin-top:12px;"></div>
-      </div>
+      <div class="content"><div class="tiles" id="tiles"></div></div>
     </div>
-
-    <div class="footerbar" style="margin:0 12px 12px;">
-      <div class="smallmuted">Dashboard is live: wijzigingen in Planbord/Toewijzingen updaten de KPI's na ververs.</div>
-      <div class="smallmuted">v6 build-26</div>
+    <div class="grid">
+      <div class="panelx"><div class="panelx-head"><h2>Projectgezondheid</h2><span class="small" id="projectMeta"></span></div><div class="content"><table class="health-table"><thead><tr><th>Gezondheid</th><th>Project</th><th>Voortgang</th><th>Waarom aandacht?</th><th>Laatste terugkoppeling</th></tr></thead><tbody id="projects"></tbody></table></div></div>
+      <div class="panelx"><div class="panelx-head"><h2>Open aandachtspunten</h2><span class="small" id="attentionMeta"></span></div><div class="content"><ul class="attention-list" id="items"></ul></div></div>
     </div>
   </div>
-</div>
-
-<script>const CWS = window.parent?.CWS || window.CWS;</script>
+  <script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
 <script>
 (function(){
-  const q=document.getElementById('fuzzyQ');
-  const c=document.getElementById('clearQ');
-  const tbl=document.querySelector('table');
-  if(!q||!c||!tbl) return;
-  function applyFuzzy(){
-    const v=(q.value||'').toLowerCase().trim();
-    tbl.querySelectorAll('tbody tr').forEach(tr=>{
-      const txt=tr.textContent.toLowerCase();
-      tr.style.display = (!v || txt.includes(v)) ? '' : 'none';
-    });
-  }
-  q.addEventListener('input', applyFuzzy);
-  c.addEventListener('click', ()=>{ q.value=''; applyFuzzy(); });
+  try{
+    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
+    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
+    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
+      window.CWS.resetDemo();
+      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
+    }
+  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
 })();
 </script>
-<script src="../js/core/permissions.js"></script>
-<script src="../js/core/ui.js"></script>
-<script>
-  function weekKey(){ return UI.weekKey(CWS.getState().ui.week); }
-  function weekLabel(){
-    const wk = CWS.getState().ui.week;
-    return `Week ${wk.week} - ${wk.year}`;
-  }
-  function allocs(){
-    const st=CWS.getState();
-    const wk0=weekKey();
-    const sc=(document.getElementById('scenarioSel')?.value)||'';
-    const wk = sc ? (wk0+'@'+sc) : wk0;
-    return (st.allocations?.byWeek?.[wk] || []);
-  }
-  function aggByProject(){
-    const out={};
-    allocs().forEach(a=>{
-      out[a.projectId]=(out[a.projectId]||0) + Number(a.hours||0);
-    });
-    return out;
-  }
-  function aggByRes(){
-    const out={};
-    allocs().forEach(a=>{
-      out[a.resId]=(out[a.resId]||0) + Number(a.hours||0);
-    });
-    return out;
-  }
 
-  function aggByDept(){
-    const st=CWS.getState();
-    const out={};
-    allocs().forEach(a=>{
-      const res = st.resources?.byId?.[a.resId] || {};
-      const dept = res.dept || "—";
-      out[dept] = out[dept] || { planned:0, cap:0 };
-      out[dept].planned += Number(a.hours||0);
-    });
-    // capacity: sum daily*5 per resource in dept
-    (st.resources?.order||[]).forEach(rid=>{
-      const r = st.resources.byId[rid] || {};
-      const dept = r.dept || "—";
-      out[dept] = out[dept] || { planned:0, cap:0 };
-      out[dept].cap += (Number(r.daily||0)*5);
-    });
-    return out;
-  }
-
-  function kpi(label, value, sub){
-    const d=document.createElement("div");
-    d.className="k";
-    d.innerHTML = `<div class="v">${value}</div><div class="l">${label}</div>${sub?`<div class="smallmuted" style="margin-top:2px;">${sub}</div>`:""}`;
-    return d;
-  }
-
-  function renderTrends(){
-    const st=CWS.getState();
-    // collect live weeks only (exclude scenarios)
-    const keys = Object.keys(st.allocations?.byWeek||{}).filter(k=>!k.includes("@")).sort();
-    const last = keys.slice(-8);
-    const pts = last.map(k=>{
-      const hrs = (st.allocations.byWeek[k]||[]).reduce((s,a)=>s+Number(a.hours||0),0);
-      return { k, hrs };
-    });
-    // build svg sparkline
-    const w=360, h=70, pad=8;
-    const max = Math.max(1, ...pts.map(p=>p.hrs));
-    const xs = pts.map((p,i)=> pad + (i*(w-2*pad))/Math.max(1, pts.length-1));
-    const ys = pts.map((p,i)=> h-pad - (p.hrs*(h-2*pad))/max);
-    const d = pts.map((p,i)=> `${xs[i]},${ys[i]}`).join(" ");
-    const rows = pts.map(p=>`<tr><td>${p.k}</td><td>${p.hrs.toFixed(1)}</td></tr>`).join("");
-    return `
-      <div class="card" style="grid-column: span 2;">
-        <div class="cardhead"><strong>Trend (laatste 8 weken)</strong><span class="smallmuted">uren ingepland (live)</span></div>
-        <div style="display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;">
-          <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border:1px solid var(--border); border-radius:12px; background:#fff;">
-            <polyline fill="none" stroke="rgba(47,111,189,.85)" stroke-width="3" points="${d}"></polyline>
-          </svg>
-          <div class="table-toolbar"><input class="input search" id="fuzzyQ" placeholder="Zoek..."/><button class="smallbtn" id="clearQ">Leeg</button></div>
-<div class="table-wrap" style="max-height:120px; width:260px;">
-            <table>
-              <thead><tr><th>Week</th><th>Uren</th></tr></thead>
-              <tbody>${rows || `<tr><td colspan="2" class="smallmuted">Geen data</td></tr>`}</tbody>
-            </table>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  function render(){
-    const st=CWS.getState();
-    document.getElementById("wkPill").textContent = weekLabel();
-
-    const proj=st.projects.byId;
-    const order=st.projects.order;
-    const ap=aggByProject();
-    const ar=aggByRes();
-
-    const hoursTotal = Object.values(ap).reduce((s,v)=>s+v,0);
-
-    // Previous live week total (nearest earlier key)
-    let prevTotal = 0;
-    try{
-      const wkNow = UI.weekKey(st.ui.week);
-      const keys = Object.keys(st.allocations?.byWeek||{}).filter(k=>!k.includes('@')).sort();
-      const idx = keys.indexOf(wkNow);
-      const prevKey = idx>0 ? keys[idx-1] : (keys.length>1 ? keys[keys.length-2] : null);
-      if(prevKey){ prevTotal = (st.allocations.byWeek[prevKey]||[]).reduce((s,a)=>s+Number(a.hours||0),0); }
-    }catch(e){}
-    const deltaH = Math.round((hoursTotal - prevTotal)*10)/10;
-    const projectsPlanned = Object.keys(ap).length;
-
-    const counts = { "Te plannen":0, "Ingepland":0, "In uitvoering":0, "Gereed":0 };
-    order.forEach(id=>{
-      const s=(proj[id]?.status||"Te plannen");
-      counts[s]=(counts[s]||0)+1;
-    });
-
-    const available = st.resources.order.reduce((sum,id)=> sum + (Number(st.resources.byId[id]?.daily||0)*5), 0);
-    const pct = available ? Math.round((hoursTotal/available)*100) : 0;
-
-    const kpis=document.getElementById("kpis");
-    kpis.innerHTML="";
-    let confN=0;
-    try{
-      const sc=(document.getElementById('scenarioSel')?.value)||'';
-      const wk0=UI.weekKey(CWS.getState().ui.week);
-      const c = CWS.detectConflicts(wk0, sc||null);
-      confN = (c.over?.length||0)+(c.dept?.length||0)+(c.missing?.length||0);
-    }catch(e){}
-
-    kpis.append(
-      kpi("Uren ingepland", hoursTotal, (deltaH===0? "—" : (deltaH>0? "+"+deltaH+" vs vorige week" : deltaH+" vs vorige week"))),
-      kpi("Capaciteit benut", pct + "%"),
-      kpi("Projecten met planning", projectsPlanned),
-      kpi("Conflicten", confN)
-    );
-
-    // Top projects
-    const topEl=document.getElementById("topProjects");
-    topEl.innerHTML="";
-    const top = Object.entries(ap).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    if(!top.length){
-      topEl.innerHTML = "<div class='smallmuted'>Nog geen toewijzingen in deze week.</div>";
-    } else {
-      top.forEach(([pid,h])=>{
-        const p = proj[pid] || {};
-        const row=document.createElement("div");
-        row.className="minirow";
-        row.innerHTML = `<div style="min-width:0;">
-            <div style="font-weight:900;">${p.nr||pid}</div>
-            <div class="smallmuted" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name||""}</div>
-          </div>
-          <div style="font-weight:900;">${h}h</div>`;
-        topEl.appendChild(row);
-      });
+  <script src="../js/core/ui.js"></script>
+  <script src="../js/core/attention.js"></script>
+  <script>
+    const $=s=>document.querySelector(s); const AppUI = window.parent?.UI || window.UI; const esc=v=>CWS.attention.esc(v);
+    function openWhy(projectId){
+      const st=CWS.getState(); const h=CWS.attention.healthForProject(st,projectId); const wrap=document.createElement('div');
+      wrap.innerHTML=`<div class="badge ${CWS.attention.severityClass(h.severity)}">${esc(h.label)}</div><p class="small">${esc(h.project.nr||projectId)} - ${esc(h.project.name||'Project')} · ${h.pct}% gereed · ${h.taskCount} Gantt-taken</p>${CWS.attention.reasonHtml(h.reasons)}<div class="toolbar" style="margin-top:12px"><button class="btn" data-open="gantt">Open Gantt</button><button class="btn" data-open="capaciteit">Open Capaciteit</button><button class="btn" data-open="projectoverzicht">Open Projectoverzicht</button><button class="btn" data-open="preflight">Open Preflight</button></div>`;
+      wrap.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>CWS.attention.openModule(b.dataset.open));
+      AppUI.openModal({title:'Waarom aandacht?',subtitle:h.project.name||projectId,contentEl:wrap,actions:[{label:'Sluiten',onClick:({close})=>close()}]});
     }
-
-    // Pie/legend - dynamic conic gradient
-    const total = Object.values(counts).reduce((s,v)=>s+v,0) || 1;
-    const seg = [
-      ["Te plannen", counts["Te plannen"], "var(--st-teplannen)"],
-      ["Ingepland", counts["Ingepland"], "#2f6fbd"],
-      ["In uitvoering", counts["In uitvoering"], "var(--st-uitvoering)"],
-      ["Gereed", counts["Gereed"], "#2f7d32"],
-    ];
-    let cur=0;
-    const parts=[];
-    seg.forEach(([name,val,color])=>{
-      const deg = (val/total)*360;
-      parts.push(`${color} ${cur}deg ${cur+deg}deg`);
-      cur += deg;
-    });
-    document.getElementById("pie").style.background = "conic-gradient(" + parts.join(",") + ")";
-
-    const leg=document.getElementById("legend");
-    leg.innerHTML="";
-    seg.forEach(([name,val,color])=>{
-      const li=document.createElement("div");
-      li.className="leg";
-      li.innerHTML = `<span class="sw" style="background:${color}"></span> ${name}: ${val}`;
-      leg.appendChild(li);
-    });
-
-    // Resource load
-    // Dept load
-    const resEl=document.getElementById("resLoad");
-    resEl.innerHTML="";
-    st.resources.order.forEach(rid=>{
-      const r = st.resources.byId[rid];
-      const planned = ar[rid] || 0;
-      const cap = Number(r.daily||0)*5;
-      const p = cap ? Math.min(100, Math.round((planned/cap)*100)) : 0;
-
-      const card=document.createElement("div");
-      card.className="minirow";
-      card.style.flexDirection="column";
-      card.style.alignItems="stretch";
-      card.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px;">
-          <div style="font-weight:900;">${r.name}</div>
-          <div style="font-weight:900;">${planned} / ${cap}h</div>
-        </div>
-        <div class="barline"><div style="width:${p}%"></div></div>
-        <div class="smallmuted">${r.dept||"—"} • ${p}%</div>`;
-      resEl.appendChild(card);
-    });
-
-
-    // Dept load
-    const deptEl = document.getElementById("deptLoad");
-    if (deptEl){
-      deptEl.innerHTML = "";
-      const byDept = aggByDept();
-      const rows = Object.entries(byDept).sort((a,b)=> (b[1].planned/b[1].cap||0) - (a[1].planned/a[1].cap||0));
-      rows.forEach(([dept, v])=>{
-        const cap = v.cap || 0;
-        const planned = v.planned || 0;
-        const pct = cap ? Math.min(100, Math.round((planned/cap)*100)) : 0;
-        const row=document.createElement("div");
-        row.className="minirow";
-        row.style.flexDirection="column";
-        row.style.alignItems="stretch";
-        row.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px;">
-            <div style="font-weight:900;">${dept}</div>
-            <div style="font-weight:900;">${planned.toFixed(1)} / ${cap.toFixed(1)}h</div>
-          </div>
-          <div class="barline"><div style="width:${pct}%"></div></div>
-          <div class="smallmuted">${pct}% benut</div>`;
-        deptEl.appendChild(row);
-      });
-      if(!rows.length) deptEl.innerHTML = "<div class='smallmuted'>Geen afdeling-data.</div>";
+    function render(){
+      const st=CWS.getState(); const dash=CWS.attention.dashboard(st); const q=($('#q').value||'').toLowerCase().trim();
+      const counters=dash.counters;
+      const tiles=[['Projecten rood',counters.redProjects,'red','projectoverzicht'],['Projecten oranje',counters.orangeProjects,'orange','projectoverzicht'],['Verlopen taken',counters.overdueTasks,'red','gantt'],['Capaciteitstekorten',counters.capacityShortages,'red','capaciteit'],['Zonder planning',counters.noPlanning,'blue','gantt'],['Geblokkeerde taken',counters.blockedTasks,'red','projectoverzicht'],['Oude terugkoppeling',counters.staleFeedback,'orange','projectoverzicht'],['Capaciteitsafwijkingen',counters.overrides,'blue','capaciteit']];
+      $('#tiles').innerHTML=tiles.map(([label,n,sev,mod])=>`<div class="tile ${CWS.attention.severityClass(sev)}" data-open="${mod}"><b>${n}</b><span>${label}</span></div>`).join('');
+      $('#tiles').querySelectorAll('[data-open]').forEach(t=>t.onclick=()=>CWS.attention.openModule(t.dataset.open));
+      const health=dash.health.filter(h=>!q || JSON.stringify(h).toLowerCase().includes(q));
+      $('#projectMeta').textContent=`${health.length} projecten`;
+      $('#projects').innerHTML=health.map(h=>`<tr class="click" data-why="${esc(h.projectId)}"><td><span class="badge ${CWS.attention.severityClass(h.severity)}">${esc(h.label)}</span></td><td><strong>${esc(h.project.nr||h.projectId)}</strong><br><span class="small">${esc(h.project.name||'')}</span></td><td><div class="progress"><i style="width:${h.pct}%"></i></div><span class="small">${h.pct}% · ${esc(h.status)}</span></td><td>${h.reasons.length?esc(h.reasons[0].message):'<span class="small">Geen aandachtspunten</span>'}</td><td>${h.latestFeedback?esc(h.latestFeedback):'<span class="small">Geen terugkoppeling</span>'}</td></tr>`).join('');
+      $('#projects').querySelectorAll('[data-why]').forEach(tr=>tr.onclick=()=>openWhy(tr.dataset.why));
+      const items=dash.items.filter(i=>!q || JSON.stringify(i).toLowerCase().includes(q)).slice(0,40);
+      $('#attentionMeta').textContent=`${items.length} zichtbaar / ${dash.items.length} totaal`;
+      $('#items').innerHTML=items.length?items.map(i=>`<li class="${CWS.attention.severityClass(i.severity)}"><strong>${esc(i.title)}</strong><br><span>${esc(i.message)}</span><br><button class="btn" style="margin-top:8px" data-open="${esc(i.module||'dashboard')}">${esc(i.action||'Open')}</button></li>`).join(''):'<li class="att-green"><strong>Geen open aandachtspunten</strong><br>Alles staat op schema volgens de huidige controles.</li>';
+      $('#items').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>CWS.attention.openModule(b.dataset.open));
     }
-
-    // Project progress (planned this week vs needed)
-    const ppEl = document.getElementById("projProgress");
-    if (ppEl){
-      ppEl.innerHTML = "";
-      const model = (st.ganttV2?.byProject)||{};
-      const top = Object.entries(ap).sort((a,b)=>b[1]-a[1]).slice(0,12);
-      const list = top.length ? top : order.slice(0,12).map(pid=>[pid, ap[pid]||0]);
-      list.forEach(([pid, plannedWeek])=>{
-        const p = proj[pid] || {};
-        // estimate needed: sum task.hoursNeeded if present else p.hoursNeeded else plannedWeek
-        let needed = Number(p.hoursNeeded||0);
-        const pm = model[pid];
-        if (pm){
-          const ids = pm.rows || [];
-          let sum=0;
-          ids.forEach(id=>{
-            const r = pm.byId?.[id];
-            if (r && r.type==="task") sum += Number(r.hoursNeeded||r.hours||0);
-          });
-          if (sum>0) needed = sum;
-        }
-        if (!needed) needed = Math.max(plannedWeek, 1);
-        const pct = Math.min(100, Math.round((plannedWeek/needed)*100));
-        const row=document.createElement("div");
-        row.className="minirow";
-        row.style.flexDirection="column";
-        row.style.alignItems="stretch";
-        row.innerHTML = `<div style="display:flex; justify-content:space-between; gap:10px;">
-            <div style="min-width:0;">
-              <div style="font-weight:900;">${p.nr||pid} — ${p.name||""}</div>
-              <div class="smallmuted">${p.status||"Te plannen"} • nodig ${needed.toFixed(1)}h</div>
-            </div>
-            <div style="font-weight:900;">${plannedWeek.toFixed(1)}h</div>
-          </div>
-          <div class="barline"><div style="width:${pct}%"></div></div>`;
-        ppEl.appendChild(row);
-      });
-      if(!list.length) ppEl.innerHTML = "<div class='smallmuted'>Geen projecten.</div>";
-    }
-  }
-
-  document.getElementById("refreshBtn").addEventListener("click", ()=>{ render(); UI.toast("Verversd"); });
-  document.getElementById("scenarioSel").addEventListener("change", ()=>{ render(); });
-
-  document.getElementById("exportBtn").addEventListener("click", ()=>{
-    const st=CWS.getState();
-    const wk = UI.weekKey(st.ui.week);
-    const proj=st.projects.byId;
-    const ap = (function(){
-      const out={}; 
-      (st.allocations?.byWeek?.[wk]||[]).forEach(a=>{ out[a.projectId]=(out[a.projectId]||0)+Number(a.hours||0); });
-      return out;
-    })();
-    const rows = [["Week", wk], [], ["Project","Status","Uren ingepland"]];
-    Object.entries(ap).sort((a,b)=>b[1]-a[1]).forEach(([pid,h])=>{
-      const p=proj[pid]||{};
-      rows.push([p.nr||pid, p.status||"", h]);
-    });
-    UI.downloadCSV(`dashboard_week_${wk}.csv`, rows);
-    UI.toast("CSV geëxporteerd");
-  });
-
-  document.getElementById("printBtn").addEventListener("click", ()=>{
-    const wk = UI.weekKey(CWS.getState().ui.week);
-    const title = "Dashboard — " + wk;
-    const subtitle = "Overzicht KPI's + top projecten + resource belasting";
-    const html = document.querySelector(".dash")?.outerHTML || "";
-    UI.printA3(title, subtitle, html);
-  });
-
-  render();
-</script>
-</body></html>
+    $('#refresh').onclick=render; $('#q').oninput=render; $('#report').onclick=()=>CWS.attention.openModule('rapporten'); if(CWS.subscribe) CWS.subscribe(render); render();
+  </script>
+</body>
+</html>

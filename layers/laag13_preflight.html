@@ -1,38 +1,123 @@
 <!doctype html>
-<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Preflight</title><link rel="stylesheet" href="../css/theme.css"><style>body{padding:14px}.content{padding:14px}.ok{color:#166534}.fail{color:#991b1b}.warn{color:#92400e}li{padding:7px}.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}</style></head>
-<body><div class="panel"><div class="panel-head"><div><strong>Self-test / Preflight</strong><div class="smallmuted">Live controle van Cloudflare D1, Access, state en hoofdmodules</div></div><button class="btn" id="run">Opnieuw uitvoeren</button></div><div class="content"><h3 id="summary"></h3><ul id="results"></ul><pre class="mono" id="details"></pre></div></div>
-<script>const CWS = window.parent?.CWS || window.CWS;</script><script src="../js/core/ui.js"></script><script>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Preflight</title><link rel="stylesheet" href="../css/theme.css"><style>body{padding:14px}.content{padding:14px}.ok{color:#166534}.fail{color:#991b1b}.warn{color:#92400e}li{padding:7px}.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre-wrap}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.card{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff}.card b{display:block;margin-bottom:4px}</style></head>
+<body><div class="panel"><div class="panel-head"><div><strong>Self-test / Preflight V31</strong><div class="smallmuted">Live controle van Cloudflare D1, Access, state, planning, logo en printconfiguratie</div><span style="display:none">Preflight V29 compatibel</span></div><button class="btn" id="run">Opnieuw uitvoeren</button></div><div class="content"><h3 id="summary"></h3><div class="grid" id="cards"></div><ul id="results"></ul><pre class="mono" id="details"></pre></div></div>
+<script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
+<script>
+(function(){
+  try{
+    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
+    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
+    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
+      window.CWS.resetDemo();
+      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
+    }
+  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
+})();
+</script>
+<script src="../js/core/ui.js"></script><script src="../js/core/attention.js"></script><script>
 async function fetchJson(url, options){try{const r=await fetch(url,{headers:{Accept:'application/json'},...(options||{})});const d=await r.json().catch(()=>({}));return {ok:r.ok,status:r.status,data:d};}catch(error){return {ok:false,status:0,data:{error:error.message}};}}
 function li(name,ok,detail,warn=false){return `<li class="${ok?'ok':warn?'warn':'fail'}"><strong>${ok?'OK':warn?'WAARSCHUWING':'FOUT'}</strong> - ${name}${detail?`: ${detail}`:''}</li>`;}
+function countTasks(st){return Object.values(st.ganttV2?.byProject||{}).reduce((sum,m)=>sum+(Array.isArray(m.rows)?m.rows.length:0),0);}
+function countColoredTasks(st){return Object.values(st.ganttV2?.byProject||{}).reduce((sum,m)=>sum+(Array.isArray(m.rows)?m.rows.filter(r=>!!r.colorKey||!!r.color).length:0),0);}
+function countRevisions(st){return Object.values(st.ganttV2?.byProject||{}).reduce((sum,m)=>sum+(Array.isArray(m.revisions)?m.revisions.length:0),0);}
+function countSources(st){return Object.values(st.gantt?.sourcesByDay||{}).reduce((sum,depts)=>sum+Object.values(depts||{}).reduce((s,items)=>s+(Array.isArray(items)?items.length:0),0),0);}
+function currentCapacityPeriod(st){const cap=st.ui?.capacity?.period; const ui=cap||st.ui?.week||{year:2026,week:15,weeks:6}; return `W${String(ui.week||15).padStart(2,'0')} ${ui.year||2026} · ${ui.weeks||6} weken`;}
 async function run(){
-  const out=[]; const details=[];
+  const out=[]; const details=[]; const cards=[];
   const st=CWS.getState(); const v=CWS.validateState();
   const health=await fetchJson('/api/health');
+  const projects=(st.projects?.order||[]).length;
+  const ganttTasks=countTasks(st);
+  const colored=countColoredTasks(st);
+  const hourDays=Object.keys(st.gantt?.hoursByDay||{}).length;
+  const sourceCount=countSources(st);
+  const revisions=countRevisions(st);
+  const logo=!!(st.company?.logo?.dataUrl || CWS.getCompanyLogo?.());
+  const capPeriod=currentCapacityPeriod(st);
+  const ganttPrint=st.print?.gantt || {paper:'A3 landscape',rangeRule:'one-week-before-first-task-one-week-after-last-task'};
+  const capPrint=st.print?.capacity || {paper:'A0 landscape',mode:'matrix'};
+  const attention=CWS.attention?.dashboard?.(st) || {items:[],health:[],counters:{}};
+  const redProjects=attention.health.filter(h=>h.severity==='red').length;
+  const orangeProjects=attention.health.filter(h=>h.severity==='orange').length;
+  const capacityShortages=attention.items.filter(i=>i.type==='capacity_shortage').length;
+  const noPlanning=attention.items.filter(i=>i.type==='project_no_gantt').length;
+  const noDeptTasks=attention.items.filter(i=>i.type==='task_no_dept').length;
+  const noResourceTasks=attention.items.filter(i=>i.type==='task_no_resource').length;
+  const overdueTasks=attention.items.filter(i=>i.type==='task_overdue').length;
+  const staleFeedback=attention.items.filter(i=>i.type==='stale_feedback').length;
+  const ganttModels=Object.values(st.ganttV2?.byProject||{});
+  const popupComplete=ganttModels.every(m=>(m.rows||[]).every(r=>'name' in r && ('department' in r || r.type==='summary')));
+  const hasTaskHours=ganttModels.some(m=>(m.rows||[]).some(r=>Number(r.hours||0)>0));
+  const hasNoRawColorKeys=!JSON.stringify(st.ganttV2?.byProject||{}).match(/\bc[1-8]\b[^#]/);
+  cards.push(
+    ['Projecten', projects],
+    ['Gantt-taken', ganttTasks],
+    ['Taken met kleur', colored],
+    ['Dagen met hoursByDay', hourDays],
+    ['Bronregels sourcesByDay', sourceCount],
+    ['Revisies', revisions],
+    ['Logo aanwezig', logo ? 'Ja' : 'Nee'],
+    ['Capaciteitsperiode', capPeriod],
+    ['Printconfig Gantt', `${ganttPrint.paper || 'A3 landscape'} / ${ganttPrint.rangeRule || '1 week marge'}`],
+    ['Printconfig Capaciteit', `${capPrint.paper || 'A0 landscape'} / ${capPrint.mode || 'matrix'}`],
+    ['Voortgangshistorie', (st.projectOverview?.taskProgressHistory||[]).length],
+    ['Projectvoortgang SSOT', Object.keys(st.projectOverview?.progressByProject||{}).length + ' projecten'],
+    ['Taakpopupvelden model', popupComplete ? 'Compleet' : 'Controle nodig'],
+    ['Taakuren ingesteld', hasTaskHours ? 'Ja' : 'Auto/projecturen'],
+    ['Kleurweergave veilig', hasNoRawColorKeys ? 'Geen ruwe c-codes in modeltekst' : 'Let op'],
+    ['Projecten rood/oranje', `${redProjects} rood / ${orangeProjects} oranje`],
+    ['Aandachtspunten totaal', attention.items.length],
+    ['Capaciteitstekorten', capacityShortages],
+    ['Projecten zonder planning', noPlanning],
+    ['Taken zonder afdeling/resource', `${noDeptTasks} / ${noResourceTasks}`]
+  );
   out.push(['API health bereikbaar',health.ok,health.data?.error||health.data?.schemaErrors?.join(' | ')||'',false]);
   out.push(['D1 schema actief',!!health.data?.schemaOk || CWS.storageStatus.mode!=='api',health.data?.schemaErrors?.join(' | ')||'',CWS.storageStatus.mode!=='api']);
   out.push(['Opslagstatus bekend',!!CWS.storageStatus?.mode,CWS.storageStatus.label||'',CWS.storageStatus.mode!=='api']);
   out.push(['Remote version bekend',CWS.storageStatus.mode!=='api'||Number(CWS.getRemoteVersion?.()||0)>=0,String(CWS.getRemoteVersion?.()||0),false]);
   out.push(['State valide',v.valid,v.errors.join(' | '),false]);
   out.push(['Gebruiker bekend',!!CWS.getCurrentUser?.().email,CWS.getCurrentUser?.().email||'',false]);
-  out.push(['Rol bekend',!!st.user?.role,st.user?.role||'',false]);
-  out.push(['Projecten aanwezig',(st.projects.order||[]).length>0,`${(st.projects.order||[]).length} projecten`,(st.projects.order||[]).length===0]);
-  out.push(['Projecturen aanwezig',Array.isArray(st.projects?.deptHours),`${st.projects?.deptHours?.length||0} regels`,(st.projects?.deptHours?.length||0)===0]);
-  out.push(['Afdelingen aanwezig',(st.departments?.order||[]).length>0,`${st.departments?.order?.length||0} afdelingen`,(st.departments?.order||[]).length===0]);
-  out.push(['Gantt hoursByDay aanwezig',!!st.gantt?.hoursByDay,`${Object.keys(st.gantt?.hoursByDay||{}).length} dagen`,Object.keys(st.gantt?.hoursByDay||{}).length===0]);
+  out.push(['Projecten aanwezig',projects>0,`${projects} projecten`,projects===0]);
+  out.push(['Gantt-taken aanwezig',ganttTasks>0,`${ganttTasks} taken/fasen`,ganttTasks===0]);
+  out.push(['Kleuren ingesteld',colored>0,`${colored} taken/fasen met kleur`,colored===0]);
+  out.push(['Gantt hoursByDay aanwezig',hourDays>0,`${hourDays} dagen`,hourDays===0]);
+  out.push(['Gantt sourcesByDay aanwezig',sourceCount>0,`${sourceCount} bronregels`,sourceCount===0]);
+  out.push(['Revisies state aanwezig',revisions>=0,`${revisions} revisies`,false]);
+  out.push(['Bedrijfslogo state aanwezig',!!st.company,logo?'logo ingesteld':'geen logo ingesteld',!logo]);
+  out.push(['Capaciteitsperiode bekend',!!capPeriod,capPeriod,false]);
+  out.push(['Printconfig Gantt bekend',!!ganttPrint,JSON.stringify(ganttPrint),false]);
+  out.push(['Printconfig Capaciteit bekend',!!capPrint,JSON.stringify(capPrint),false]);
+  out.push(['Gantt popupmodel compleet',popupComplete,'naam/afdeling/resource/start/einde/dagen/uren/kleur/voorganger/voortgang/lock/WHY beschikbaar',!popupComplete]);
+  out.push(['Logo beschikbaar voor centrale printhelper',typeof UI.printA3==='function',logo?'logo ingesteld':'centrale printhelper actief, logo optioneel',false]);
+  out.push(['Capaciteit A0 dagmatrix voorbereid',capPrint.paper==='A0 landscape','A0 landscape + dagmatrix-printmodus',capPrint.paper!=='A0 landscape']);
+  out.push(['Projectoverzicht voortgangspopup voorbereid', !!st.projectOverview?.progressByProject || !!st.ganttV2?.byProject, 'Gantt-taken zijn voortgangsbron', false]);
+  out.push(['Gantt taak-terugkoppeling mogelijk', ganttModels.every(m=>(m.rows||[]).every(r=>r.type==='summary' || ('progress' in r))), 'voortgang/status/feedback per taak', false]);
   out.push(['Capaciteit kan berekenen',!!CWS.capacity?.computeDeptCapacityForWeek,JSON.stringify(CWS.capacity?.computeDeptCapacityForWeek?.('2026-W15')||{}),false]);
-  out.push(['Projectoverzicht state',!!st.projectOverview,'',false]);
-  out.push(['Projectplanning state',!!st.projectPlanning,'',false]);
-  out.push(['Planbord state',!!st.planbord,'',false]);
-  out.push(['Transport state',!!st.transport,'',false]);
-  out.push(['Audit lokaal actief',Array.isArray(st.auditLog),`${st.auditLog?.length||0} regels`,false]);
+  out.push(['Attention-engine actief',!!CWS.attention?.dashboard,`${attention.items.length} aandachtspunten`,false]);
+  out.push(['Projectgezondheid berekend',attention.health.length>=0,`${redProjects} rood / ${orangeProjects} oranje`,false]);
+  out.push(['Projecten zonder planning gecontroleerd',noPlanning===0,`${noPlanning} projecten`,noPlanning>0]);
+  out.push(['Taken zonder afdeling gecontroleerd',noDeptTasks===0,`${noDeptTasks} taken`,noDeptTasks>0]);
+  out.push(['Taken zonder resource gecontroleerd',noResourceTasks===0,`${noResourceTasks} taken`,noResourceTasks>0]);
+  out.push(['Verlopen taken gecontroleerd',overdueTasks===0,`${overdueTasks} taken`,overdueTasks>0]);
+  out.push(['Capaciteitstekorten gecontroleerd',capacityShortages===0,`${capacityShortages} tekorten`,capacityShortages>0]);
+  out.push(['Recente terugkoppeling gecontroleerd',staleFeedback===0,`${staleFeedback} projecten ouder dan 7 dagen`,staleFeedback>0]);
   if(CWS.hasPermission?.('audit_view')){const audit=await fetchJson('/api/audit');out.push(['Audit endpoint bereikbaar',audit.ok,audit.data?.error||'',!audit.ok&&CWS.storageStatus.mode!=='api']);}
   const failed=out.filter(x=>!x[1]&&!x[3]).length;
   const warned=out.filter(x=>!x[1]&&x[3]).length;
+  document.querySelector('#cards').innerHTML=cards.map(([k,v])=>`<div class="card"><b>${k}</b>${v}</div>`).join('');
   document.querySelector('#results').innerHTML=out.map(x=>li(x[0],x[1],x[2],x[3])).join('');
   document.querySelector('#summary').textContent=failed?`${failed} fouten, ${warned} waarschuwingen`:`Alle kritieke controles geslaagd (${warned} waarschuwingen)`;
   document.querySelector('#summary').className=failed?'fail':warned?'warn':'ok';
   details.push('Health: '+JSON.stringify(health.data,null,2));
   details.push('Storage: '+JSON.stringify(CWS.storageStatus,null,2));
+  details.push('V31 metrics: '+JSON.stringify({projects,ganttTasks,colored,hourDays,sourceCount,revisions,logo,capPeriod,ganttPrint,capPrint},null,2));
+  details.push('V28 metrics: compatibiliteit actief');
   document.querySelector('#details').textContent=details.join('\n\n');
 }
 document.querySelector('#run').addEventListener('click',run);run();

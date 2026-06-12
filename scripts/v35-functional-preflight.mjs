@@ -1,0 +1,26 @@
+import fs from 'node:fs';
+const read = p => fs.readFileSync(p,'utf8');
+const checks = [];
+const ok = (name, cond) => checks.push({ name, ok: !!cond });
+const idx = read('index.html');
+const projecten = read('layers/laag3_projecten.html');
+const gantt = read('layers/laag4_gantt.html');
+const capaciteit = read('layers/laag5_capaciteit.html');
+const instellingen = read('layers/laag10_instellingen.html');
+const store = read('js/core/store.js');
+ok('V35 demo request flag wordt gezet door Demo data knop', idx.includes('cws.v35.demoRequested'));
+ok('V35 demo request flag wordt gewist bij Data leegmaken', idx.includes('removeItem("cws.v35.demoRequested")'));
+ok('Projecten laadt demo fallback in file/iframe testmodus', projecten.includes('CWS V35 fallback'));
+ok('Gantt laadt demo fallback in file/iframe testmodus', gantt.includes('CWS V35 fallback'));
+ok('Capaciteit laadt demo fallback in file/iframe testmodus', capaciteit.includes('CWS V35 fallback'));
+ok('Instellingen laadt demo fallback in file/iframe testmodus', instellingen.includes('CWS V35 fallback'));
+ok('Projecten heeft Nieuw project direct callable', projecten.includes('window.CWS_Projecten_OpenNew'));
+ok('Projecten heeft modal-backdrop npBackdrop', projecten.includes('id="npBackdrop"'));
+ok('Gantt contextmenu op lege ruimte blijft aanwezig', gantt.includes('showGanttContextMenu') && gantt.includes('contextmenu'));
+ok('Capaciteit toont beschikbare/benodigde/resterende rijen', capaciteit.includes('Beschikbare capaciteit') && capaciteit.includes('Benodigde capaciteit') && capaciteit.includes('Resterende capaciteit'));
+ok('Instellingen heeft directe Bedrijf/Logo knoppen', instellingen.includes('Bedrijf') && instellingen.includes('Logo uploaden'));
+ok('Store demo seed bevat P-1001 en Gantt taken', store.includes('P-1001') && store.includes('ganttV2.byProject'));
+let failed = 0;
+for (const c of checks) { console.log(`${c.ok ? 'OK' : 'FAIL'} - ${c.name}`); if(!c.ok) failed++; }
+console.log(`${checks.length - failed}/${checks.length} controles OK.`);
+if(failed) process.exit(1);

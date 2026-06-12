@@ -1,0 +1,26 @@
+import fs from "node:fs";
+const read = p => fs.readFileSync(p, "utf8");
+const checks = [];
+const add = (ok, label) => checks.push({ ok: !!ok, label });
+const index = read("index.html");
+const store = read("js/core/store.js");
+const projects = read("layers/laag3_projecten.html");
+const gantt = read("layers/laag4_gantt.html");
+const capacity = read("layers/laag5_capaciteit.html");
+const settings = read("layers/laag10_instellingen.html");
+add(index.includes("setTimeout(()=>Router.loadApp(\"projecten\")"), "Demo data forceert herladen Projecten");
+add(store.includes("localStorage.setItem(KEY_TENANT"), "Tenant/global localStorage blijven gesynchroniseerd");
+add(store.includes("V33: seed full Gantt V2"), "Demo seed bevat echte Gantt V2-modellen");
+add(store.includes("st.ganttV2.byProject[\"P-1001\"]"), "Demo bevat P-1001 met Gantt-taken");
+add(store.includes("st.settings.sections = ["), "Demo bevat zichtbare instellingen-secties");
+add(projects.includes("window.CWS_Projecten_OpenNew"), "Nieuw project direct callable");
+add(projects.includes("CWS.subscribe"), "Projecten rendert opnieuw na statewijziging");
+add(gantt.includes("document.body.addEventListener(\"contextmenu\""), "Gantt contextmenu vangt lege ruimte af");
+add(settings.includes("quickCompany") && settings.includes("quickLogo"), "Instellingen Bedrijf/logo snel bereikbaar");
+add(capacity.includes("availabilityOverrides"), "Capaciteit overrides blijven aanwezig");
+add(read("package.json").includes("preflight:v33"), "V33 preflight script geregistreerd");
+add(read("package.json").includes("scripts/e2e-fallback.mjs"), "E2E fallback test beschikbaar zonder Playwright download");
+let ok = 0;
+for (const c of checks) { console.log(`${c.ok ? "OK" : "FAIL"} - ${c.label}`); if (c.ok) ok++; }
+console.log(`${ok}/${checks.length} controles OK.`);
+if (ok !== checks.length) process.exit(1);

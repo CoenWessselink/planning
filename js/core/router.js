@@ -49,6 +49,10 @@ const Router = (() => {
     frame.src = url + "?r=" + Date.now();
     setTitle(appToTitle[app] || "App");
     CWS.setState(s => { s.ui.lastApp = app; return s; });
+    try{
+      document.body.dataset.activeApp = app;
+      document.dispatchEvent(new CustomEvent("cws:appchange", { detail:{ app, title: appToTitle[app] || "App", url } }));
+    }catch(_){ }
   };
 
   const boot = () => {
@@ -56,5 +60,5 @@ const Router = (() => {
     loadApp(app);
   };
 
-  return { loadApp, boot };
+  return { loadApp, boot, appFrames, appToTitle, getActiveApp: () => (CWS.getState().ui.lastApp || "projecten") };
 })();

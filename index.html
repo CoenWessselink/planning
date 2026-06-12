@@ -50,7 +50,9 @@
   <script src="js/core/store.js"></script>
   <script src="js/core/permissions.js"></script>
   <script src="js/core/ui.js"></script>
+  <script src="js/core/attention.js"></script>
   <script src="js/core/router.js"></script>
+  <script src="js/core/responsive.js"></script>
   <script src="js/core/apps_menu.js"></script>
   <script src="js/core/export.js"></script>
   <script src="js/core/import_excel.js"></script>
@@ -80,6 +82,7 @@
         AppsMenu.bind();
         CWS_ExcelImport.bind();
         Router.boot();
+        CWS_Responsive.bind();
         document.body.dataset.cwsReady = "true";
 
         window.addEventListener("message", event => {
@@ -89,14 +92,20 @@
         document.getElementById("resetDemo").addEventListener("click", () => {
           if(!Permissions.can(CWS.getState().ui.role, "edit_planning")) return UI.toast("Geen rechten");
           CWS.resetDemo();
+          try{
+            const now = new Date().toISOString();
+            localStorage.setItem("cws.v33.demoLoadedAt", now);
+            localStorage.setItem("cws.v35.demoRequested", now);
+          }catch(_e){}
           UI.toast("Demo data geladen.");
-          Router.loadApp("projecten");
+          setTimeout(()=>Router.loadApp("projecten"), 80);
         });
 
         document.getElementById("clearData").addEventListener("click", () => {
           if(!CWS.hasPermission("admin_settings")) return UI.toast("Geen rechten");
           if(!confirm("Alle CWS Planning-data verwijderen? Deze actie kan niet ongedaan worden gemaakt.")) return;
           CWS.clearAll();
+          try{ localStorage.removeItem("cws.v35.demoRequested"); localStorage.removeItem("cws.v33.demoLoadedAt"); }catch(_e){}
           UI.toast("Data geleegd.");
           Router.loadApp("projecten");
         });

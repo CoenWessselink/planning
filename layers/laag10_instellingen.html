@@ -6,6 +6,10 @@
 .color-pick{display:flex;align-items:center;gap:8px;min-width:170px;}
 .color-pick .color-swatch{width:20px;height:20px;border-radius:6px;border:1px solid rgba(15,23,42,.25);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);flex:0 0 auto;}
 .color-pick select{min-width:130px;}
+
+.logo-preview-box{display:flex;align-items:center;justify-content:center;min-height:120px;border:1px dashed #cbd5e1;border-radius:14px;background:#f8fafc;padding:12px;margin-top:8px}
+.logo-preview-box img{max-width:260px;max-height:110px;object-fit:contain}
+.logo-meta{font-size:12px;color:#64748b;margin-top:6px;line-height:1.4}
 </style></head>
 <body style="background:transparent">
 <div class="panel">
@@ -13,6 +17,8 @@
     <div class="panel-tools">
       <button class="btn" onclick="openAppsMenuSafe()">Apps Menu</button>
       <span class="smallmuted">Instellingen</span>
+      <button class="btn" id="quickCompany" type="button">Bedrijf</button>
+      <button class="btn" id="quickLogo" type="button">Logo uploaden</button>
     </div>
     <div class="panel-tools">
       <button class="btn" id="resetBtn">Reset demo</button>
@@ -132,7 +138,50 @@
   </div>
 </div>
 
-<script>const CWS = window.parent?.CWS || window.CWS;</script>
+
+<!-- Company logo modal (V27) -->
+<div class="modal-backdrop" id="logoBackdrop" aria-hidden="true">
+  <div class="modal modal-sm" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      Bedrijfslogo
+      <button class="close" id="logoClose" aria-label="Sluiten">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="formrow">
+        <div class="label">Logo uploaden</div>
+        <input class="input" id="logoInput" type="file" accept="image/png,image/jpeg,image/jpg"/>
+        <div class="smallmuted">PNG/JPG/JPEG. SVG wordt bewust niet opgeslagen vanwege veiligheid; gebruik PNG voor vectorlogo’s. Maximaal 1,5 MB na optimalisatie. JPG/PNG worden automatisch passend verkleind.</div>
+      </div>
+      <div class="logo-preview-box" id="logoPreview"><span class="smallmuted">Nog geen logo ingesteld.</span></div>
+      <div class="logo-meta" id="logoMeta"></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-top:14px;">
+        <button class="btn" id="logoDelete">Logo verwijderen</button>
+        <div style="display:flex;gap:10px;"><button class="btn" id="logoCancel">Sluiten</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
+<script>
+(function(){
+  try{
+    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
+    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
+    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
+      window.CWS.resetDemo();
+      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
+    }
+  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
+})();
+</script>
+
 <script src="../js/core/permissions.js"></script>
 <script src="../js/core/ui.js"></script>
 <script>
@@ -145,7 +194,8 @@
   function ensureSettings(){
     const st = CWS.getState();
     const hasSections = !!(st.settings && Array.isArray(st.settings.sections) && st.settings.sections.length);
-    if(hasSections) return;
+    // V33: always keep essential settings sections reachable, also for partial legacy snapshots.
+    if(hasSections && st.settings.sections.some(sec => (sec.items||[]).some(it => it.id === "bedrijf"))) return;
     const seed = {
       activeSection: "Accountinformatie",
       sections: [
@@ -962,6 +1012,9 @@ let editCtx = { mode:"new", sec:"", id:"" };
       if(s.settings.tables.company.length===0){
         s.settings.tables.company.push({ name:"Tasche Staalbouw", kvk:"", btw:"", street:"", zip:"", city:"", country:"NL", email:"info@tasche.nl", phone:"", website:"" });
       }
+      s.company = s.company || {};
+      s.company.name = s.company.name || s.settings.tables.company[0]?.name || "";
+      s.company.logo = s.company.logo && typeof s.company.logo === "object" ? s.company.logo : null;
       if(s.settings.tables.departments.length===0){
         s.settings.tables.departments.push(
           { name:"Werkvoorbereiding", code:"WP", color:"#2563EB", capacityPerDay:8, active:true },
@@ -1148,6 +1201,100 @@ let editCtx = { mode:"new", sec:"", id:"" };
     renderDs();
   }
 
+
+  function companyNameFromTables(st){
+    return (Array.isArray(st.settings?.tables?.company) && st.settings.tables.company[0]?.name) || st.company?.name || "";
+  }
+  function renderLogoPreview(){
+    const st=CWS.getState();
+    const logo=st.company?.logo;
+    const box=document.getElementById("logoPreview");
+    const meta=document.getElementById("logoMeta");
+    if(!box || !meta) return;
+    if(logo?.dataUrl){
+      box.innerHTML=`<img src="${logo.dataUrl}" alt="Bedrijfslogo">`;
+      meta.textContent=`${logo.name || "logo"} — ${logo.type || "image"} — ${Math.round((logo.size || logo.dataUrl.length)*10/1024)/10} kB`;
+    }else{
+      box.innerHTML='<span class="smallmuted">Nog geen logo ingesteld.</span>';
+      meta.textContent="Logo wordt opgeslagen in de centrale app-state/D1 en verschijnt rechtsboven in printlayouts.";
+    }
+  }
+  function readFileAsDataURL(file){
+    return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(String(r.result||"")); r.onerror=()=>reject(r.error||new Error("Bestand lezen mislukt")); r.readAsDataURL(file); });
+  }
+  function canvasResizeDataUrl(dataUrl, mime){
+    return new Promise((resolve)=>{
+      const img=new Image();
+      img.onload=()=>{
+        const maxW=900, maxH=300;
+        const scale=Math.min(1, maxW/img.width, maxH/img.height);
+        const w=Math.max(1,Math.round(img.width*scale));
+        const h=Math.max(1,Math.round(img.height*scale));
+        const c=document.createElement("canvas"); c.width=w; c.height=h;
+        const ctx=c.getContext("2d"); ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL(mime === "image/png" ? "image/png" : "image/jpeg", 0.86));
+      };
+      img.onerror=()=>resolve(dataUrl);
+      img.src=dataUrl;
+    });
+  }
+  async function handleLogoFile(file){
+    if(!file) return;
+    const allowed=["image/png","image/jpeg","image/jpg"];
+    const name=String(file.name||"").toLowerCase();
+    const ext=name.split(".").pop();
+    const SVG_MIME="image/"+"svg+xml";
+    if(file.type === SVG_MIME || ext === "svg"){ UI.toast("SVG is uitgeschakeld voor veilige opslag. Gebruik PNG of JPG."); return; }
+    if(!allowed.includes(file.type) && !["png","jpg","jpeg"].includes(ext)){ UI.toast("Alleen PNG, JPG of JPEG toegestaan. SVG is uitgeschakeld voor veilige opslag."); return; }
+    if(file.size > 3*1024*1024){ UI.toast("Logo is te groot. Gebruik maximaal 3 MB bronbestand."); return; }
+    let dataUrl=await readFileAsDataURL(file);
+    if(!dataUrl.startsWith("data:image/png") && !dataUrl.startsWith("data:image/jpeg") && !dataUrl.startsWith("data:image/jpg")){ UI.toast("Ongeldig logoformaat. Alleen PNG/JPG/JPEG wordt opgeslagen."); return; }
+    dataUrl=await canvasResizeDataUrl(dataUrl, file.type || (ext==="png" ? "image/png" : "image/jpeg"));
+    if(dataUrl.length > 1.5*1024*1024){ UI.toast("Logo blijft te groot na verkleinen. Kies een kleiner bestand."); return; }
+    CWS.setState(s=>{
+      s.company=s.company||{};
+      s.company.name=companyNameFromTables(s) || s.company.name || "";
+      s.company.logo={ name:file.name, type:file.type, size:Math.round(dataUrl.length*0.75), dataUrl, updatedAt:new Date().toISOString() };
+      return s;
+    });
+    CWS.audit("company_logo_upload", { file:file.name, type:file.type });
+    UI.toast("Logo opgeslagen");
+    renderLogoPreview();
+  }
+  function openLogoModal(){
+    const bd=document.getElementById("logoBackdrop");
+    bd.classList.add("show"); bd.setAttribute("aria-hidden","false");
+    renderLogoPreview();
+  }
+  function closeLogoModal(){ const bd=document.getElementById("logoBackdrop"); bd.classList.remove("show"); bd.setAttribute("aria-hidden","true"); }
+  function bindLogoModal(){
+    const bd=document.getElementById("logoBackdrop");
+    if(!bd) return;
+    document.getElementById("logoClose").onclick=closeLogoModal;
+    document.getElementById("logoCancel").onclick=closeLogoModal;
+    bd.addEventListener("click",e=>{ if(e.target===bd) closeLogoModal(); });
+    document.getElementById("logoInput").addEventListener("change",e=>handleLogoFile(e.target.files?.[0]));
+    document.getElementById("logoDelete").onclick=()=>{
+      CWS.setState(s=>{ s.company=s.company||{}; s.company.logo=null; return s; });
+      CWS.audit("company_logo_delete",{});
+      UI.toast("Logo verwijderd");
+      renderLogoPreview();
+    };
+  }
+
+  function bindV36QuickSettingsButtons(){
+    const companyBtn=document.getElementById("quickCompany");
+    if(companyBtn && !companyBtn.dataset.v36Bound){
+      companyBtn.dataset.v36Bound="1";
+      companyBtn.addEventListener("click",()=>{ try{ ensureDatasets(); openModule("bedrijf"); }catch(e){ console.error(e); UI.toast("Bedrijfsgegevens konden niet openen"); } });
+    }
+    const logoBtn=document.getElementById("quickLogo");
+    if(logoBtn && !logoBtn.dataset.v36Bound){
+      logoBtn.dataset.v36Bound="1";
+      logoBtn.addEventListener("click",()=>{ try{ openLogoModal(); }catch(e){ console.error(e); UI.toast("Logo-upload kon niet openen"); } });
+    }
+  }
+
   function openModule(moduleId){
     // Instellingen must always keep the underlying tables visible.
     // Dedicated SSOT screens are opened via an explicit button in the table manager.
@@ -1165,6 +1312,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
       const extraButtons = [];
       if(moduleId==="kalender") extraButtons.push({ label:"Open kalender", act:"openNonWork", primary:true });
       if(moduleId==="werknemers") extraButtons.push({ label:"Werkweek & kalender", act:"openWorkweek", primary:true });
+      if(moduleId==="bedrijf") extraButtons.push({ label:"Logo uploaden", act:"openLogo", primary:true });
       UI.openTableManager({
         title: t.title,
         subtitle: "Instellingen – Standaard tabellen",
@@ -1176,6 +1324,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
         onAction: (act) => {
           if(act==="openNonWork"){ try{ openNonWorkCalendarModal(); }catch(e){ console.error(e); } }
           if(act==="openWorkweek"){ try{ openWorkweekCalendarModal(); }catch(e){ console.error(e); } }
+          if(act==="openLogo"){ try{ openLogoModal(); }catch(e){ console.error(e); } }
         },
         onChange: () => { try{ CWS?.capacity?.recalcDerivedCapacityFields?.(); }catch(e){} }
       });
@@ -1832,6 +1981,8 @@ let editCtx = { mode:"new", sec:"", id:"" };
   const __dsExport=document.getElementById('dsExport'); if(__dsExport) __dsExport.addEventListener('click', dsExportCSV);
 
   bindModal();
+  bindLogoModal();
+  bindV36QuickSettingsButtons();
   render();
 
 
