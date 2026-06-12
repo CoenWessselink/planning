@@ -34,6 +34,10 @@ const checks = [
   [fs.readFileSync("js/core/responsive.js", "utf8").includes("cwsV37MobileActionDock") && fs.readFileSync("css/theme.css", "utf8").includes("v37-mobile-action-dock"), "V37 mobiele action dock aanwezig"],
   [fs.readFileSync("css/theme.css", "utf8").includes("border-radius:20px 20px 0 0") && fs.readFileSync("css/theme.css", "utf8").includes("max-height:92dvh"), "V37 mobiele bottom sheet modals geborgd"],
   [fs.readFileSync("js/core/responsive.js", "utf8").includes("#addTaskBtn") && fs.readFileSync("js/core/responsive.js", "utf8").includes("#quickLogo") && fs.readFileSync("js/core/responsive.js", "utf8").includes("#todayBtn"), "V37 mobiele snelacties per module aanwezig"],
+  [gantt.includes('{id:"rowno",label:"Nr"') && gantt.includes('row._displayNo=i+1'), "V38 Gantt regelnummerkolom aanwezig"],
+  [gantt.includes('function predecessorDisplay') && gantt.includes('return predecessorDisplay(row.predecessor)'), "V38 voorganger wordt als regelnummer getoond"],
+  [gantt.includes('showDeps:false') && gantt.includes('<button class="btn" id="depsBtn">Afhankelijkheden</button>'), "V38 afhankelijkheden standaard uit"],
+  [gantt.includes('printFileName(p)') && gantt.includes('printProjectHeaderText') && gantt.includes('Regel nr'), "V38 printkop/bestandsnaam/regelnummer geborgd"],
 ];
 for (const [pass, label] of checks) {
   console.log(`${pass ? "OK" : "FAIL"} - ${label}`);

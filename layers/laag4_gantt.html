@@ -151,6 +151,38 @@
     }
 
 
+    /* V38 — print/Gantt regelnummer, dunne lijnen en schone printkop */
+    .rowno-cell{font-weight:900;text-align:right;color:#334155;display:block;min-width:26px;}
+    .pred-display{display:flex;align-items:center;gap:6px;min-width:90px;}
+    .pred-display .cellinput{min-width:64px;}
+    .pred-nos{font-weight:900;color:#1d4ed8;white-space:nowrap;}
+    .pred-raw{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
+    @media print{
+      html,body{background:#fff!important;}
+      body{padding:0!important;}
+      .gantt-shell{box-shadow:none!important;border:0!important;border-radius:0!important;}
+      .toolbar,.notice,.context,.mobile-toolbar,.v37-mobile-action-dock,.status,.modalback,.gantt-context-menu{display:none!important;}
+      .print-header{display:flex!important;border-bottom:.45px solid #111827!important;margin:0 0 3px 0!important;padding:0 0 4px 0!important;}
+      .print-title{font-size:12px!important;line-height:1.05!important;}
+      .print-sub{font-size:7px!important;line-height:1.15!important;color:#111827!important;}
+      .print-logo{max-width:120px!important;max-height:42px!important;object-fit:contain!important;}
+      .module-head,.meta-line{display:none!important;}
+      .board-wrap{margin:0!important;border:.45px solid #111827!important;border-radius:0!important;overflow:visible!important;}
+      .printing .print-task-table{width:235px!important;min-width:235px!important;max-width:235px!important;border-right:.45px solid #111827!important;}
+      .printing .board,.printing .board.diagram-only,.printing .board.table-only{grid-template-columns:235px minmax(0,1fr)!important;}
+      .printing .print-task-table table{font-size:5.6px!important;border-collapse:collapse!important;}
+      .printing .print-task-table th,.printing .print-task-table td{height:20px!important;padding:1px 2px!important;border:.35px solid #111827!important;line-height:1.05!important;}
+      .printing .print-task-table thead th{height:44px!important;vertical-align:bottom!important;background:#fff!important;}
+      .printing .tl-cell{border-right:.35px solid #111827!important;border-bottom:.35px solid #111827!important;font-size:4.8px!important;line-height:1!important;}
+      .printing .lane{border-bottom:.35px solid #111827!important;background-image:linear-gradient(to right,#111827 .35px,transparent .35px)!important;}
+      .printing .bar{height:16px!important;top:2px!important;border-radius:2px!important;font-size:5.5px!important;box-shadow:none!important;border:.35px solid #111827!important;padding:0 2px!important;}
+      .printing .bar.summary:before{top:8px!important;border-top:1px solid #111827!important;}
+      .printing .bar.summary:after{top:13px!important;border-top:.5px solid #111827!important;}
+      .printing .print-legend{border:.35px solid #111827!important;border-top:0!important;font-size:5px!important;}
+      .printing .legend-swatch{border:.35px solid #111827!important;}
+    }
+
+
     /* V25 — configureerbare tekst voor/in/achter taakbalken */
     .bar-text-before,.bar-text-after{position:absolute;top:14px;height:20px;line-height:20px;font-size:12px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;z-index:9;text-shadow:0 1px 0 rgba(255,255,255,.85);}
     .bar-text-before{text-align:right;}
@@ -188,7 +220,7 @@
     .print-header{display:none;background:#fff;color:#0f172a;border-bottom:1px solid #cbd5e1;margin:0 0 6px 0;padding:0 0 8px 0;align-items:flex-start;justify-content:space-between;gap:18px;}
     .print-title{font-size:18px;font-weight:950;line-height:1.1;}
     .print-sub{font-size:8px;color:#334155;margin-top:2px;line-height:1.25;}
-    .print-logo{max-width:135px;max-height:48px;object-fit:contain;}
+    .print-logo{max-width:135px;max-height:48px;object-fit:contain;}.print-logo-placeholder{display:inline-flex;align-items:center;justify-content:center;width:72px;height:40px;border:.6px solid #94a3b8;border-radius:8px;font-weight:950;color:#334155;background:#f8fafc;}
     body.printing .print-header{display:flex!important;}
     @media print{.print-header{display:flex!important}.module-head{display:none!important}}
 
@@ -216,7 +248,7 @@
       <div class="toolbar-group"><select class="select project" id="projectSel"></select><select class="select" id="deptSel"><option value="">Alle afdelingen</option></select><select class="select" id="resourceSel"><option value="">Alle resources</option></select></div>
       <div class="toolbar-group"><button class="btn" id="todayBtn">Vandaag</button><button class="btn" data-zoom="day">Dag</button><button class="btn active" data-zoom="week">Week</button><button class="btn" data-zoom="month">Maand</button></div>
       <div class="toolbar-group"><button class="btn primary" id="generateBtn">Genereer fasen</button><button class="btn primary" id="addTaskBtn">Taak toevoegen</button><button class="btn" id="recalcBtn">Herbereken planning</button></div>
-      <div class="toolbar-group"><button class="btn active" id="depsBtn">Afhankelijkheden</button><button class="btn" id="criticalBtn">Kritiek pad</button><button class="btn" id="baselineBtn">Baseline</button><button class="btn" id="setBaselineBtn">Baseline = actueel</button></div>
+      <div class="toolbar-group"><button class="btn" id="depsBtn">Afhankelijkheden</button><button class="btn" id="criticalBtn">Kritiek pad</button><button class="btn" id="baselineBtn">Baseline</button><button class="btn" id="setBaselineBtn">Baseline = actueel</button></div>
       <div class="toolbar-group"><button class="btn primary" id="saveRevisionBtn">Planning opslaan als revisie</button><button class="btn" id="revisionsBtn">Revisies</button><button class="btn danger hidden" id="liveBtn">Live planning</button></div>
       <div class="toolbar-group"><button class="btn" id="indentBtn">Inspringen</button><button class="btn" id="outdentBtn">Uitspringen</button><button class="btn" id="undoBtn">Undo</button><button class="btn" id="redoBtn">Redo</button></div>
       <div class="toolbar-group columns-group"><button class="btn" id="columnsBtn">Kolommen</button><button class="btn" id="labelsBtn">Tekst balken</button></div><div class="toolbar-group"><button class="btn" data-view="table">Tabel</button><button class="btn active" data-view="both">Beide</button><button class="btn" data-view="diagram">Diagram</button><button class="btn" id="printBtn">Print A3</button><button class="btn" id="exportBtn">Export</button></div>
@@ -286,7 +318,11 @@ var CWS = window.CWS;</script>
     }
 
     function companyName(st){ return CWS?.getCompanyName?.() || (Array.isArray(st.settings?.tables?.company)&&st.settings.tables.company[0]?.name) || st.company?.name || ""; }
-    function logoHtml(st){ const src=st.company?.logo?.dataUrl || CWS?.getCompanyLogo?.() || ""; return src ? `<img class="print-logo" src="${src}" alt="Bedrijfslogo">` : ""; }
+    function logoHtml(st){ const src=st.company?.logo?.dataUrl || CWS?.getCompanyLogo?.() || ""; const name=companyName(st)||"Bedrijf"; return src ? `<img class="print-logo" src="${src}" alt="Bedrijfslogo">` : `<div class="print-logo print-logo-placeholder" aria-label="Bedrijfslogo placeholder">${esc(name).slice(0,2).toUpperCase()}</div>`; }
+    function safeFilePart(v){ return String(v||"").normalize("NFKD").replace(/[\/:*?"<>|]+/g,"-").replace(/\s+/g," ").trim().slice(0,80) || "planning"; }
+    function projectClient(p){ return p.client || p.opdrachtgever || p.customer || p.klant || ""; }
+    function printFileName(p){ const d=new Date(); const date=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; return [p.name||"project", p.nr||p.code||p.id||"nummer", projectClient(p)||"opdrachtgever", date].map(safeFilePart).join("-"); }
+    function printProjectHeaderText(p){ return [p.name||"Project", p.nr||p.code||p.id||"—", projectClient(p)||"Opdrachtgever"].filter(Boolean).join(" - "); }
     function updatePrintHeader(model, range){
       const st=state();
       const p=projects(st).find(x=>String(x.id)===String(currentProjectId())) || {};
@@ -294,16 +330,16 @@ var CWS = window.CWS;</script>
       const status=rev ? `Revisie ${rev.revNo||"—"} · datum ${toNL(rev.revisionDate)||rev.revisionDate||"—"} · status ${rev.status||"—"}` : "Live planning";
       const start=range?.start ? toNL(range.start) : "—";
       const end=range?.start && range?.days ? toNL(addDays(range.start, range.days-1)) : "—";
-      const title="Gantt planning A3";
       const header=document.getElementById("printHeader");
       if(!header) return;
-      header.innerHTML=`<div><div class="print-title">${esc(title)}</div><div class="print-sub"><b>${esc(companyName(st)||"Bedrijf")}</b> · Project: ${esc(projectLabel(p)||p.name||p.id||"—")}</div><div class="print-sub">${esc(status)} · Afdruk: ${new Date().toLocaleString("nl-NL")} · Bereik: ${esc(start)} t/m ${esc(end)}</div><div class="print-sub">Tabel: Taaknaam / Resource / Dagen · Diagram: maand / week / dag / dagnummer · Niet-werkbare dagen lichtgrijs</div></div><div>${logoHtml(st)}</div>`;
+      header.innerHTML=`<div><div class="print-title">${esc(printProjectHeaderText(p))}</div><div class="print-sub"><b>${esc(companyName(st)||"Bedrijf")}</b> · ${esc(status)} · Afdruk: ${new Date().toLocaleString("nl-NL")} · Bereik: ${esc(start)} t/m ${esc(end)}</div></div><div>${logoHtml(st)}</div>`;
     }
 
-    const UI = { zoom:"week", view:"both", showDeps:true, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null };
+    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null };
     const COL_KEY = "cws.gantt.visibleColumns.v20";
     const COL_ORDER_KEY = "cws.gantt.columnOrder.v28";
     const ALL_COLUMNS = [
+      {id:"rowno",label:"Nr",min:42,control:"text"},
       {id:"id",label:"ID",min:72,control:"text"},
       {id:"name",label:"Taak",min:118,control:"task"},
       {id:"start",label:"Start",min:82,control:"date"},
@@ -320,8 +356,8 @@ var CWS = window.CWS;</script>
       {id:"locked",label:"Lock",min:46,control:"checkbox"},
       {id:"actions",label:"Acties",min:74,control:"actions"}
     ];
-    const DEFAULT_COLS = ["id","name","start","end","duration","progress","taskStatus","feedback","hours","predecessor","department","resource","color","locked","actions"];
-    const BASIC_COLS = ["id","name","start","end","duration","hours","predecessor","actions"];
+    const DEFAULT_COLS = ["rowno","id","name","start","end","duration","progress","taskStatus","feedback","hours","predecessor","department","resource","color","locked","actions"];
+    const BASIC_COLS = ["rowno","id","name","start","end","duration","hours","predecessor","actions"];
     const LABEL_KEY = "cws.gantt.barLabels.v25";
     const LABEL_POSITIONS = [
       {id:"before", label:"Voor taakbalk", note:"Zwarte tekst links van de balk"},
@@ -389,6 +425,7 @@ var CWS = window.CWS;</script>
     function visibleColumns(){ const set=loadVisibleCols(); const order=loadColumnOrder(); const byId=new Map(ALL_COLUMNS.map(c=>[c.id,c])); return order.map(id=>byId.get(id)).filter(c=>c&&set.has(c.id)); }
     function textForCol(col,row,sc){
       const d=duration(sc.start,sc.end);
+      if(col.id==="rowno") return row._displayNo || "";
       if(col.id==="id") return row.id;
       if(col.id==="name") return row.name;
       if(col.id==="start") return toNL(sc.start);
@@ -398,7 +435,7 @@ var CWS = window.CWS;</script>
       if(col.id==="taskStatus") return row.status || (Number(row.progress||0)>=100 ? "Gereed" : Number(row.progress||0)>0 ? "In uitvoering" : "Niet gestart");
       if(col.id==="feedback") return row.feedback || row.why || "";
       if(col.id==="hours") return Number(row.hours||0) ? `${Number(row.hours||0)} u` : "auto";
-      if(col.id==="predecessor") return row.predecessor||"";
+      if(col.id==="predecessor") return predecessorDisplay(row.predecessor);
       if(col.id==="department") { const st=state(); const d=departments(st).find(x=>String(x.id||x.name)===String(row.department)||String(x.name)===String(row.department)); return d?(d.name||d.id):(row.department||""); }
       if(col.id==="resource") { const st=state(); const r=(st.resources?.byId||{})[row.resourceId]; return r?(r.name||r.id):(row.resourceId||"—"); }
       if(col.id==="color") return colorLabel(row.colorKey);
@@ -452,6 +489,7 @@ var CWS = window.CWS;</script>
     function buildCell(col,row,sc,st,indent){
       const readOnly=!!UI.revisionId;
       const dis=(row.locked||readOnly)?"disabled":"";
+      if(col.id==="rowno") return `<span class="rowno-cell">${esc(row._displayNo||"")}</span>`;
       if(col.id==="id") return esc(row.id);
       if(col.id==="name") return `<div class="taskcell"><span class="twisty">${row.type==="summary"?"▾":""}</span><span style="width:${indent}px"></span><input class="taskname" data-k="name" value="${esc(row.name)}" ${dis}></div>`;
       if(col.id==="start") return `<input class="cellinput" data-k="start" value="${esc(toNL(sc.start))}" ${row.type==="summary"||row.locked||readOnly?"disabled":""}>`;
@@ -461,7 +499,7 @@ var CWS = window.CWS;</script>
       if(col.id==="taskStatus") return `<select class="resource-select" data-k="status" ${dis}>${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select>`;
       if(col.id==="feedback") return `<input class="cellinput" data-k="feedback" title="${esc(row.feedback||row.why||"")}" value="${esc(row.feedback||row.why||"")}" ${dis}>`;
       if(col.id==="hours") return `<input class="cellinput smallinput" data-k="hours" title="0 = automatisch uit projecturen per afdeling" value="${Number(row.hours||0)}" ${dis}>`;
-      if(col.id==="predecessor") return `<input class="cellinput" data-k="predecessor" value="${esc(row.predecessor||"")}" ${dis}>`;
+      if(col.id==="predecessor") return `<div class="pred-display" title="Technische voorganger: ${esc(predecessorTitle(row.predecessor))}"><span class="pred-nos">${esc(predecessorDisplay(row.predecessor)||"—")}</span><input class="cellinput pred-raw" data-k="predecessor" value="${esc(row.predecessor||"")}" ${dis} aria-label="Technische voorganger"></div>`;
       if(col.id==="department") return `<select class="dept-select" data-k="department" ${dis}>${departments(st).map(d=>`<option value="${esc(d.id||d.name)}" ${String(row.department)===String(d.id||d.name)||String(row.department)===String(d.name)?"selected":""}>${esc(d.name||d.id)}</option>`).join("")}</select>`;
       if(col.id==="resource") return `<select class="resource-select" data-k="resourceId" ${dis}><option value="">—</option>${resources(st).map(r=>`<option value="${esc(r.id)}" ${row.resourceId===r.id?"selected":""}>${esc(r.name||r.id)}</option>`).join("")}</select>`;
       if(col.id==="color") return colorPickerHtml("colorKey", row.colorKey, dis);
@@ -701,6 +739,9 @@ var CWS = window.CWS;</script>
     function summarySchedule(model, index){ const row=model.rows[index]; const children=[]; for(let i=index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(row.level||0);i++){ const sc=model.sched[model.rows[i].id]; if(sc?.start&&sc?.end) children.push(sc); } if(!children.length) return {}; return { start:children.map(x=>x.start).sort()[0], end:children.map(x=>x.end).sort().at(-1) }; }
     function rowSchedule(model, row, index){ return row.type==="summary" ? summarySchedule(model,index) : (model.sched[row.id]||{}); }
     function parsePred(raw){ const s=String(raw||"").trim(); if(!s) return []; return s.split(/[;,]+/).map(x=>x.trim()).filter(Boolean).map(x=>{ const m=x.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i); return m?{id:m[1],type:m[2].toUpperCase(),lag:Number(m[3]||0)}:null; }).filter(Boolean); }
+    function rowNumberMap(model){ const map=new Map(); (model?.rows||[]).forEach((r,i)=>map.set(String(r.id), i+1)); return map; }
+    function predecessorDisplay(raw, model=getModel(currentProjectId())){ const preds=parsePred(raw); if(!preds.length) return ""; const map=rowNumberMap(model); return preds.map(p=>{ const nr=map.get(String(p.id)); const suffix=(p.type&&p.type!=="FS"?p.type:"")+(p.lag?`${p.lag>0?"+":""}${p.lag}`:""); return `${nr||"?"}${suffix}`; }).join(", "); }
+    function predecessorTitle(raw){ return String(raw||""); }
     function filteredRows(model){ const dept=UI.dept, res=UI.resource, q=String($("#searchInput")?.value||"").toLowerCase(); return model.rows.map((row,index)=>({row,index,sc:rowSchedule(model,row,index)})).filter(x=>{ const r=x.row; const matchSelf=(!dept||r.department===dept)&&(!res||r.resourceId===res)&&(!q||[r.id,r.name,r.department].join(" ").toLowerCase().includes(q)); if(r.type!=="summary") return matchSelf; // keep summary if any direct/desc child visible
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
     function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const sorted=dates.slice().sort(); const min=sorted[0]; const max=sorted.at(-1); const start=startOfWeek(addDays(min,-7)); if(UI.printMode){ const endPad=startOfWeek(addDays(max,7)); return {start,days:Math.max(14,dayDiff(start,endPad)+7)}; } let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
@@ -723,6 +764,7 @@ var CWS = window.CWS;</script>
       const liveModel=ensureModel(pid);
       const model=activeModelForRender(liveModel);
       const rows=filteredRows(model);
+      rows.forEach((x,i)=>{ x.row._displayNo=i+1; });
       const cids=UI.showCritical?criticalIds(model):new Set();
       const cols=visibleColumns();
       const widths=columnWidths(cols, rows);
@@ -787,9 +829,9 @@ var CWS = window.CWS;</script>
       const body=rows.map(({row,sc})=>{
         const res = textForCol({id:"resource"}, row, sc) || "—";
         const days = duration(sc.start, sc.end);
-        return `<tr class="${row.type==="summary"?"summary-row":""}"><td title="${esc(row.name)}">${esc(row.name)}</td><td title="${esc(res)}">${esc(res)}</td><td>${esc(days)} d</td></tr>`;
+        return `<tr class="${row.type==="summary"?"summary-row":""}"><td>${esc(row._displayNo||"")}</td><td title="${esc(row.name)}">${esc(row.name)}</td><td title="${esc(res)}">${esc(res)}</td><td>${esc(days)} d</td></tr>`;
       }).join("");
-      host.innerHTML=`<table><thead><tr><th>Taaknaam</th><th>Resource</th><th>Dagen</th></tr></thead><tbody>${body}</tbody></table>`;
+      host.innerHTML=`<table><thead><tr><th>Regel nr</th><th>Naam</th><th>Resource</th><th>Duur</th></tr></thead><tbody>${body}</tbody></table>`;
     }
 
     function uniqueRowId(model, base){
@@ -1244,11 +1286,14 @@ var CWS = window.CWS;</script>
       }
     }
     function printA3(){
-      const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW;
+      const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW, oldTitle=document.title;
+      const st=state();
+      const p=projects(st).find(x=>String(x.id)===String(currentProjectId())) || {};
+      document.title=printFileName(p);
       UI.printMode=true; UI.view="both"; UI.zoom="print"; document.body.classList.add("printing");
       render();
       requestAnimationFrame(()=>setTimeout(()=>window.print(),140));
-      const restore=()=>{ window.removeEventListener("afterprint",restore); UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); };
+      const restore=()=>{ window.removeEventListener("afterprint",restore); document.title=oldTitle; UI.printMode=oldPrint; UI.view=oldView; UI.zoom=oldZoom; UI.printDayW=oldDayW; document.body.classList.remove("printing"); render(); };
       window.addEventListener("afterprint",restore);
       setTimeout(()=>{ if(UI.printMode) restore(); },8000);
     }
