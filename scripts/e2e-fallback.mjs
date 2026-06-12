@@ -95,4 +95,6 @@ check("V49 niet-werkbare daglijnen blijven zichtbaar", gantt.includes("V49 — n
 
 check("V50 dunner raster en geel alleen in tabel", gantt.includes("V50 — raster dunner + gele samenvattingsbalk alleen in tabel") && gantt.includes("--v50-day-line-width-print:.10px") && gantt.includes("--v50-print-day-line-color:rgba(17,24,39,.24)") && gantt.includes(".nonwork-shade::after{display:none!important;}") && gantt.includes(".lane.summary-lane{background-color:#fff!important;}") && gantt.includes(".printing .print-task-table tbody tr.summary-row td") && gantt.includes("background:#ffd400!important"));
 
+check("V51 kalender boven en onder printtabel", gantt.includes("V51 — kalender direct boven én onder de printtabel") && gantt.includes('id="printCalendarTop"') && gantt.includes('id="printCalendarBottom"') && gantt.includes("function renderPrintCalendars") && gantt.includes("top.innerHTML=html") && gantt.includes("bottom.innerHTML=html") && gantt.includes(".printing .chart-pane > .timeline{display:none!important") && gantt.includes(".printing .print-task-table thead{display:none!important"));
+
 console.log("E2E fallback geslaagd. Voor echte browservalidatie: installeer Playwright lokaal en run de Playwright suite.");

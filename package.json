@@ -30,7 +30,8 @@
     "preflight:v47": "node scripts/v47-print-filename-alignment-preflight.mjs",
     "preflight:v48": "node scripts/v48-gantt-print-final-preflight.mjs",
     "preflight:v49": "node scripts/v49-nonwork-daylines-preflight.mjs",
-    "preflight:v50": "node scripts/v50-gantt-thin-grid-yellow-table-preflight.mjs"
+    "preflight:v50": "node scripts/v50-gantt-thin-grid-yellow-table-preflight.mjs",
+    "preflight:v51": "node scripts/v51-print-calendar-top-bottom-preflight.mjs"
   },
   "devDependencies": {}
 }

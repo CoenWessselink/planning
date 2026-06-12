@@ -778,6 +778,116 @@
       }
     }
 
+    /* V51 — kalender direct boven én onder de printtabel
+       - één volledige printkalender staat direct boven de tabel/het diagram
+       - dezelfde kalender wordt onder de tabel/het diagram herhaald
+       - linker kalenderdeel bevat de printtabel-kolomkop zodat rijen direct onder de kalender starten
+       - de originele chart-timeline wordt in print verborgen zodat er geen extra kalender of witruimte ontstaat */
+    .print-calendar{display:none;}
+    @media print{
+      .printing .print-calendar{
+        display:grid!important;
+        grid-template-columns:var(--v47-print-left-w,var(--v46-print-left-w,360px)) minmax(0,1fr)!important;
+        width:100%!important;
+        min-width:0!important;
+        margin:0!important;
+        padding:0!important;
+        background:#fff!important;
+        color:#000!important;
+        font-family:Arial,Helvetica,sans-serif!important;
+        break-inside:avoid!important;
+        page-break-inside:avoid!important;
+      }
+      .printing .print-calendar-top{border-bottom:var(--v48-print-outer-line,.32px) solid var(--v48-print-outer-color,#111827)!important;}
+      .printing .print-calendar-bottom{border-top:var(--v48-print-outer-line,.32px) solid var(--v48-print-outer-color,#111827)!important;}
+      .printing .print-calendar-left{
+        width:var(--v47-print-left-w,var(--v46-print-left-w,360px))!important;
+        min-width:var(--v47-print-left-w,var(--v46-print-left-w,360px))!important;
+        max-width:var(--v47-print-left-w,var(--v46-print-left-w,360px))!important;
+        border-right:var(--v48-print-outer-line,.32px) solid var(--v48-print-outer-color,#111827)!important;
+        box-sizing:border-box!important;
+        overflow:hidden!important;
+        background:#fff!important;
+      }
+      .printing .print-calendar-left table{
+        width:100%!important;
+        height:var(--v48-print-head-h,58px)!important;
+        border-collapse:collapse!important;
+        table-layout:fixed!important;
+        margin:0!important;
+        font-family:Arial,Helvetica,sans-serif!important;
+        font-size:6.2px!important;
+        line-height:1.05!important;
+      }
+      .printing .print-calendar-left th{
+        height:var(--v48-print-head-h,58px)!important;
+        min-height:var(--v48-print-head-h,58px)!important;
+        max-height:var(--v48-print-head-h,58px)!important;
+        box-sizing:border-box!important;
+        border-right:var(--v48-print-inner-line,.18px) solid var(--v48-print-inner-color,#d4dbe4)!important;
+        padding:1px 3px!important;
+        vertical-align:bottom!important;
+        text-align:left!important;
+        font-weight:900!important;
+        background:#fff!important;
+        color:#000!important;
+        overflow:hidden!important;
+        white-space:nowrap!important;
+        text-overflow:ellipsis!important;
+      }
+      .printing .print-calendar-left th:last-child{border-right:0!important;}
+      .printing .print-calendar-right{
+        min-width:0!important;
+        overflow:hidden!important;
+        background:#fff!important;
+      }
+      .printing .print-calendar .timeline{
+        position:relative!important;
+        top:auto!important;
+        display:grid!important;
+        grid-template-rows:19px 19px 20px!important;
+        height:var(--v48-print-head-h,58px)!important;
+        min-height:var(--v48-print-head-h,58px)!important;
+        max-height:var(--v48-print-head-h,58px)!important;
+        border-bottom:0!important;
+        background:#fff!important;
+        margin:0!important;
+        padding:0!important;
+        font-family:Arial,Helvetica,sans-serif!important;
+      }
+      .printing .print-calendar .tl-cell{
+        height:auto!important;
+        min-height:0!important;
+        max-height:none!important;
+        border-right:var(--v50-day-line-width-print,.10px) solid var(--v50-print-day-line-color,rgba(17,24,39,.24))!important;
+        border-bottom:var(--v50-row-line-width-print,.12px) solid var(--v50-row-line-color,#d8e0ea)!important;
+        background:#fff!important;
+        color:#000!important;
+        font-family:Arial,Helvetica,sans-serif!important;
+        font-size:5px!important;
+        font-weight:900!important;
+        line-height:1!important;
+        box-sizing:border-box!important;
+      }
+      .printing .print-calendar .tl-cell.day{
+        display:flex!important;
+        flex-direction:column!important;
+        align-items:center!important;
+        justify-content:center!important;
+        gap:1px!important;
+      }
+      .printing .print-calendar .tl-cell.day.weekend,
+      .printing .print-calendar .tl-cell.day.nonwork{
+        background:var(--v50-nonwork-fill,#e6eaef)!important;
+        color:#000!important;
+      }
+      .printing .chart-pane > .timeline{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;}
+      .printing .print-task-table thead{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;}
+      .printing .chart-pane > .dep-svg{top:0!important;height:100%!important;}
+      .printing .today-line{top:0!important;}
+    }
+
+
 
   </style>
 </head>
@@ -799,7 +909,7 @@
     </div>
     <div class="notice hidden" id="notice"></div>
     <div class="meta-line" id="metaLine">—</div>
-    <div class="board-wrap" id="boardWrap"><div class="board" id="board"><div class="table-pane"><table class="gantt-table" id="ganttTable"><thead><tr id="ganttHead"></tr></thead><tbody id="tableRows"></tbody></table></div><div class="print-task-table" id="printTaskTable" aria-hidden="true"></div><div class="chart-pane" id="chartPane"><div class="timeline" id="timeline"></div><div id="lanes"></div><svg class="dep-svg" id="depSvg"></svg><div class="today-line" id="todayLine" aria-hidden="true"></div></div></div></div><div class="print-legend" id="printLegend"></div>
+    <div class="board-wrap" id="boardWrap"><div class="print-calendar print-calendar-top" id="printCalendarTop" aria-hidden="true"></div><div class="board" id="board"><div class="table-pane"><table class="gantt-table" id="ganttTable"><thead><tr id="ganttHead"></tr></thead><tbody id="tableRows"></tbody></table></div><div class="print-task-table" id="printTaskTable" aria-hidden="true"></div><div class="chart-pane" id="chartPane"><div class="timeline" id="timeline"></div><div id="lanes"></div><svg class="dep-svg" id="depSvg"></svg><div class="today-line" id="todayLine" aria-hidden="true"></div></div></div><div class="print-calendar print-calendar-bottom" id="printCalendarBottom" aria-hidden="true"></div></div><div class="print-legend" id="printLegend"></div>
     <div class="context"><div class="context-head">Context / WHY</div><div class="context-body" id="contextBody">Selecteer een taak of balk om details te zien.</div></div>
   </div>
   <div class="modalback" id="modalBack"><div class="modal"><div class="modal-head"><b id="modalTitle">Taak bewerken</b><button class="btn" id="modalClose">Sluiten</button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot"><button class="btn primary" id="modalSave">Opslaan</button></div></div></div>
@@ -1345,6 +1455,16 @@ var CWS = window.CWS;</script>
     function buildTimeline(range){ const w=pxPerDay(); document.documentElement.style.setProperty("--dayW",w+"px"); const days=[]; for(let i=0;i<range.days;i++) days.push(addDays(range.start,i)); const totalW=days.length*w; const groups=(kind)=>{ const out=[]; days.forEach((iso,i)=>{ const d=parseDate(iso); const key=kind==="month"?`${d.getUTCFullYear()}-${d.getUTCMonth()}`:`${isoWeek(d).year}-W${isoWeek(d).week}`; const label=kind==="month"?d.toLocaleDateString("nl-NL",{month:"short",year:"numeric",timeZone:"UTC"}):`W${String(isoWeek(d).week).padStart(2,"0")}`; let g=out[out.length-1]; if(!g||g.key!==key) out.push({key,label,count:1}); else g.count++; }); return out; };
       const stForDays=state();
       const months=groups("month").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const weeks=groups("week").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const today=toIso(new Date()); const dayHtml=days.map(iso=>{ const d=parseDate(iso), wknd=[0,6].includes(d.getUTCDay()), nonwork=isNonWorkingIso(stForDays,iso); const wd=d.toLocaleDateString("nl-NL",{weekday:"short",timeZone:"UTC"}); const dom=pad(d.getUTCDate()); return `<div class="tl-cell day ${wknd?"weekend":""} ${nonwork?"nonwork":""} ${iso===today?"today":""}">${UI.printMode?`<span>${wd}</span><span>${dom}</span>`:`${wd} ${dom}`}</div>`; }).join(""); const tl=$("#timeline"); tl.style.width=totalW+"px"; tl.innerHTML=`<div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${months}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${weeks}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${dayHtml}</div>`; return days; }
+    function renderPrintCalendars(timelineInnerHtml, chartW){
+      const top=$("#printCalendarTop"), bottom=$("#printCalendarBottom");
+      if(!top||!bottom) return;
+      if(!timelineInnerHtml){ top.innerHTML=""; bottom.innerHTML=""; return; }
+      const left=`<div class="print-calendar-left"><table><colgroup><col style="width:var(--v47-col-no,var(--v46-col-no))"><col style="width:var(--v47-col-name,var(--v46-col-name))"><col style="width:var(--v47-col-res,var(--v46-col-res))"><col style="width:var(--v47-col-dur,var(--v46-col-dur))"></colgroup><thead><tr><th>Regel nr</th><th>Naam</th><th>Resource</th><th>Duur</th></tr></thead></table></div>`;
+      const right=`<div class="print-calendar-right"><div class="timeline print-calendar-timeline" style="width:${Number(chartW)||0}px;min-width:${Number(chartW)||0}px">${timelineInnerHtml}</div></div>`;
+      const html=left+right;
+      top.innerHTML=html;
+      bottom.innerHTML=html;
+    }
     function xFor(iso, range){ return Math.max(0,dayDiff(range.start,iso)*pxPerDay()); }
     function criticalIds(model){ const ids=new Set(); model.rows.forEach(r=>{ if(r.type==="task"&&parsePred(r.predecessor).length) ids.add(r.id); }); const maxEnd=Object.values(model.sched||{}).map(s=>s.end).filter(Boolean).sort().at(-1); model.rows.forEach(r=>{ if(model.sched[r.id]?.end===maxEnd) ids.add(r.id); }); return ids; }
     function renderFilters(){ const st=state(); const pid=currentProjectId(); const projectSel=$("#projectSel"); projectSel.innerHTML=projects(st).filter(p=>p.status!=="Gereed").map(p=>`<option value="${esc(p.id)}">${esc(projectLabel(p))}</option>`).join(""); if(pid) projectSel.value=pid; $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+departments(st).map(d=>`<option value="${esc(d.id||d.name)}">${esc(d.name||d.id)}</option>`).join(""); $("#deptSel").value=UI.dept||""; $("#resourceSel").innerHTML='<option value="">Alle resources</option>'+resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)} (${esc(r.dept||"")})</option>`).join(""); $("#resourceSel").value=UI.resource||""; const dl=$("#resourceOptions"); if(dl) dl.innerHTML=resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)}</option>`).join(""); renderTemplateSelect(st,pid); const status=CWS?.storageStatus; $("#storageBadge").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale browserdata"; $("#storageBadge").className="badge "+(status?.mode==="api"?"ok":"warn"); }
@@ -1415,6 +1535,7 @@ var CWS = window.CWS;</script>
       $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
       renderLegend(rows);
       renderPrintTaskTable(rows);
+      renderPrintCalendars($("#timeline")?.innerHTML || "", chartW);
       wireColumnDrag();
       wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range); renderContext(model);
       if(model._revision) setNotice(`Je bekijkt revisie ${model._revision.revNo||""} van ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"}. Deze snapshot is alleen-lezen en verandert niet mee met de live planning.`,"warn");
