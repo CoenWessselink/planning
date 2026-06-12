@@ -126,3 +126,6 @@ if(process.exitCode) process.exit(process.exitCode);
 
 check("V61 store boot-regressie: CWS.init blijft beschikbaar", read("js/core/store.js").includes("const num = baseNum;") && read("js/core/store.js").indexOf("const num = baseNum;") < read("js/core/store.js").indexOf("const load = () =>") && read("functions/api/health.js").includes("internal-test-v61") && fs.readFileSync("package.json", "utf8").includes('"preflight:v61"'));
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V63 D1 recovery hydrateert remote state en UI-only routing schrijft niet naar D1", read("functions/api/health.js").includes("internal-test-v63") && read("js/core/store.js").includes("V63: recovery hydration is authoritative") && read("js/core/store.js").includes("UI-only route/tab updates must never trigger a remote D1 PUT") && read("js/core/store.js").includes("empty D1 response must not be repaired by auto-uploading") && fs.readFileSync("package.json", "utf8").includes('"preflight:v63"'));
+if(process.exitCode) process.exit(process.exitCode);

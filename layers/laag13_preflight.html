@@ -87,9 +87,9 @@ async function run(){
   out.push(['Gebruiker bekend',!!CWS.getCurrentUser?.().email,CWS.getCurrentUser?.().email||'',false]);
   out.push(['Projecten aanwezig',projects>0,`${projects} projecten`,projects===0]);
   out.push(['Gantt-taken aanwezig',ganttTasks>0,`${ganttTasks} taken/fasen`,ganttTasks===0]);
-  out.push(['V62 schema recovery actief',Boolean(CWS.getStateMetrics),`projectOrder ${metrics.projectOrder||0} / projectById ${metrics.projectById||0} / ganttRows ${metrics.ganttRowCount||0}`]);
+  out.push(['V63 schema recovery actief',Boolean(CWS.getStateMetrics),`projectOrder ${metrics.projectOrder||0} / projectById ${metrics.projectById||0} / ganttRows ${metrics.ganttRowCount||0}`]);
   const remoteGuard = CWS.getRemoteSafetyMetrics?.() || {};
-  out.push(['V62 D1 overwrite guard actief',Boolean(CWS.getRemoteSafetyMetrics),`remote ${remoteGuard.projectCount||0} projecten / ${remoteGuard.ganttRowCount||0} Gantt-rijen`]);
+  out.push(['V63 D1 overwrite guard actief',Boolean(CWS.getRemoteSafetyMetrics),`remote ${remoteGuard.projectCount||0} projecten / ${remoteGuard.ganttRowCount||0} Gantt-rijen`]);
   out.push(['Kleuren ingesteld',colored>0,`${colored} taken/fasen met kleur`,colored===0]);
   out.push(['Gantt hoursByDay aanwezig',hourDays>0,`${hourDays} dagen`,hourDays===0]);
   out.push(['Gantt sourcesByDay aanwezig',sourceCount>0,`${sourceCount} bronregels`,sourceCount===0]);
@@ -122,7 +122,7 @@ async function run(){
   details.push('Health: '+JSON.stringify(health.data,null,2));
   details.push('Storage: '+JSON.stringify(CWS.storageStatus,null,2));
   details.push('V31 metrics: '+JSON.stringify({projects,ganttTasks,colored,hourDays,sourceCount,revisions,logo,capPeriod,ganttPrint,capPrint},null,2));
-  details.push('V62 state metrics: '+JSON.stringify({ metrics, remoteGuard:(CWS.getRemoteSafetyMetrics?.()||{}) }, null, 2));
+  details.push('V63 state metrics: '+JSON.stringify({ metrics, remoteGuard:(CWS.getRemoteSafetyMetrics?.()||{}) }, null, 2));
   details.push('V28 metrics: compatibiliteit actief');
   document.querySelector('#details').textContent=details.join('\n\n');
 }

@@ -245,10 +245,10 @@ window.CWS = window.CWS || {};
     const projectDrop = remoteProjects >= 20 && localProjects < Math.max(10, Math.floor(remoteProjects * 0.6));
     const ganttDrop = remoteRows >= 50 && localRows < Math.max(20, Math.floor(remoteRows * 0.5));
     if(storageStatus.mode === "api" && (projectDrop || ganttDrop || (remoteProjects >= 20 && looksLikeDemoOrEmpty))){
-      const msg = `V62 beveiliging: ${reason} geblokkeerd. D1 bevat ${remoteProjects} projecten/${remoteRows} Gantt-rijen, maar de browser wil ${localProjects} projecten/${localRows} Gantt-rijen opslaan. Dit voorkomt overschrijven door demo/lege data.`;
+      const msg = `V63 beveiliging: ${reason} geblokkeerd. D1 bevat ${remoteProjects} projecten/${remoteRows} Gantt-rijen, maar de browser wil ${localProjects} projecten/${localRows} Gantt-rijen opslaan. Dit voorkomt overschrijven door demo/lege data.`;
       const error = new Error(msg);
       error.status = 409;
-      error.cwsGuard = "v62-catastrophic-overwrite";
+      error.cwsGuard = "v63-catastrophic-overwrite";
       error.remoteMetrics = remote;
       error.localMetrics = local;
       throw error;
@@ -577,7 +577,7 @@ window.CWS = window.CWS || {};
       }catch(error){
         storageStatus.unsynced = true;
         storageStatus.lastError = error.message;
-        if(error.cwsGuard === "v62-catastrophic-overwrite"){
+        if(error.cwsGuard === "v63-catastrophic-overwrite"){
           storageStatus.label = "D1 beveiligd - demo/lege overwrite geblokkeerd";
           try{ window.UI?.toast?.("Opslaan geblokkeerd: D1 bevat meer projecten dan deze browserstate."); }catch(_){}
         }else if(error.status === 409){
@@ -678,13 +678,29 @@ window.CWS = window.CWS || {};
       try{ window.UI?.toast?.("Wijziging geweigerd: " + result.errors[0]); }catch(_){}
       return state;
     }
-    if(JSON.stringify(tenantProjection(before)) !== JSON.stringify(tenantProjection(next))){
+
+    // V63: UI-only route/tab updates must never trigger a remote D1 PUT.
+    // Router.loadApp() calls CWS.setState() on boot to persist ui.lastApp. In V62
+    // this caused an empty local/browser state to be saved immediately after a
+    // recovery load failure. The server guard blocked the overwrite, but the user
+    // kept seeing a D1-conflict banner instead of the recovered D1 state. Only
+    // tenant/business changes may be sent to D1; UI/session changes are stored
+    // locally and rendered without remote sync.
+    const beforeTenant = JSON.stringify(tenantProjection(before));
+    const nextTenant = JSON.stringify(tenantProjection(next));
+    const tenantChanged = beforeTenant !== nextTenant;
+    if(tenantChanged){
       undoStack.push(before);
       if(undoStack.length > 100) undoStack.shift();
       redoStack.length = 0;
     }
     state = next;
     state.meta.updatedAt = new Date().toISOString();
+    if(!tenantChanged){
+      try{ writeLocalSnapshot(state); }catch(_){}
+      notify();
+      return state;
+    }
     if(!save()){ state = before; return state; }
     notify();
     return state;
@@ -1659,24 +1675,40 @@ window.CWS = window.CWS || {};
         storageStatus.remoteVersion = remoteVersion;
         if(remote?.exists && remote.state && typeof remote.state === "object"){
           const incoming = normalizeState(remote.state);
+
+          // V63: recovery hydration is authoritative. When D1 contains a meaningful
+          // business state (for example the restored rich schema with
+          // projects.order/byId and ganttV2.byProject), the browser must use it even
+          // if legacy validation still reports warnings after newer planning rules.
+          // V62 left the browser on an empty local state when validation failed, then
+          // the router attempted an UI-only save and the D1 guard correctly blocked
+          // 0/5-project overwrites. That protected the data but did not hydrate the UI.
+          rebuildGanttHoursByDay(incoming);
+          const incomingMetrics = stateMetrics(incoming);
+          remoteSafetySnapshot = { ...incomingMetrics, bytes:Number(remote.bytes || 0), version:remoteVersion, loadedAt:new Date().toISOString() };
           const validation = validateState(incoming);
-          if(validation.valid){
+          if(validation.valid || stateHasBusinessData(incoming)){
             state = incoming;
-            remoteSafetySnapshot = { ...stateMetrics(state), bytes:Number(remote.bytes || 0), version:remoteVersion, loadedAt:new Date().toISOString() };
             writeLocalSnapshot(state);
+            storageStatus.mode = "api";
             storageStatus.label = `Cloudflare D1 - gedeelde interne testdata (${remoteSafetySnapshot.projectCount} projecten)`;
+            storageStatus.lastError = validation.valid ? null : `D1 legacy-state geladen met waarschuwing: ${validation.errors[0] || "validatie waarschuwing"}`;
+            storageStatus.unsynced = !validation.valid;
+            if(!validation.valid){
+              state.meta = state.meta || {};
+              state.meta.recoveryWarning = storageStatus.lastError;
+            }
           }else{
             storageStatus.unsynced = true;
-            storageStatus.lastError = `D1-state validatie mislukt: ${validation.errors[0] || "onbekend"}`;
+            storageStatus.lastError = `D1-state bevat geen bruikbare projecten/taken.`;
           }
         }else{
-          // Do not overwrite an empty D1 row with an accidental empty default when a
-          // meaningful local snapshot exists. In that case, the local planning is the
-          // safest recovery candidate and is uploaded explicitly.
-          if(stateHasBusinessData(state)){
-            await storageAdapter.save(state);
-          }else{
-            storageStatus.unsynced = false;
+          // V63: an empty D1 response must not be repaired by auto-uploading the
+          // browser default state. Keep the browser read-only/unsynced until the user
+          // explicitly imports or restores data.
+          storageStatus.unsynced = stateHasBusinessData(state);
+          if(storageStatus.unsynced){
+            storageStatus.lastError = "D1 gaf geen state terug; lokale data niet automatisch geüpload.";
           }
         }
       }catch(error){

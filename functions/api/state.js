@@ -75,7 +75,7 @@ function assertNoCatastrophicOverwrite(currentRaw, incomingRaw) {
   const projectDrop = currentProjects >= 20 && incomingProjects < Math.max(10, Math.floor(currentProjects * 0.6));
   const ganttDrop = currentRows >= 50 && incomingRows < Math.max(20, Math.floor(currentRows * 0.5));
   if (projectDrop || ganttDrop || (currentProjects >= 20 && looksLikeDemoOrEmpty)) {
-    const error = new Error(`V62 D1 save guard: overschrijven geblokkeerd. Huidige D1 bevat ${currentProjects} projecten/${currentRows} Gantt-rijen; inkomende state bevat ${incomingProjects} projecten/${incomingRows} Gantt-rijen.`);
+    const error = new Error(`V63 D1 save guard: overschrijven geblokkeerd. Huidige D1 bevat ${currentProjects} projecten/${currentRows} Gantt-rijen; inkomende state bevat ${incomingProjects} projecten/${incomingRows} Gantt-rijen.`);
     error.status = 409;
     error.currentMetrics = current;
     error.incomingMetrics = incoming;
