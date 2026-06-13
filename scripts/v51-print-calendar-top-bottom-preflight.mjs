@@ -3,6 +3,8 @@ import fs from "node:fs";
 const html = fs.readFileSync("layers/laag4_gantt.html", "utf8");
 const pkg = fs.readFileSync("package.json", "utf8");
 const fallback = fs.readFileSync("scripts/e2e-fallback.mjs", "utf8");
+const printTableCall = html.indexOf("renderPrintTaskTable(rows);");
+const printCalendarCall = html.indexOf('renderPrintCalendars($("#timeline")?.innerHTML || "", chartW);');
 
 const checks = [
   ["V51 CSS marker aanwezig", html.includes("V51 — kalender direct boven én onder de printtabel")],
@@ -13,7 +15,7 @@ const checks = [
   ["Originele chart timeline verborgen in print om dubbele kalender/witruimte te voorkomen", html.includes(".printing .chart-pane > .timeline{display:none!important")],
   ["Printtafelkop is verplaatst naar linker kalenderdeel", html.includes(".printing .print-task-table thead{display:none!important") && html.includes("print-calendar-left") && html.includes("Regel nr")],
   ["Dependencies starten op rijgebied zonder kalenderoffset", html.includes(".printing .chart-pane > .dep-svg{top:0!important;height:100%!important;}")],
-  ["Render roept printkalenders na printtafelbreedtes aan", html.includes("renderPrintTaskTable(rows);\n      renderPrintCalendars")],
+  ["Render roept printkalenders na printtafelbreedtes aan", printTableCall >= 0 && printCalendarCall > printTableCall],
   ["Package heeft preflight:v51", pkg.includes('"preflight:v51": "node scripts/v51-print-calendar-top-bottom-preflight.mjs"')],
   ["Fallback E2E bewaakt V51 regressie", fallback.includes("V51 kalender boven en onder printtabel")],
 ];
