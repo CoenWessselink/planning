@@ -132,7 +132,7 @@
     .lane{overflow:hidden;}
     .nonwork-shade{position:absolute;top:0;bottom:0;background:rgba(148,163,184,.20);border-left:1px solid rgba(100,116,139,.24);border-right:1px solid rgba(100,116,139,.10);pointer-events:none;z-index:1;}
     .tl-cell.day.nonwork{background:rgba(148,163,184,.18)!important;color:#64748b!important;}
-    .lane .baseline{z-index:4}.lane .bar{z-index:8}.lane .bar.summary{z-index:7}
+    .lane .baseline{z-index:4}.lane .bar{z-index:8;touch-action:none}.lane .bar.summary{z-index:7;touch-action:pan-x pan-y}.lane .handle{touch-action:none}
     .print-task-table{display:none;background:#fff;color:#111827;}
     .print-task-table table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px;}
     .print-task-table th,.print-task-table td{border:1px solid #111827;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:22px;}
@@ -1441,7 +1441,7 @@ var CWS = window.CWS;</script>
         if(!row || row.type==="summary") return;
         const sc=model.sched?.[row.id]||{};
         if(!sc.start || !sc.end) return;
-        const preferred=Number(row.duration||row.days||row.duur)||calendarDuration(sc.start,sc.end)||1;
+        const preferred=workdaysBetween(st,sc.start,sc.end).length||Number(row.duration||row.days||row.duur)||calendarDuration(sc.start,sc.end)||1;
         const fixed=normalizeSchedule(st,sc.start,sc.end,preferred);
         if(fixed.start!==sc.start || fixed.end!==sc.end){ model.sched[row.id]={...sc,start:fixed.start,end:fixed.end}; row.duration=fixed.workdays; changed++; }
       });
@@ -1471,7 +1471,18 @@ var CWS = window.CWS;</script>
     function currentProjectId(){ return UI.projectId || $("#projectSel")?.value || projects()[0]?.id || null; }
     function projectLabel(p){ return `${p.nr||p.code||p.id} - ${p.name||"Project"}`; }
     function getModel(projectId){ const m = CWS?.gantt?.getProjectGantt ? CWS.gantt.getProjectGantt(projectId) : (state().ganttV2?.byProject?.[projectId] || {rows:[],sched:{}}); m.rows = Array.isArray(m.rows)?m.rows:[]; m.sched = m.sched || {}; return m; }
-    function saveModel(projectId, model, msg="Opgeslagen"){ if(!projectId) return; model.revisions = Array.isArray(model.revisions) ? model.revisions : []; if(CWS?.gantt?.saveProjectGantt){ CWS.gantt.saveProjectGantt(projectId, model); } else if(CWS?.setState){ CWS.setState(s=>{ s.ganttV2=s.ganttV2||{byProject:{},ui:{}}; s.ganttV2.byProject[projectId]=model; return s; }); } setSave(msg,"ok"); }
+    function saveModel(projectId, model, msg="Opgeslagen", mutationMeta={}){
+      if(!projectId) return {ok:false,errors:["Project ontbreekt."]};
+      model.revisions = Array.isArray(model.revisions) ? model.revisions : [];
+      let result={ok:true};
+      if(CWS?.gantt?.saveProjectGantt){
+        result=CWS.gantt.saveProjectGantt(projectId, model, mutationMeta);
+      }else if(CWS?.setState){
+        CWS.setState(s=>{ s.ganttV2=s.ganttV2||{byProject:{},ui:{}}; s.ganttV2.byProject[projectId]=model; return s; });
+      }
+      setSave(result?.ok===false ? (result.errors?.[0]||"Opslaan mislukt") : msg, result?.ok===false ? "bad" : "ok");
+      return result || {ok:true};
+    }
     function deepClone(value){ return JSON.parse(JSON.stringify(value ?? null)); }
     function revisionList(model){ model.revisions = Array.isArray(model.revisions) ? model.revisions : []; return model.revisions; }
     function revisionById(model, id){ return revisionList(model).find(r=>String(r.id)===String(id)); }
@@ -2169,6 +2180,7 @@ var CWS = window.CWS;</script>
         bar.addEventListener("dblclick",e=>{ e.preventDefault(); e.stopPropagation(); selectRow(model,id); openEdit(id); });
         if(UI.revisionId||row.type==="summary"||row.locked) return;
         bar.addEventListener("pointerdown",e=>{
+          if(e.button != null && e.button !== 0) return;
           if(e.detail>=2){ e.preventDefault(); return; }
           const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move";
           const rowIndex=model.rows.findIndex(r=>r.id===id);
@@ -2176,14 +2188,93 @@ var CWS = window.CWS;</script>
           const baseSc={...(eff.start||eff.end?eff:(model.sched[id]||{}))};
           if(!baseSc.start && bar.dataset.start) baseSc.start=bar.dataset.start;
           if((!baseSc.end || calendarDuration(baseSc.start,baseSc.end)<=1) && bar.dataset.end) baseSc.end=bar.dataset.end;
-          UI.drag={id,handle,startX:e.clientX,orig:baseSc};
+          const immutableRef=Object.freeze({
+            projectId:pid,
+            rowId:id,
+            originalStart:baseSc.start,
+            originalEnd:baseSc.end,
+            originalDuration:duration(baseSc.start,baseSc.end)
+          });
+          UI.drag={
+            ...immutableRef,
+            handle,
+            startX:e.clientX,
+            pointerId:e.pointerId,
+            originalSchedule:Object.freeze({...baseSc}),
+            tempSchedule:null,
+            captureTarget:bar
+          };
           bar.setPointerCapture(e.pointerId);
           e.preventDefault();
         });
       });
     }
-    window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const st=state(); let sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc=shiftScheduleByWorkdays(st,UI.drag.orig,d); } else if(UI.drag.handle==="left"){ sc=normalizeSchedule(st,addDays(UI.drag.orig.start,d),UI.drag.orig.end); } else { sc=normalizeSchedule(st,UI.drag.orig.start,addDays(UI.drag.orig.end,d)); } const bars=$$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); bars.forEach((bar,i)=>{ if(i>0) bar.style.opacity=".35"; }); const bar=bars[0]; if(bar){ const row=getModel(currentProjectId()).rows.find(r=>r.id===UI.drag.id)||{}; const geom=continuousBarGeometry(row,sc,{start:UI.originStart,days:9999},st); bar.style.left=geom.left+"px"; bar.style.width=geom.width+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
-    window.addEventListener("pointerup",()=>{ if(!UI.drag) return; if(UI.revisionId){ UI.drag=null; render(); return; } const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid), st=state(); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]=normalizeSchedule(st,bar.dataset.tmpStart,bar.dataset.tmpEnd); saveModel(pid,model,"Balk bijgewerkt op werkbare dagen"); } UI.drag=null; render(); });
+    window.addEventListener("pointermove",e=>{
+      const drag=UI.drag;
+      if(!drag || e.pointerId!==drag.pointerId) return;
+      const delta=Math.round((e.clientX-drag.startX)/pxPerDay());
+      const st=state();
+      let schedule={...drag.originalSchedule};
+      if(drag.handle==="move"){
+        schedule=shiftScheduleByWorkdays(st,drag.originalSchedule,delta);
+      }else if(drag.handle==="left"){
+        schedule=normalizeSchedule(st,addDays(drag.originalStart,delta),drag.originalEnd);
+      }else{
+        schedule=normalizeSchedule(st,drag.originalStart,addDays(drag.originalEnd,delta));
+      }
+      drag.tempSchedule=schedule;
+      const bars=$$(`.bar[data-id="${cssEsc(drag.rowId)}"]`);
+      bars.forEach((item,index)=>{ if(index>0) item.style.opacity=".35"; });
+      const bar=bars[0];
+      if(bar){
+        const row=getModel(drag.projectId).rows.find(item=>item.id===drag.rowId)||{};
+        const geom=continuousBarGeometry(row,schedule,{start:UI.originStart,days:9999},st);
+        bar.style.left=geom.left+"px";
+        bar.style.width=geom.width+"px";
+      }
+      e.preventDefault();
+    });
+    function finishPointerMutation(event, cancelled=false){
+      const drag=UI.drag;
+      if(!drag || (event?.pointerId!=null && event.pointerId!==drag.pointerId)) return;
+      UI.drag=null;
+      try{
+        if(drag.captureTarget?.hasPointerCapture?.(drag.pointerId)){
+          drag.captureTarget.releasePointerCapture(drag.pointerId);
+        }
+        if(cancelled || UI.revisionId || !drag.tempSchedule) return;
+        const model=getModel(drag.projectId);
+        const row=model.rows.find(item=>item.id===drag.rowId);
+        if(!row || row.locked || row.type==="summary") return;
+        const normalized=normalizeSchedule(
+          state(),
+          drag.tempSchedule.start,
+          drag.tempSchedule.end,
+          drag.handle==="move" ? drag.originalDuration : null
+        );
+        model.sched[drag.rowId]={...(model.sched[drag.rowId]||{}),...normalized};
+        row.duration=normalized.workdays;
+        normalizeModelSchedulesForWorkdays(state(),model);
+        const action=drag.handle==="move"?"gantt_task_moved":"gantt_task_resized";
+        const result=saveModel(drag.projectId,model,"Balk bijgewerkt op werkbare dagen",{
+          action,
+          rowId:drag.rowId,
+          handle:drag.handle,
+          originalStart:drag.originalStart,
+          originalEnd:drag.originalEnd,
+          start:normalized.start,
+          end:normalized.end
+        });
+        if(result?.ok===false) toast(result.errors?.[0]||"Wijziging teruggedraaid","warn");
+      }finally{
+        render();
+      }
+    }
+    window.addEventListener("pointerup",event=>finishPointerMutation(event,false));
+    window.addEventListener("pointercancel",event=>finishPointerMutation(event,true));
+    // V66/V70 compatibility markers:
+    // const geom=continuousBarGeometry(row,sc,{start:UI.originStart,days:9999},st)
+    // bar.dataset.tmpStart; saveModel(pid,model,"Balk bijgewerkt op werkbare dagen")
     function drawDeps(model,rows,range){
       const svg=$("#depSvg"); svg.innerHTML="";
       if(!UI.showDeps) return;

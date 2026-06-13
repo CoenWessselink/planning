@@ -9,7 +9,7 @@ export const DEFAULT_STATE_JSON = JSON.stringify({
   user: { name: "Gebruiker", role: "admin", dept: "" },
   roles: {
     admin: { name: "Admin", permissions: ["*"] },
-    planner: { name: "Planner", permissions: ["view_projects", "edit_projects", "view_planning", "edit_planning", "auto_plan", "view_reports", "audit_view"] },
+    planner: { name: "Planner", permissions: ["view_projects", "edit_projects", "view_planning", "edit_planning", "auto_plan", "view_reports", "audit_view", "import_data"] },
     viewer: { name: "Viewer", permissions: ["view_projects", "view_planning", "view_reports"] }
   },
   auditLog: [],

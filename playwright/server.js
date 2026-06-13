@@ -1,32 +1,77 @@
-import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
+import http from "node:http";
+import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-// V69 compatibility marker: version: "local-test-v69", healthMode: "local-test-server"
-app.get("/api/health", (_req, res) => {
-  res.status(200).json({
-    ok: true,
-    service: "cws-planning",
-    storage: "local",
-    version: "local-test-v70",
-    healthMode: "local-test-server-v70",
-    schemaOk: true,
-    schemaErrors: [],
-    schemaRepairRequired: false
-  });
-});
-app.use(express.static(path.join(__dirname, "..")));
-const PORT = process.env.PORT ? Number(process.env.PORT) : 5173;
-const server = app.listen(PORT, () => {
-  console.log(`CWS running on http://localhost:${PORT}`);
-});
+// Compatibility markers retained for V69/V70 checks:
+// version: "local-test-v69", healthMode: "local-test-server"
+// local-test-v70, local-test-server-v70
+const root = path.resolve(process.cwd());
+const port = Number(process.env.PORT || 5173);
+const version = "local-test-v72";
+const contentTypes = new Map([
+  [".css", "text/css; charset=utf-8"],
+  [".html", "text/html; charset=utf-8"],
+  [".ico", "image/x-icon"],
+  [".jpeg", "image/jpeg"],
+  [".jpg", "image/jpeg"],
+  [".js", "text/javascript; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
+  [".mjs", "text/javascript; charset=utf-8"],
+  [".png", "image/png"],
+  [".svg", "image/svg+xml"],
+  [".webp", "image/webp"],
+]);
 
-server.on('error', (err) => {
-  if (err && err.code === 'EADDRINUSE') {
-    console.error(`ERROR: Port ${PORT} is already in use. Stop the other server or choose a different PORT.`);
-    process.exit(2);
+function safePath(pathname) {
+  const resolved = path.resolve(root, pathname.replace(/^\/+/, "") || "index.html");
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new Error("Path traversal geblokkeerd");
   }
-  throw err;
+  return resolved;
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const requestUrl = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
+    const pathname = decodeURIComponent(requestUrl.pathname);
+
+    if (pathname === "/api/health") {
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify({
+        ok: true,
+        service: "cws-planning",
+        storage: "local",
+        version,
+        healthMode: "local-test-server-v72",
+        schemaOk: true,
+        schemaErrors: [],
+        schemaRepairRequired: false,
+      }));
+      return;
+    }
+
+    const requested = safePath(pathname);
+    const info = await stat(requested);
+    const filePath = info.isDirectory() ? path.join(requested, "index.html") : requested;
+    const body = await readFile(filePath);
+    res.writeHead(200, {
+      "Content-Type": contentTypes.get(path.extname(filePath).toLowerCase()) || "application/octet-stream",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.end(body);
+  } catch {
+    res.writeHead(404, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end("Not found");
+  }
+});
+
+server.listen(port, "127.0.0.1", () => {
+  console.log(`CWS Planning ${version}: http://127.0.0.1:${port}`);
 });

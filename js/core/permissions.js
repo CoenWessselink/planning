@@ -7,7 +7,7 @@ const Permissions = (() => {
       case "instellingen": return "admin_settings";
       case "nietwerkbaredagen": return "admin_settings";
       case "werknemerswerkweek": return "admin_settings";
-      case "importexport": return "admin_settings";
+      case "importexport": return "import_data";
       case "audit": return "audit_view";
       case "preflight": return "admin_settings";
       default: return "view_planning"; // projecten/gantt/planbord/capaciteit/toewijzingen
@@ -38,7 +38,8 @@ const Permissions = (() => {
       drag_gantt: "edit_planning",
       auto_plan: "auto_plan",
       view_reports: "view_reports",
-      admin_settings: "admin_settings"
+      admin_settings: "admin_settings",
+      import_data: "import_data"
     };
     const p = map[action] || action;
     if(!CWS?.hasPermission){

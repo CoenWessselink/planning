@@ -12,7 +12,7 @@ window.CWS = window.CWS || {};
 
   const DEFAULT_ROLES = {
     admin:  { name:"Admin",  permissions:["*"] },
-    planner:{ name:"Planner",permissions:["view_projects","edit_projects","view_planning","edit_planning","auto_plan","view_reports","audit_view"] },
+    planner:{ name:"Planner",permissions:["view_projects","edit_projects","view_planning","edit_planning","auto_plan","view_reports","audit_view","import_data"] },
     viewer: { name:"Viewer", permissions:["view_projects","view_planning","view_reports"] }
   };
 
@@ -242,13 +242,18 @@ window.CWS = window.CWS || {};
     const remoteRows = Number(remote.ganttRowCount || 0);
     const localRows = Number(local.ganttRowCount || 0);
     const looksLikeDemoOrEmpty = localProjects <= 5 || (localProjects < 10 && localRows <= 20);
-    const projectDrop = remoteProjects >= 20 && localProjects < Math.max(10, Math.floor(remoteProjects * 0.6));
-    const ganttDrop = remoteRows >= 50 && localRows < Math.max(20, Math.floor(remoteRows * 0.5));
+    const projectDrop = remoteProjects >= 10 &&
+      localProjects < remoteProjects &&
+      (remoteProjects - localProjects >= Math.max(5, Math.ceil(remoteProjects * 0.2)));
+    const ganttDrop = remoteRows >= 20 &&
+      localRows < remoteRows &&
+      (remoteRows - localRows >= Math.max(10, Math.ceil(remoteRows * 0.25)));
     if(storageStatus.mode === "api" && (projectDrop || ganttDrop || (remoteProjects >= 20 && looksLikeDemoOrEmpty))){
-      const msg = `V63 beveiliging: ${reason} geblokkeerd. D1 bevat ${remoteProjects} projecten/${remoteRows} Gantt-rijen, maar de browser wil ${localProjects} projecten/${localRows} Gantt-rijen opslaan. Dit voorkomt overschrijven door demo/lege data.`;
+      const msg = `Opslaan geblokkeerd: inkomende state zou planning verkleinen van ${remoteProjects} projecten/${remoteRows} Gantt-rijen naar ${localProjects}/${localRows}. Reden: ${reason}.`;
       const error = new Error(msg);
       error.status = 409;
       error.cwsGuard = "v63-catastrophic-overwrite";
+      error.cwsGuardVersion = "v72-state-shrink-guard";
       error.remoteMetrics = remote;
       error.localMetrics = local;
       throw error;
@@ -289,6 +294,7 @@ window.CWS = window.CWS || {};
   const V68_COMPLETE_MARKER = "v68-complete-foundation";
   const V69_TEST_RUNNER_HARDENING = "v69-test-runner-hardening";
   const V70_LIVE_STABILITY_MARKER = "v70-live-stability-gantt-capacity-hardening";
+  const V72_COMPLETE_HARDENING_MARKER = "v72-complete-program-mobile-hardening";
   const V68_LOCK_KEY = "tenant:default:cws.state.v68.recoveryLock";
 
   const makeIsoRangeTask = (id, name, parent, dept, start, workdays, colorKey="c1", extra={}) => ({
@@ -433,12 +439,14 @@ window.CWS = window.CWS || {};
   };
 
   const repairDuplicateGanttRowIds = (projectId, model) => {
-    if(!model || !Array.isArray(model.rows)) return { repaired:0, model };
+    if(!model || !Array.isArray(model.rows)) return { repaired:0, scheduleKeysRepaired:0, referencesRepaired:0, model };
     model.sched = model.sched && typeof model.sched === "object" && !Array.isArray(model.sched) ? model.sched : {};
 
     const used = new Set();
     const occurrences = new Map();
     const repairs = [];
+    let scheduleKeysRepaired = 0;
+    let referencesRepaired = 0;
 
     model.rows.forEach((row, index) => {
       if(!row || typeof row !== "object") return;
@@ -462,6 +470,7 @@ window.CWS = window.CWS || {};
 
       if(repairedId !== originalId && model.sched[repairedId] == null && model.sched[originalId] != null){
         model.sched[repairedId] = deepClone(model.sched[originalId]);
+        scheduleKeysRepaired += 1;
       }
     });
 
@@ -475,13 +484,126 @@ window.CWS = window.CWS || {};
         const id = String(rawId || "").trim();
         return latestByOriginal.get(id) || firstByOriginal.get(id) || id;
       };
-      if(item.row.parent) item.row.parent = resolveId(item.row.parent);
-      if(item.row.predecessor) item.row.predecessor = rewriteGanttReference(item.row.predecessor, resolveId);
-      if(item.row.predecessors) item.row.predecessors = rewriteGanttReference(item.row.predecessors, resolveId);
+      if(item.row.parent){
+        const before = item.row.parent;
+        item.row.parent = resolveId(item.row.parent);
+        if(before !== item.row.parent) referencesRepaired += 1;
+      }
+      ["predecessor","predecessors","dependency","dependenciesText"].forEach(field => {
+        if(!item.row[field]) return;
+        const before = item.row[field];
+        item.row[field] = rewriteGanttReference(item.row[field], resolveId);
+        if(before !== item.row[field]) referencesRepaired += 1;
+      });
       latestByOriginal.set(item.originalId, item.repairedId);
     });
 
-    return { repaired:repairs.filter(item => item.repairedId !== item.originalId).length, model };
+    const resolveFirst = rawId => {
+      const id = String(rawId || "").trim();
+      return firstByOriginal.get(id) || id;
+    };
+    (Array.isArray(model.dependencies) ? model.dependencies : []).forEach(dependency => {
+      if(!dependency || typeof dependency !== "object") return;
+      ["from","source","sourceId","predecessorId","to","target","targetId","successorId"].forEach(field => {
+        if(!dependency[field]) return;
+        const before = dependency[field];
+        dependency[field] = resolveFirst(dependency[field]);
+        if(before !== dependency[field]) referencesRepaired += 1;
+      });
+    });
+
+    return {
+      repaired:repairs.filter(item => item.repairedId !== item.originalId).length,
+      scheduleKeysRepaired,
+      referencesRepaired,
+      model
+    };
+  };
+
+  const parseDiagnosticDate = (value) => {
+    const raw = String(value || "").trim();
+    if(!raw) return null;
+    let match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(match) return new Date(Date.UTC(Number(match[1]), Number(match[2])-1, Number(match[3])));
+    match = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if(match) return new Date(Date.UTC(Number(match[3]), Number(match[2])-1, Number(match[1])));
+    return null;
+  };
+
+  const isDiagnosticNonWorkday = (st, iso) => {
+    const date = parseDiagnosticDate(iso);
+    if(!date || !Number.isFinite(date.getTime())) return false;
+    const weekday = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
+    const override = st?.settings?.calendar?.overrides?.[iso];
+    if(typeof override === "boolean") return override;
+    if(weekday >= 6) return true;
+    const workweek = st?.settings?.calendar?.workweek;
+    return workweek && workweek[weekday] === false;
+  };
+
+  const collectGanttDiagnostics = (st) => {
+    const diagnostics = {
+      orphanScheduleCount:0,
+      orphanPredecessorCount:0,
+      invalidDateCount:0,
+      missingDepartmentCount:0,
+      weekendHourViolationCount:0
+    };
+    Object.values(st?.ganttV2?.byProject || {}).forEach(model => {
+      const rows = Array.isArray(model?.rows) ? model.rows : [];
+      const ids = new Set(rows.map(row => String(row?.id || "")).filter(Boolean));
+      Object.keys(model?.sched || {}).forEach(id => {
+        if(!ids.has(String(id))) diagnostics.orphanScheduleCount += 1;
+      });
+      rows.forEach(row => {
+        if(!row || !row.id) return;
+        if(row.type !== "summary" && row.type !== "phase" && !String(row.department || row.dept || row.afdeling || "").trim()){
+          diagnostics.missingDepartmentCount += 1;
+        }
+        const schedule = model?.sched?.[row.id] || {};
+        const start = schedule.start ? parseDiagnosticDate(schedule.start) : null;
+        const end = schedule.end ? parseDiagnosticDate(schedule.end) : null;
+        if((schedule.start && (!start || !Number.isFinite(start.getTime()))) ||
+          (schedule.end && (!end || !Number.isFinite(end.getTime()))) ||
+          (start && end && end < start)){
+          diagnostics.invalidDateCount += 1;
+        }
+        [row.predecessor, row.predecessors].filter(Boolean).forEach(value => {
+          String(value).split(/[;,]/).map(token => token.trim()).filter(Boolean).forEach(token => {
+            const predecessorId = token.replace(/(FS|SS|FF|SF)([+-]\d+)?$/i, "").trim();
+            if(predecessorId && !ids.has(predecessorId)) diagnostics.orphanPredecessorCount += 1;
+          });
+        });
+      });
+    });
+    Object.entries(st?.gantt?.hoursByDay || {}).forEach(([iso, byDept]) => {
+      if(isDiagnosticNonWorkday(st, iso) && Object.values(byDept || {}).some(value => Number(value) > 0)){
+        diagnostics.weekendHourViolationCount += 1;
+      }
+    });
+    return diagnostics;
+  };
+
+  const normalizeGanttState = (st) => {
+    st.ganttV2 = st.ganttV2 || { expanded:{}, byProject:{}, ui:{} };
+    st.ganttV2.byProject = st.ganttV2.byProject && typeof st.ganttV2.byProject === "object" && !Array.isArray(st.ganttV2.byProject) ? st.ganttV2.byProject : {};
+    const repairs = { rows:0, scheduleKeys:0, references:0 };
+    const repairModel = (projectId, model) => {
+      const result = repairDuplicateGanttRowIds(projectId, model);
+      repairs.rows += result.repaired;
+      repairs.scheduleKeys += result.scheduleKeysRepaired;
+      repairs.references += result.referencesRepaired;
+    };
+    Object.entries(st.ganttV2.byProject).forEach(([projectId, model]) => {
+      if(!model || !Array.isArray(model.rows)) return;
+      repairModel(projectId, model);
+      (Array.isArray(model.revisions) ? model.revisions : []).forEach(revision => {
+        const snapshot = revision?.snapshot;
+        if(snapshot && Array.isArray(snapshot.rows)) repairModel(`${projectId}-revision`, snapshot);
+      });
+    });
+    const diagnostics = collectGanttDiagnostics(st);
+    return { repairs, diagnostics };
   };
 
   const normalizeState = (st) => {
@@ -544,6 +666,7 @@ window.CWS = window.CWS || {};
     st.projects = st.projects || { order:[], byId:{} };
     st.projects.order = Array.isArray(st.projects.order) ? [...new Set(st.projects.order)] : [];
     st.projects.byId = st.projects.byId && typeof st.projects.byId === "object" ? st.projects.byId : {};
+    st.projects.order = [...new Set([...st.projects.order.filter(id => st.projects.byId[id]), ...Object.keys(st.projects.byId)])];
     st.projects.deptHours = Array.isArray(st.projects.deptHours) ? st.projects.deptHours : [];
     st.resources = st.resources || { order:[], byId:{} };
     st.resources.order = Array.isArray(st.resources.order) ? [...new Set(st.resources.order)] : [];
@@ -591,9 +714,9 @@ window.CWS = window.CWS || {};
     st.ganttV2.expanded = st.ganttV2.expanded || {};
     st.ganttV2.byProject = st.ganttV2.byProject || {};
     st.ganttV2.ui = Object.assign({ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" }, st.ganttV2.ui || {});
+    const ganttNormalization = normalizeGanttState(st);
     Object.entries(st.ganttV2.byProject || {}).forEach(([projectId, model]) => {
       if(!model || !Array.isArray(model.rows)) return;
-      repairDuplicateGanttRowIds(projectId, model);
       model.rows.forEach(row => {
         if(!row || row.type === "summary" || row.type === "phase") return;
         const legacyHours = Math.max(0, num(row.manualHours ?? row.hours));
@@ -609,6 +732,32 @@ window.CWS = window.CWS || {};
         }
       });
     });
+    const repairs = ganttNormalization.repairs;
+    const diagnostics = ganttNormalization.diagnostics;
+    st.meta.v72CompleteHardening = true;
+    st.meta.ganttRowIdRepairCount = Math.max(0, Number(st.meta.ganttRowIdRepairCount || 0)) + repairs.rows;
+    st.meta.ganttScheduleKeyRepairCount = Math.max(0, Number(st.meta.ganttScheduleKeyRepairCount || 0)) + repairs.scheduleKeys;
+    st.meta.ganttPredecessorRepairCount = Math.max(0, Number(st.meta.ganttPredecessorRepairCount || 0)) + repairs.references;
+    if(repairs.rows || repairs.scheduleKeys || repairs.references){
+      st.auditLog.push({
+        id:`AUD-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        ts:new Date().toISOString(),
+        user:st.user?.name || "Systeem",
+        role:st.user?.role || "unknown",
+        action:"duplicate_id_repair_executed",
+        meta:{ rowIds:repairs.rows, scheduleKeys:repairs.scheduleKeys, references:repairs.references }
+      });
+      if(st.auditLog.length > 2000) st.auditLog = st.auditLog.slice(-2000);
+      st.globalState.auditLog = st.auditLog;
+    }
+    st.meta.orphanScheduleCount = diagnostics.orphanScheduleCount;
+    st.meta.orphanPredecessorCount = diagnostics.orphanPredecessorCount;
+    st.meta.invalidDateCount = diagnostics.invalidDateCount;
+    st.meta.missingDepartmentCount = diagnostics.missingDepartmentCount;
+    st.meta.weekendHourViolationCount = diagnostics.weekendHourViolationCount;
+    st.meta.lastStateDoctorAt = st.meta.lastStateDoctorAt || null;
+    st.meta.lastSuccessfulRemoteVersion = Number(st.meta.lastSuccessfulRemoteVersion || 0);
+    st.meta.lastSuccessfulSaveAt = st.meta.lastSuccessfulSaveAt || null;
     st.templates = st.templates || { taskSets: [ { id:"default", name:"Standaard", phases:[] } ] };
     st.templates.taskSets = Array.isArray(st.templates.taskSets) ? st.templates.taskSets : [];
     if(!st.templates.taskSets.length) st.templates.taskSets.push({ id:"default", name:"Standaard", phases:[] });
@@ -772,16 +921,30 @@ window.CWS = window.CWS || {};
     if(saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async()=>{
       try{
-        await storageAdapter.save(deepClone(state));
+        const snapshot = deepClone(state);
+        const validation = validateState(snapshot);
+        if(!validation.valid){
+          const error = new Error(`Opslaan geblokkeerd: ${validation.errors[0] || "state-validatie mislukt."}`);
+          error.cwsGuard = "v72-validation-guard";
+          throw error;
+        }
+        protectAgainstCatastrophicOverwrite(snapshot, "remote save");
+        await storageAdapter.save(snapshot);
         markRemoteSaveOk("remote-save-ok");
       }catch(error){
         storageStatus.unsynced = true;
         storageStatus.lastError = error.message;
-        if(error.cwsGuard === "v63-catastrophic-overwrite"){
+        if(error.cwsGuard === "v63-catastrophic-overwrite" || error.cwsGuard === "v72-validation-guard"){
           storageStatus.label = "D1 beveiligd - demo/lege overwrite geblokkeerd";
-          try{ window.UI?.toast?.("Opslaan geblokkeerd: D1 bevat meer projecten dan deze browserstate."); }catch(_){}
+          storageAdapter.audit("save_guard_blocked", {
+            message:error.message,
+            remoteMetrics:error.remoteMetrics || remoteSafetySnapshot,
+            localMetrics:error.localMetrics || stateMetrics(state)
+          });
+          try{ window.UI?.toast?.(error.message); }catch(_){}
         }else if(error.status === 409){
           storageStatus.label = "D1 conflict - herladen nodig";
+          storageAdapter.audit("d1_conflict", { message:error.message, currentVersion:error.currentVersion || null });
           try{ window.UI?.toast?.("Data is gewijzigd door een andere gebruiker. Herlaad om overschrijven te voorkomen."); }catch(_){}
         }else{
           try{ window.UI?.toast?.("Serveropslag niet bereikbaar - wijzigingen lokaal bewaard."); }catch(_){}
@@ -793,6 +956,7 @@ window.CWS = window.CWS || {};
 
   const validateState = (candidate=state) => {
     const errors = [];
+    const warnings = [];
     const st = candidate || {};
     if(Number(st.schemaVersion) !== SCHEMA_VERSION) errors.push("Ongeldige schemaVersion.");
     const order = st.projects?.order || [];
@@ -840,12 +1004,34 @@ window.CWS = window.CWS || {};
         }
       });
     });
+    Object.entries(st.ganttV2?.byProject || {}).forEach(([projectId, model]) => {
+      const rows = Array.isArray(model?.rows) ? model.rows : [];
+      const ids = new Set(rows.map(row => String(row?.id || "")).filter(Boolean));
+      rows.forEach(row => {
+        if(!row?.id) return;
+        const schedule = model?.sched?.[row.id] || {};
+        const start = schedule.start ? parseDiagnosticDate(schedule.start) : null;
+        const end = schedule.end ? parseDiagnosticDate(schedule.end) : null;
+        if(schedule.start && (!start || !Number.isFinite(start.getTime()))) errors.push(`Gantt ${projectId}/${row.id}: ongeldige startdatum.`);
+        if(schedule.end && (!end || !Number.isFinite(end.getTime()))) errors.push(`Gantt ${projectId}/${row.id}: ongeldige einddatum.`);
+        [row.predecessor, row.predecessors].filter(Boolean).forEach(value => {
+          String(value).split(/[;,]/).map(token => token.trim()).filter(Boolean).forEach(token => {
+            const predecessorId = token.replace(/(FS|SS|FF|SF)([+-]\d+)?$/i, "").trim();
+            if(predecessorId && !ids.has(predecessorId)) errors.push(`Gantt ${projectId}/${row.id}: voorganger ${predecessorId} bestaat niet.`);
+          });
+        });
+      });
+      Object.keys(model?.sched || {}).forEach(rowId => {
+        if(!ids.has(String(rowId))) warnings.push(`Gantt ${projectId}: verweesde schedule-key ${rowId}.`);
+      });
+    });
     const m = stateMetrics(st);
     const recoveryLock = (()=>{ try{ return JSON.parse(localStorage.getItem(V68_LOCK_KEY)||"null"); }catch(_){ return null; } })();
     if(recoveryLock?.locked && m.projectCount < Number(recoveryLock.minProjects || 20)){
       errors.push(`V68 recovery-lock: opslaan geweigerd omdat state ${m.projectCount} projecten bevat en lock minimaal ${recoveryLock.minProjects} verwacht.`);
     }
-    lastValidation = { valid:errors.length === 0, errors };
+    const diagnostics = collectGanttDiagnostics(st);
+    lastValidation = { valid:errors.length === 0, errors, warnings, diagnostics, blockingErrors:errors };
     return lastValidation;
   };
 
@@ -881,9 +1067,15 @@ window.CWS = window.CWS || {};
     if(orphanGanttProjects.length) errors.push(`Gantt bevat ${orphanGanttProjects.length} project(en) zonder projectrecord.`);
     if(workingDayHourViolations.length) errors.push(`Er staan uren op ${workingDayHourViolations.length} niet-werkbare dag(en).`);
     if(!validation.valid) warnings.push(...validation.errors.slice(0,10));
+    const diagnostics = collectGanttDiagnostics(st);
+    if(diagnostics.orphanScheduleCount) warnings.push(`${diagnostics.orphanScheduleCount} verweesde schedule-key(s).`);
+    if(diagnostics.orphanPredecessorCount) errors.push(`${diagnostics.orphanPredecessorCount} verweesde voorganger(s).`);
+    if(diagnostics.invalidDateCount) errors.push(`${diagnostics.invalidDateCount} ongeldige Gantt-datum/datumreeks(en).`);
+    if(diagnostics.missingDepartmentCount) errors.push(`${diagnostics.missingDepartmentCount} taak/taken zonder afdeling.`);
     const report = {
       ok: errors.length === 0,
-      marker: V70_LIVE_STABILITY_MARKER,
+      marker: V72_COMPLETE_HARDENING_MARKER,
+      compatibilityMarker: V70_LIVE_STABILITY_MARKER,
       createdAt: new Date().toISOString(),
       storage: { ...storageStatus },
       remoteSafety: { ...remoteSafetySnapshot },
@@ -901,6 +1093,7 @@ window.CWS = window.CWS || {};
         sourceCount: metrics.sourceCount,
         workingDayHourViolations: workingDayHourViolations.slice(0,25)
       },
+      diagnostics,
       errors,
       warnings
     };
@@ -917,6 +1110,11 @@ window.CWS = window.CWS || {};
     state.meta.lastSuccessfulRemoteVersion = remoteVersion;
     state.meta.lastSuccessfulSaveAt = storageStatus.lastSuccessfulSaveAt;
     rememberLastGoodSnapshot(state, label);
+    appendAudit(state, "last_good_snapshot_created", {
+      label,
+      remoteVersion,
+      metrics:stateMetrics(state)
+    });
     writeLocalSnapshot(state);
   };
 
@@ -1399,6 +1597,12 @@ window.CWS = window.CWS || {};
   };
 
   const clearAll = () => {
+    if(!hasPermission("admin_settings")){
+      audit("clear_data_attempt_blocked", { reason:"permission", role:state.user?.role || "unknown" });
+      toast("Alleen een beheerder kan alle data wissen.", "error");
+      return false;
+    }
+    createRecoverySnapshot("before_clear_all");
     audit("clear_data");
     localStorage.removeItem(KEY_TENANT);
     localStorage.removeItem(KEY_GLOBAL);
@@ -1407,9 +1611,16 @@ window.CWS = window.CWS || {};
     redoStack.length = 0;
     save();
     notify();
+    return true;
   };
 
   const resetDemo = () => {
+    if(!hasPermission("admin_settings")){
+      audit("demo_data_attempt_blocked", { reason:"permission", role:state.user?.role || "unknown" });
+      toast("Alleen een beheerder kan demo data laden.", "error");
+      return false;
+    }
+    createRecoverySnapshot("before_demo_reset");
     const st = defaultState();
 
     // Demo projects (match UI fields)
@@ -1670,6 +1881,7 @@ window.CWS = window.CWS || {};
     save();
     notify();
     audit("reset_demo");
+    return true;
   };
 
   const getTaskWorkdays = (st, startIso, endIso) => {
@@ -1741,7 +1953,8 @@ window.CWS = window.CWS || {};
     model.rows.forEach(row => {
       if(!row || row.type === "summary" || row.type === "phase") return;
       const sc = model.sched[row.id] || {};
-      const preferred = Math.max(1, baseNum(row.duration || row.days || row.duur) || (sc.start && sc.end ? Math.max(1, Math.round((new Date(String(sc.end).slice(0,10)+"T00:00:00Z") - new Date(String(sc.start).slice(0,10)+"T00:00:00Z"))/86400000) + 1) : 1));
+      const scheduleWorkdays = sc.start && sc.end ? getTaskWorkdays(st, sc.start, sc.end).length : 0;
+      const preferred = Math.max(1, scheduleWorkdays || baseNum(row.duration || row.days || row.duur) || 1);
       const fixed = normalizeGanttScheduleRange(st, sc.start, sc.end, preferred);
       model.sched[row.id] = { ...sc, start:fixed.start, end:fixed.end };
       row.duration = fixed.workdays;
@@ -1905,8 +2118,9 @@ window.CWS = window.CWS || {};
     getProjectGantt(projectId){
       return deepClone(state.ganttV2?.byProject?.[projectId] || { rows:[], sched:{} });
     },
-    saveProjectGantt(projectId, model){
-      return mutate("gantt_save", { projectId }, draft => {
+    saveProjectGantt(projectId, model, mutationMeta={}){
+      const action = mutationMeta.action || "gantt_save";
+      return mutate(action, { projectId, ...mutationMeta }, draft => {
         draft.ganttV2 = draft.ganttV2 || { byProject:{}, ui:{} };
         draft.ganttV2.byProject = draft.ganttV2.byProject || {};
         draft.ganttV2.byProject[projectId] = normalizeGanttModelSchedules(draft, deepClone(model));
@@ -1967,13 +2181,16 @@ window.CWS = window.CWS || {};
     const validation = preview.validation;
     const metrics = preview.metrics;
     if(!stateHasBusinessData(next)) return { ok:false, errors:["Import bevat geen bruikbare projecten/taken."], metrics };
+    if(!validation.valid) return { ok:false, errors:validation.errors, metrics, validation };
+    const previousMetrics = stateMetrics(state);
+    createRecoverySnapshot("before-import");
     rememberLastGoodSnapshot(state, "before-import");
     state = next;
     state.meta = state.meta || {};
     state.meta.importedAt = new Date().toISOString();
     state.meta.importLabel = label;
     state.meta.v68CompleteFoundation = true;
-    appendAudit(state, "v68_import_state", { label, metrics });
+    appendAudit(state, "import_executed", { label, metrics, previousMetrics });
     rememberLastGoodSnapshot(state, label);
     if(metrics.projectCount >= 20) setRecoveryLock(metrics.projectCount, `import-${label}`);
     save();
@@ -2030,7 +2247,22 @@ window.CWS = window.CWS || {};
       rebuildGanttHoursByDay(next);
       const validation = validateState(next);
       const metrics = stateMetrics(next);
-      return { ok:stateHasBusinessData(next), metrics, validation, errors:stateHasBusinessData(next) ? validation.errors : ["Import bevat geen businessdata."], state:next };
+      const currentMetrics = stateMetrics(state);
+      const delta = {
+        projects:metrics.projectCount - currentMetrics.projectCount,
+        ganttRows:metrics.ganttRowCount - currentMetrics.ganttRowCount,
+        hourDays:metrics.hourDays - currentMetrics.hourDays
+      };
+      return {
+        ok:stateHasBusinessData(next),
+        canImport:stateHasBusinessData(next) && validation.valid,
+        metrics,
+        currentMetrics,
+        delta,
+        validation,
+        errors:stateHasBusinessData(next) ? validation.errors : ["Import bevat geen businessdata."],
+        state:next
+      };
     }catch(error){
       return { ok:false, errors:[error.message], metrics:null, validation:{ valid:false, errors:[error.message] } };
     }
@@ -2054,7 +2286,32 @@ window.CWS = window.CWS || {};
     add("no-weekend-hours", weekendHours.length === 0, `${weekendHours.length} dagen met uren op niet-werkbare dag`);
     const longBars = Object.values(st.ganttV2?.byProject || {}).flatMap(model => (model?.rows||[]).filter(r => r.type!=="summary").map(r => ({ row:r, sc:model.sched?.[r.id]||{} }))).filter(x => Number(x.sc?.workdays || x.row?.duration || 0) >= 20);
     add("long-gantt-bars-detectable", longBars.length >= 1 || metrics.ganttRowCount === 0, `${longBars.length} lange taken gevonden`);
-    return { ok:checks.every(c=>c.ok), createdAt:new Date().toISOString(), marker:V68_COMPLETE_MARKER, metrics, validation, checks };
+    const diagnostics = collectGanttDiagnostics(st);
+    add("no-orphan-schedules", diagnostics.orphanScheduleCount === 0, `${diagnostics.orphanScheduleCount} verweesde schedule-key(s)`);
+    add("no-orphan-predecessors", diagnostics.orphanPredecessorCount === 0, `${diagnostics.orphanPredecessorCount} verweesde voorganger(s)`);
+    add("valid-gantt-dates", diagnostics.invalidDateCount === 0, `${diagnostics.invalidDateCount} ongeldige datumreeks(en)`);
+    add("tasks-have-departments", diagnostics.missingDepartmentCount === 0, `${diagnostics.missingDepartmentCount} taak/taken zonder afdeling`);
+    const hourValidation = Array.isArray(st.gantt?.projectDeptHoursValidation) ? st.gantt.projectDeptHoursValidation : [];
+    const distributedHours = new Map();
+    Object.values(st.gantt?.sourcesByDay || {}).forEach(departments => {
+      Object.entries(departments || {}).forEach(([dept, sources]) => {
+        (Array.isArray(sources) ? sources : []).forEach(source => {
+          const key = `${source.projectId || ""}::${dept}`;
+          distributedHours.set(key, (distributedHours.get(key) || 0) + Number(source.hours || 0));
+        });
+      });
+    });
+    const hourMismatches = hourValidation.map(row => {
+      const distributed = distributedHours.get(`${row.projectId || ""}::${row.dept || ""}`) || 0;
+      return { ...row, distributedHours:distributed, delta:distributed - Number(row.projectDeptHours || 0) };
+    }).filter(row => Math.abs(row.delta) > 0.01);
+    add("project-hours-match-gantt", hourMismatches.length === 0, `${hourMismatches.length} afwijking(en)`);
+    const createdAt = new Date().toISOString();
+    if(candidate === state){
+      state.meta.lastStateDoctorAt = createdAt;
+      writeLocalSnapshot(state);
+    }
+    return { ok:checks.every(c=>c.ok), createdAt, marker:V72_COMPLETE_HARDENING_MARKER, compatibilityMarker:V68_COMPLETE_MARKER, metrics, validation, diagnostics, hourMismatches:hourMismatches.slice(0,50), checks };
   };
 
   const setRecoveryLock = (minProjects=null, reason="manual") => {
@@ -2073,6 +2330,8 @@ window.CWS = window.CWS || {};
     try{
       localStorage.setItem(V67_RECOVERY_SNAPSHOT_KEY, JSON.stringify({ label, createdAt:new Date().toISOString(), metrics, state }));
       rememberLastGoodSnapshot(state, `snapshot-${label}`);
+      appendAudit(state, "recovery_snapshot_created", { label, metrics });
+      writeLocalSnapshot(state);
       return { ok:true, metrics };
     }catch(error){ return { ok:false, errors:[error.message], metrics }; }
   };
@@ -2080,7 +2339,12 @@ window.CWS = window.CWS || {};
   const restoreLastGoodSnapshot = () => {
     const packed = readLastGoodSnapshot();
     if(!packed?.state) return { ok:false, errors:["Geen laatste goede snapshot gevonden."] };
-    return importRawState(packed.state, `restore-${packed.label || "last-good"}`);
+    const result = importRawState(packed.state, `restore-${packed.label || "last-good"}`);
+    if(result.ok){
+      appendAudit(state, "restore_executed", { label:packed.label || "last-good", metrics:result.metrics });
+      save();
+    }
+    return result;
   };
 
   const init = async () => {

@@ -60,16 +60,16 @@
     <div class="panel" style="margin-top:12px; margin-bottom:12px; border:2px solid #bae6fd;">
       <div class="panel-head">
         <div class="panel-tools">
-          <strong>V70 Live stabiliteit / Backup / Restore / Testmodus</strong><!-- compatibility: V67 Backup / Restore / Testmodus -->
+          <strong>V72 Live stabiliteit / Backup / Restore / Testmodus</strong><!-- compatibility: V70 V67 Backup / Restore / Testmodus -->
           <span class="smallmuted">Veilig herstel zonder demo/lege state over D1 heen te schrijven.</span>
         </div>
         <div class="panel-tools">
           <button class="btn" id="v67Snapshot">Snapshot maken</button>
           <button class="btn" id="v67Restore">Herstel laatste goede snapshot</button>
-          <button class="btn" id="v67Fixture">Laad V70 fixture lokaal</button>
+          <button class="btn" id="v67Fixture">Laad V72 fixture lokaal</button>
         </div>
       </div>
-      <div style="padding:12px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start;">
+      <div class="io-recovery-grid" style="padding:12px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start;">
         <div class="card">
           <h3>State JSON / D1 SQL import</h3>
           <div class="sub">Plak hier state_json of een Cloudflare D1 SQL-export. Import doet eerst preview, normalisatie, validatie en recovery-lock.</div>
@@ -80,7 +80,7 @@
             <button class="btn" id="v67ImportBtn">Importeer state</button>
             <button class="btn" id="v67ExportBtn">Export huidige state</button>
             <button class="btn" id="v68DoctorBtn">Download diagnose</button>
-            <button class="btn" id="v70ReadinessBtn">Live readiness rapport</button>
+            <button class="btn" id="v70ReadinessBtn">V72 Live readiness rapport</button>
             <button class="btn" id="v68LockBtn">Recovery-lock aan</button>
             <button class="btn" id="v68UnlockBtn">Recovery-lock uit</button>
           </div>
@@ -113,7 +113,7 @@
 
   <div class="footerbar">
     <div class="smallmuted">CSV-import is actief. XLSX-import volgt later als lokale vendored importmodule; geen CLI-workaround meer. Import werkt op basis van Projectnummer en ResourceNaam.</div>
-    <div class="smallmuted">v9 Cloudflare D1</div>
+    <div class="smallmuted">V72 Cloudflare Pages + D1</div>
   </div>
 </div>
 
@@ -126,20 +126,28 @@
 var CWS = window.CWS;</script>
 <script>
 (function(){
-  try{
-    var requested = localStorage.getItem("cws.v35.demoRequested") || localStorage.getItem("cws.v33.demoLoadedAt");
-    var st = window.CWS && window.CWS.getState ? window.CWS.getState() : null;
-    if(requested && window.CWS && typeof window.CWS.resetDemo === "function" && (!st || !st.projects || !Array.isArray(st.projects.order) || st.projects.order.length === 0)){
-      window.CWS.resetDemo();
-      console.info("CWS V35 fallback: demo-data lokaal opnieuw geladen voor module.");
-    }
-  }catch(e){ console.warn("CWS V35 fallback demo-load mislukt", e); }
+  // V72: demo-data wordt nooit meer automatisch geladen vanuit oude localStorage-vlaggen.
+  // Alleen de expliciete adminactie met typed confirmation mag resetDemo aanroepen.
 })();
 </script>
 
 <script src="../js/core/permissions.js"></script>
 <script src="../js/core/ui.js"></script>
 <script>
+  let lastImportPreview=null;
+  let lastImportRaw="";
+  const currentRole=()=>String(CWS?.getCurrentUser?.()?.role || CWS?.getState?.()?.user?.role || "viewer").toLowerCase();
+  const requireRole=(roles, action)=>{
+    if(roles.includes(currentRole())) return true;
+    CWS?.audit?.("permission_denied", { action, role:currentRole() });
+    UI.toast(`Geen rechten voor ${action}`);
+    return false;
+  };
+  const typedConfirm=(phrase, message)=>{
+    const answer=window.prompt(`${message}\n\nTyp exact: ${phrase}`,"");
+    return answer===phrase;
+  };
+
   function parseCSV(text){
     // Supports comma or semicolon. Handles quotes.
     const lines = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").filter(l=>l.trim().length);
@@ -368,6 +376,10 @@ var CWS = window.CWS;</script>
 
   const __demoBtn = document.getElementById("demoBtn");
   if(__demoBtn) __demoBtn.addEventListener("click", ()=>{
+    if(!requireRole(["admin"],"demo data")) return;
+    CWS.audit?.("demo_data_attempt", { source:"import-export" });
+    if(!typedConfirm("DEMO OVERSCHRIJVEN","Demo data vervangt de actuele lokale planning en kan door de D1 save guard worden geblokkeerd.")) return;
+    CWS.recovery?.createRecoverySnapshot?.("before-demo");
     CWS.resetDemo?.();
     UI.toast("Demo data gevuld");
     renderStats();
@@ -375,7 +387,10 @@ var CWS = window.CWS;</script>
 
   const __clearBtn = document.getElementById("clearBtn");
   if(__clearBtn) __clearBtn.addEventListener("click", ()=>{
-    if(!confirm("Weet je zeker dat je alle data wilt wissen?")) return;
+    if(!requireRole(["admin"],"data leegmaken")) return;
+    CWS.audit?.("clear_data_attempt", { source:"import-export" });
+    if(!typedConfirm("DATA LEEGMAKEN","Deze actie wist de actuele planning. Er wordt eerst een herstelpunt gemaakt.")) return;
+    CWS.recovery?.createRecoverySnapshot?.("before-clear");
     CWS.clearAll?.();
     UI.toast("Data geleegd");
     renderStats();
@@ -404,17 +419,17 @@ var CWS = window.CWS;</script>
     const unlock=document.getElementById("v68UnlockBtn");
     const file=document.getElementById("v67ImportFile");
     if(snap) snap.onclick=()=>{ const r=CWS.recovery?.createRecoverySnapshot?.("ui-manual"); renderV67RecoveryStats(r?.ok?"Snapshot gemaakt.":"Snapshot mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"Snapshot gemaakt":"Snapshot mislukt"); };
-    if(restore) restore.onclick=()=>{ const r=CWS.recovery?.restoreLastGoodSnapshot?.(); renderV67RecoveryStats(r?.ok?"Laatste goede snapshot hersteld.":"Herstel mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"Snapshot hersteld":"Geen snapshot gevonden"); };
-    if(fixture) fixture.onclick=()=>{ if(!confirm("Laad lokale V70 fixture met 76 projecten? Dit is bedoeld voor testmodus.")) return; const r=CWS.recovery?.loadRestoredD1Fixture?.(); renderV67RecoveryStats(r?.ok?"V70 fixture geladen.":"Fixture mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"V70 fixture geladen":"Fixture mislukt"); };
-    if(file) file.onchange=()=>{ const f=file.files&&file.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ document.getElementById("v67ImportText").value=String(rd.result||""); }; rd.readAsText(f); };
-    if(preview) preview.onclick=()=>{ const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen importtekst ingevuld"); return; } const r=CWS.recovery?.previewImport?.(raw); const m=r?.metrics||{}; renderV67RecoveryStats(r?.ok?`Preview OK: ${m.projectCount||0} projecten, ${m.ganttRowCount||0} Gantt-rijen, ${m.hourDays||0} uurdagen.`:`Preview fout: ${(r?.errors||[]).join(", ")}`); UI.toast(r?.ok?"Preview OK":"Preview fout"); };
-    if(imp) imp.onclick=()=>{ const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen JSON/SQL ingevuld"); return; } const r=CWS.recovery?.importRawState?.(raw,"ui-v68-import"); renderV67RecoveryStats(r?.ok?"State geïmporteerd, genormaliseerd en recovery-lock gezet.":"Import mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"State geïmporteerd":"Import mislukt"); };
+    if(restore) restore.onclick=()=>{ if(!requireRole(["admin"],"restore")) return; if(!typedConfirm("HERSTELLEN","Herstel de laatste goede snapshot en vervang de actuele lokale state.")) return; const r=CWS.recovery?.restoreLastGoodSnapshot?.(); renderV67RecoveryStats(r?.ok?"Laatste goede snapshot hersteld.":"Herstel mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"Snapshot hersteld":"Geen snapshot gevonden"); };
+    if(fixture) fixture.onclick=()=>{ if(!requireRole(["admin"],"testfixture")) return; CWS.audit?.("demo_data_attempt", { source:"v72-fixture" }); if(!typedConfirm("FIXTURE LADEN","Laad de lokale V72 testfixture met 76 projecten.")) return; CWS.recovery?.createRecoverySnapshot?.("before-fixture"); const r=CWS.recovery?.loadRestoredD1Fixture?.(); renderV67RecoveryStats(r?.ok?"V72 fixture geladen.":"Fixture mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"V72 fixture geladen":"Fixture mislukt"); };
+    if(file) file.onchange=()=>{ const f=file.files&&file.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ document.getElementById("v67ImportText").value=String(rd.result||""); lastImportPreview=null; lastImportRaw=""; }; rd.readAsText(f); };
+    if(preview) preview.onclick=()=>{ const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen importtekst ingevuld"); return; } const r=CWS.recovery?.previewImport?.(raw); lastImportPreview=r; lastImportRaw=raw; const m=r?.metrics||{}, cur=r?.currentMetrics||{}, d=r?.delta||{}; renderV67RecoveryStats(r?.ok?`Preview ${r.canImport?"OK":"GEBLOKKEERD"}: ${cur.projectCount||0} naar ${m.projectCount||0} projecten (${d.projects>=0?"+":""}${d.projects||0}), ${cur.ganttRowCount||0} naar ${m.ganttRowCount||0} Gantt-rijen (${d.ganttRows>=0?"+":""}${d.ganttRows||0}). ${(r.validation?.errors||[]).slice(0,3).join(" | ")}`:`Preview fout: ${(r?.errors||[]).join(", ")}`); UI.toast(r?.canImport?"Preview OK":"Preview bevat blokkerende fouten"); };
+    if(imp) imp.onclick=()=>{ if(!requireRole(["admin","planner"],"import")) return; const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen JSON/SQL ingevuld"); return; } if(raw!==lastImportRaw || !lastImportPreview){ UI.toast("Analyseer deze import eerst opnieuw"); return; } if(!lastImportPreview.canImport){ UI.toast("Import geblokkeerd door validatiefouten"); return; } CWS.audit?.("import_attempt", { currentMetrics:lastImportPreview.currentMetrics, incomingMetrics:lastImportPreview.metrics }); if(!typedConfirm("IMPORTEREN","Pas de geanalyseerde import toe. Er wordt eerst een herstelpunt gemaakt.")) return; const r=CWS.recovery?.importRawState?.(raw,"ui-v72-import"); renderV67RecoveryStats(r?.ok?"State geimporteerd, genormaliseerd en recovery-lock gezet.":"Import mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"State geimporteerd":"Import mislukt"); if(r?.ok){ lastImportPreview=null; lastImportRaw=""; } };
     if(exp) exp.onclick=()=>{ const raw=CWS.recovery?.exportStateJson?.() || JSON.stringify(CWS.getState(),null,2); const blob=new Blob([raw],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-state-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); };
-    if(doctor) doctor.onclick=()=>{ const report=CWS.recovery?.buildStateDoctorReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v70-diagnose-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); renderV67RecoveryStats(`Diagnose: ${report.ok?"OK":"FOUT"}`); };
+    if(doctor) doctor.onclick=()=>{ const report=CWS.recovery?.buildStateDoctorReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v72-state-doctor-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); renderV67RecoveryStats(`Diagnose: ${report.ok?"OK":"FOUT"}`); };
     const readiness=document.getElementById("v70ReadinessBtn");
-    if(readiness) readiness.onclick=()=>{ const report=CWS.recovery?.buildLiveReadinessReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v70-live-readiness-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); const m=report.metrics||{}; renderV67RecoveryStats(`Live readiness: ${report.ok?"OK":"FOUT"} · ${m.projectCount||0} projecten · ${m.ganttRowCount||0} Gantt-rijen · ${m.hourDays||0} uurdagen`); };
+    if(readiness) readiness.onclick=()=>{ const report=CWS.recovery?.buildLiveReadinessReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v72-live-readiness-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); const m=report.metrics||{}; renderV67RecoveryStats(`Live readiness: ${report.ok?"OK":"FOUT"} · ${m.projectCount||0} projecten · ${m.ganttRowCount||0} Gantt-rijen · ${m.hourDays||0} uurdagen`); };
     if(lock) lock.onclick=()=>{ const r=CWS.recovery?.setRecoveryLock?.(); renderV67RecoveryStats(r?.ok?`Recovery-lock actief: minimaal ${r.lock?.minProjects} projecten.`:"Recovery-lock mislukt"); UI.toast("Recovery-lock actief"); };
-    if(unlock) unlock.onclick=()=>{ const r=CWS.recovery?.clearRecoveryLock?.(); renderV67RecoveryStats(r?.ok?"Recovery-lock uitgezet.":"Recovery-lock mislukt"); UI.toast("Recovery-lock uitgezet"); };
+    if(unlock) unlock.onclick=()=>{ if(!requireRole(["admin"],"recovery-lock uitzetten")) return; const r=CWS.recovery?.clearRecoveryLock?.(); renderV67RecoveryStats(r?.ok?"Recovery-lock uitgezet.":"Recovery-lock mislukt"); UI.toast("Recovery-lock uitgezet"); };
   }
 
   bindV67Recovery();

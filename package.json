@@ -2,9 +2,14 @@
   "name": "cws-planning",
   "type": "module",
   "scripts": {
-    "start": "node scripts/serve.mjs",
-    "dev": "node scripts/serve.mjs",
-    "test:e2e": "node scripts/e2e-fallback.mjs",
+    "start": "node scripts/serve.mjs --port=5173",
+    "dev": "node scripts/serve.mjs --port=8788",
+    "serve": "node scripts/serve.mjs",
+    "build": "npm run lint && npm run preflight:all",
+    "test": "npm run preflight:all && npm run test:e2e",
+    "lint": "npm run lint:syntax",
+    "test:e2e": "node scripts/e2e-fallback.mjs && node scripts/headless-v72-smoke.mjs",
+    "test:headless": "node scripts/headless-v72-smoke.mjs",
     "test:e2e:headed": "node scripts/e2e-fallback.mjs --headed",
     "test:e2e:report": "node scripts/e2e-fallback.mjs && node scripts/open_report_hint.js",
     "lint:syntax": "node scripts/syntax-check.js",
@@ -51,7 +56,9 @@
     "preflight:v68": "node scripts/v68-complete-foundation-preflight.mjs",
     "preflight:v69": "node scripts/v69-test-runner-hardening-preflight.mjs",
     "preflight:v70": "node scripts/v70-live-stability-gantt-capacity-preflight.mjs",
-    "preflight:v71": "node scripts/v71-duplicate-task-id-repair-preflight.mjs"
+    "preflight:v71": "node scripts/v71-duplicate-task-id-repair-preflight.mjs",
+    "preflight:v72": "node scripts/v72-complete-program-mobile-hardening-preflight.mjs",
+    "preflight:all": "node scripts/run-all-preflights.mjs"
   },
   "devDependencies": {}
 }
