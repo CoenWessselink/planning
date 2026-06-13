@@ -50,7 +50,8 @@
     "preflight:v67": "node scripts/v67-big-foundation-preflight.mjs",
     "preflight:v68": "node scripts/v68-complete-foundation-preflight.mjs",
     "preflight:v69": "node scripts/v69-test-runner-hardening-preflight.mjs",
-    "preflight:v70": "node scripts/v70-live-stability-gantt-capacity-preflight.mjs"
+    "preflight:v70": "node scripts/v70-live-stability-gantt-capacity-preflight.mjs",
+    "preflight:v71": "node scripts/v71-duplicate-task-id-repair-preflight.mjs"
   },
   "devDependencies": {}
 }

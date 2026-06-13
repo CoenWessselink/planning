@@ -418,6 +418,72 @@ window.CWS = window.CWS || {};
     return normalizeState(defaultState());
   };
 
+  const rewriteGanttReference = (value, resolveId) => {
+    const raw = String(value || "");
+    if(!raw.trim()) return raw;
+    return raw.split(/([;,])/).map(part => {
+      if(part === "," || part === ";") return part;
+      const leading = part.match(/^\s*/)?.[0] || "";
+      const trailing = part.match(/\s*$/)?.[0] || "";
+      const token = part.trim();
+      const match = token.match(/^(.+?)(FS|SS|FF|SF)([+-]\d+)?$/i);
+      if(!match) return `${leading}${resolveId(token)}${trailing}`;
+      return `${leading}${resolveId(match[1])}${match[2].toUpperCase()}${match[3] || ""}${trailing}`;
+    }).join("");
+  };
+
+  const repairDuplicateGanttRowIds = (projectId, model) => {
+    if(!model || !Array.isArray(model.rows)) return { repaired:0, model };
+    model.sched = model.sched && typeof model.sched === "object" && !Array.isArray(model.sched) ? model.sched : {};
+
+    const used = new Set();
+    const occurrences = new Map();
+    const repairs = [];
+
+    model.rows.forEach((row, index) => {
+      if(!row || typeof row !== "object") return;
+      const originalId = String(row.id || row.taskId || `${projectId}-TASK-${index+1}`).trim() || `${projectId}-TASK-${index+1}`;
+      const occurrence = (occurrences.get(originalId) || 0) + 1;
+      occurrences.set(originalId, occurrence);
+
+      let repairedId = originalId;
+      if(used.has(repairedId)){
+        let suffix = occurrence;
+        repairedId = `${originalId}__dup${suffix}`;
+        while(used.has(repairedId)){
+          suffix += 1;
+          repairedId = `${originalId}__dup${suffix}`;
+        }
+      }
+
+      used.add(repairedId);
+      repairs.push({ row, originalId, repairedId });
+      row.id = repairedId;
+
+      if(repairedId !== originalId && model.sched[repairedId] == null && model.sched[originalId] != null){
+        model.sched[repairedId] = deepClone(model.sched[originalId]);
+      }
+    });
+
+    const firstByOriginal = new Map();
+    repairs.forEach(item => {
+      if(!firstByOriginal.has(item.originalId)) firstByOriginal.set(item.originalId, item.repairedId);
+    });
+    const latestByOriginal = new Map();
+    repairs.forEach(item => {
+      const resolveId = rawId => {
+        const id = String(rawId || "").trim();
+        return latestByOriginal.get(id) || firstByOriginal.get(id) || id;
+      };
+      if(item.row.parent) item.row.parent = resolveId(item.row.parent);
+      if(item.row.predecessor) item.row.predecessor = rewriteGanttReference(item.row.predecessor, resolveId);
+      if(item.row.predecessors) item.row.predecessors = rewriteGanttReference(item.row.predecessors, resolveId);
+      latestByOriginal.set(item.originalId, item.repairedId);
+    });
+
+    return { repaired:repairs.filter(item => item.repairedId !== item.originalId).length, model };
+  };
+
   const normalizeState = (st) => {
     // V67: single runtime normalizer. All legacy/object/array states must pass through here exactly once.
     // Runtime invariant: projects.order/byId + ganttV2.byProject + tasks.byProject + gantt.hoursByDay/sourcesByDay.
@@ -525,8 +591,9 @@ window.CWS = window.CWS || {};
     st.ganttV2.expanded = st.ganttV2.expanded || {};
     st.ganttV2.byProject = st.ganttV2.byProject || {};
     st.ganttV2.ui = Object.assign({ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" }, st.ganttV2.ui || {});
-    Object.values(st.ganttV2.byProject || {}).forEach(model => {
+    Object.entries(st.ganttV2.byProject || {}).forEach(([projectId, model]) => {
       if(!model || !Array.isArray(model.rows)) return;
+      repairDuplicateGanttRowIds(projectId, model);
       model.rows.forEach(row => {
         if(!row || row.type === "summary" || row.type === "phase") return;
         const legacyHours = Math.max(0, num(row.manualHours ?? row.hours));
@@ -2132,6 +2199,7 @@ window.CWS = window.CWS || {};
       completeMarker: V68_COMPLETE_MARKER,
       testRunnerHardeningMarker: V69_TEST_RUNNER_HARDENING,
       liveStabilityMarker: V70_LIVE_STABILITY_MARKER,
+      duplicateTaskIdRepairMarker: "v71-duplicate-task-id-repair",
       buildLiveReadinessReport,
       markRemoteSaveOk,
       fixtureMarker: V67_FIXTURE_MARKER
