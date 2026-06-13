@@ -19,7 +19,13 @@
   
     /* V52 final task-cell colors */
     .project-task-cell.task-done{background:#dcfce7!important;color:#166534!important}.project-task-cell.task-late{background:#fee2e2!important;color:#991b1b!important}.project-task-cell.task-progress{background:#eff6ff!important;color:#1d4ed8!important}.project-task-cell.task-open,.project-task-cell.task-na{background:#f8fafc!important;color:#475569!important}.task-state.task-done{background:#22c55e!important;color:#052e16!important;border-color:#16a34a!important}.task-state.task-late{background:#ef4444!important;color:#fff!important;border-color:#b91c1c!important}.task-state.task-progress{background:#dbeafe!important;color:#1d4ed8!important;border-color:#93c5fd!important}.task-state.task-open,.task-state.task-na{background:#f1f5f9!important;color:#475569!important;border-color:#cbd5e1!important}
-  </style>
+@media print {
+  html,body,.project-overview-table,.status-cell,.task-done,.task-late {
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+}
+</style>
 </head>
 <body>
   <div class="panel">

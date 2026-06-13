@@ -90,12 +90,15 @@
         });
 
         document.getElementById("resetDemo").addEventListener("click", () => {
-          if(!Permissions.can(CWS.getState().ui.role, "edit_planning")) return UI.toast("Geen rechten");
-          const metrics = CWS.getStateMetrics?.() || {};
-          if(CWS.storageStatus?.mode === "api" && Number(metrics.projectCount || 0) >= 20){
-            const typed = prompt(`V62 beveiliging: D1 bevat ${metrics.projectCount} projecten. Demo data kan deze planning overschrijven. Typ exact DEMO OVERSCHRIJVEN om toch door te gaan.`);
-            if(typed !== "DEMO OVERSCHRIJVEN") return UI.toast("Demo data geblokkeerd; bestaande D1-planning blijft veilig.");
+          if(!CWS.hasPermission("admin_settings")){
+            CWS.audit("demo_data_attempt_blocked", { reason:"permission", role:CWS.getState().user?.role || "unknown" });
+            return UI.toast("Alleen een beheerder kan demo data laden.");
           }
+          const metrics = CWS.getStateMetrics?.() || {};
+          CWS.audit("demo_data_attempt", { projectCount:Number(metrics.projectCount || 0) });
+          const typed = prompt(`Demo data vervangt de huidige planning (${metrics.projectCount || 0} projecten). Typ exact DEMO OVERSCHRIJVEN om door te gaan.`);
+          if(typed !== "DEMO OVERSCHRIJVEN") return UI.toast("Demo data geblokkeerd; bestaande planning blijft veilig.");
+          CWS.recovery?.createRecoverySnapshot?.("before_demo_reset");
           CWS.resetDemo();
           try{
             const now = new Date().toISOString();
@@ -107,13 +110,16 @@
         });
 
         document.getElementById("clearData").addEventListener("click", () => {
-          if(!CWS.hasPermission("admin_settings")) return UI.toast("Geen rechten");
-          const metrics = CWS.getStateMetrics?.() || {};
-          if(CWS.storageStatus?.mode === "api" && Number(metrics.projectCount || 0) >= 20){
-            const typed = prompt(`V62 beveiliging: D1 bevat ${metrics.projectCount} projecten. Data leegmaken kan deze planning verwijderen. Typ exact DATA LEEGMAKEN om toch door te gaan.`);
-            if(typed !== "DATA LEEGMAKEN") return UI.toast("Data leegmaken geblokkeerd; bestaande D1-planning blijft veilig.");
+          if(!CWS.hasPermission("admin_settings")){
+            CWS.audit("clear_data_attempt_blocked", { reason:"permission", role:CWS.getState().user?.role || "unknown" });
+            return UI.toast("Alleen een beheerder kan alle data wissen.");
           }
+          const metrics = CWS.getStateMetrics?.() || {};
+          CWS.audit("clear_data_attempt", { projectCount:Number(metrics.projectCount || 0) });
+          const typed = prompt(`Data leegmaken verwijdert de huidige planning (${metrics.projectCount || 0} projecten). Typ exact DATA LEEGMAKEN om door te gaan.`);
+          if(typed !== "DATA LEEGMAKEN") return UI.toast("Data leegmaken geblokkeerd; bestaande planning blijft veilig.");
           if(!confirm("Alle CWS Planning-data verwijderen? Deze actie kan niet ongedaan worden gemaakt.")) return;
+          CWS.recovery?.createRecoverySnapshot?.("before_clear_all");
           CWS.clearAll();
           try{ localStorage.removeItem("cws.v35.demoRequested"); localStorage.removeItem("cws.v33.demoLoadedAt"); }catch(_e){}
           UI.toast("Data geleegd.");

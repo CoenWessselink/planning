@@ -65,6 +65,8 @@ function stateMetricsFromRaw(raw) {
 }
 
 function assertNoCatastrophicOverwrite(currentRaw, incomingRaw) {
+  // Compatibility marker: V63 D1 save guard, overschrijven geblokkeerd.
+  // V72 uses stricter shrink thresholds.
   const current = stateMetricsFromRaw(currentRaw);
   const incoming = stateMetricsFromRaw(incomingRaw);
   const currentProjects = Number(current.projectCount || 0);
@@ -72,11 +74,16 @@ function assertNoCatastrophicOverwrite(currentRaw, incomingRaw) {
   const currentRows = Number(current.ganttRowCount || 0);
   const incomingRows = Number(incoming.ganttRowCount || 0);
   const looksLikeDemoOrEmpty = incomingProjects <= 5 || (incomingProjects < 10 && incomingRows <= 20);
-  const projectDrop = currentProjects >= 20 && incomingProjects < Math.max(10, Math.floor(currentProjects * 0.6));
-  const ganttDrop = currentRows >= 50 && incomingRows < Math.max(20, Math.floor(currentRows * 0.5));
+  const projectDrop = currentProjects >= 10 &&
+    incomingProjects < currentProjects &&
+    (currentProjects - incomingProjects >= Math.max(5, Math.ceil(currentProjects * 0.2)));
+  const ganttDrop = currentRows >= 20 &&
+    incomingRows < currentRows &&
+    (currentRows - incomingRows >= Math.max(10, Math.ceil(currentRows * 0.25)));
   if (projectDrop || ganttDrop || (currentProjects >= 20 && looksLikeDemoOrEmpty)) {
-    const error = new Error(`V63 D1 save guard: overschrijven geblokkeerd. Huidige D1 bevat ${currentProjects} projecten/${currentRows} Gantt-rijen; inkomende state bevat ${incomingProjects} projecten/${incomingRows} Gantt-rijen.`);
+    const error = new Error(`Opslaan geblokkeerd: inkomende state zou planning verkleinen van ${currentProjects} projecten/${currentRows} Gantt-rijen naar ${incomingProjects}/${incomingRows}.`);
     error.status = 409;
+    error.guard = "v72-state-shrink-guard";
     error.currentMetrics = current;
     error.incomingMetrics = incoming;
     throw error;
@@ -267,12 +274,13 @@ export async function onRequestPut(context) {
       bytes: incoming.bytes,
       rawMode: incoming.rawMode,
       v60: true,
-      v62: { d1SaveGuard: true, currentMetrics: guardMetrics.current, incomingMetrics: guardMetrics.incoming }
+      v62: { d1SaveGuard: true, currentMetrics: guardMetrics.current, incomingMetrics: guardMetrics.incoming },
+      v72: { stateShrinkGuard: true }
     }, "app_state", STATE_KEY);
 
-    return json({ ok: true, version: nextVersion, updatedBy: email, bytes: incoming.bytes, v60: { rawStateSave: incoming.rawMode }, v62: { d1SaveGuard: true, metrics: guardMetrics.incoming } });
+    return json({ ok: true, version: nextVersion, updatedBy: email, bytes: incoming.bytes, v60: { rawStateSave: incoming.rawMode }, v62: { d1SaveGuard: true, metrics: guardMetrics.incoming }, v72: { stateShrinkGuard: true } });
   } catch (error) {
-    return json({ ok: false, error: error.message, currentMetrics: error.currentMetrics || null, incomingMetrics: error.incomingMetrics || null, v62: error.status === 409 ? { d1SaveGuard: Boolean(error.currentMetrics || error.incomingMetrics) } : undefined }, error.status || 500);
+    return json({ ok: false, error: error.message, currentMetrics: error.currentMetrics || null, incomingMetrics: error.incomingMetrics || null, guard:error.guard || null, v62: error.status === 409 ? { d1SaveGuard: Boolean(error.currentMetrics || error.incomingMetrics) } : undefined, v72:error.guard ? { stateShrinkGuard:true } : undefined }, error.status || 500);
   }
 }
 

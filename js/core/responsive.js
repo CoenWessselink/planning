@@ -60,6 +60,24 @@ const CWS_Responsive = (() => {
     makeWideAreasScrollable(doc);
     installMobileInputFocusGuard(doc);
     addMobileActionDock(doc);
+    observeDynamicContent(doc);
+  }
+
+  function observeDynamicContent(doc){
+    if(doc.documentElement.dataset.v72ResponsiveObserver === "true") return;
+    doc.documentElement.dataset.v72ResponsiveObserver = "true";
+    let queued=false;
+    const observer=new MutationObserver(()=>{
+      if(queued) return;
+      queued=true;
+      requestAnimationFrame(()=>{
+        queued=false;
+        labelTables(doc);
+        makeWideAreasScrollable(doc);
+        installMobileInputFocusGuard(doc);
+      });
+    });
+    observer.observe(doc.body,{childList:true,subtree:true});
   }
 
   function addMobileToolbar(doc){
@@ -169,8 +187,10 @@ const CWS_Responsive = (() => {
 
   function markOptimized(doc){
     doc.documentElement.dataset.v37MobileOptimized = "true";
+    doc.documentElement.dataset.v72MobileHardened = "true";
     doc.body.dataset.v37MobileOptimized = "true";
-    doc.body.classList.add("v37-mobile-optimized");
+    doc.body.dataset.v72MobileHardened = "true";
+    doc.body.classList.add("v37-mobile-optimized","v72-mobile-hardened");
   }
 
   function makeWideAreasScrollable(doc){

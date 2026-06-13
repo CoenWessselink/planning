@@ -71,3 +71,58 @@
   .cws-yearcal-grid{grid-template-columns:1fr;}
 }
 #verDelete:hover{background:#fff7f7}
+/* V72 mobile/tablet hardening: preserve the existing menu and module layouts. */
+html[data-cws-viewport="mobile"],
+html[data-cws-viewport="tablet"] {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body.v72-mobile-hardened .table-wrap,
+body.v72-mobile-hardened .matrix-wrap,
+body.v72-mobile-hardened .board-wrap,
+body.v72-mobile-hardened .rep-right,
+body.v72-mobile-hardened .assign-right,
+body.v72-mobile-hardened .pb-right {
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.v72-mobile-hardened .modal,
+body.v72-mobile-hardened .dialog {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+}
+
+@media (max-width: 820px) {
+  body.v72-mobile-hardened .io-recovery-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.v72-mobile-hardened .toolbar,
+  body.v72-mobile-hardened .panel-tools,
+  body.v72-mobile-hardened .actions {
+    max-width: 100%;
+  }
+
+  body.v72-mobile-hardened .modalback {
+    padding: 8px;
+    align-items: flex-end;
+  }
+
+  body.v72-mobile-hardened .modal-foot {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    z-index: 3;
+    flex-wrap: wrap;
+  }
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
