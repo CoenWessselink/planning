@@ -58,7 +58,7 @@ const AppsMenu = (() => {
   const renderFooter = () => {
     const st = CWS.getState();
     const n = st.projects.order.length;
-    footer().textContent = `${n} projecten • Pagina 1 van 1`;
+    footer().textContent = `${n} projecten • Alles op 1 pagina • Infinite scroll`;
   };
 
   const render = () => {

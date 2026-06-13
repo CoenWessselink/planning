@@ -8,7 +8,7 @@ const files = {
 };
 
 const checks = [
-  ['health v63 marker', (/internal-test-v63/.test(files.health) || /internal-test-v64/.test(files.health)) && (/v63-lightweight-no-state-load/.test(files.health) || /v64-lightweight-no-state-load/.test(files.health))],
+  ['health v63 marker', (/internal-test-v63/.test(files.health) || /internal-test-v64/.test(files.health) || /internal-test-v65/.test(files.health)) && (/v63-lightweight-no-state-load/.test(files.health) || /v64-lightweight-no-state-load/.test(files.health) || /v65-lightweight-no-state-load/.test(files.health))],
   ['D1 recovery hydration authoritative', /V63: recovery hydration is authoritative/.test(files.store) && /stateHasBusinessData\(incoming\)/.test(files.store)],
   ['remote state rebuilt before validation', /rebuildGanttHoursByDay\(incoming\)/.test(files.store) && /const validation = validateState\(incoming\)/.test(files.store)],
   ['remote safety snapshot set before validation decision', /remoteSafetySnapshot = \{ \.\.\.incomingMetrics/.test(files.store)],

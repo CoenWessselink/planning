@@ -989,41 +989,24 @@
 
 
 
-    /* V59/V64 — Gantt plant uitsluitend op werkbare dagen.
-       V64 herstelt de gewone bruikbaarheid: één dragbare shell per taak en daarin
-       alleen zichtbare segmenten op werkbare dagen. Hierdoor loopt de taak visueel
-       niet over weekend/niet-werkbare dagen, maar slepen/resize/dubbelklik blijft stabiel. */
-    .bar.bar-workday-shell{
-      background:transparent!important;
-      box-shadow:none!important;
-      color:#fff!important;
-      padding:0!important;
-      overflow:visible!important;
+    /* V65 — structurele Gantt-balkfix. V66 — centrale PDF-balkgeometrie.
+       V59/V64 tekende taken als losse werkdag-segmenten. Bij herstelde D1-data met
+       oude sched-velden leidde dat tot smalle 1-dags blokjes en vastlopende render/save-loops.
+       Vanaf V65/V66 is de visuele balk weer één brede, PDF-achtige taakbalk met centrale geometrie.
+       Werkdagenlogica blijft leidend voor start/einde en uren/capaciteit; renderen zelf
+       schrijft nooit automatisch naar D1. */
+    .bar.bar-continuous-task{
+      overflow:hidden!important;
       min-width:18px!important;
-      contain:layout!important;
+      contain:layout paint;
     }
-    .bar.bar-workday-shell.selected{outline:2px solid rgba(37,99,235,.28);outline-offset:2px;border-radius:10px;}
-    .bar.bar-workday-shell .handle{background:rgba(15,23,42,.16);border-radius:5px;z-index:12;}
-    .bar-work-segment{
-      position:absolute;
-      top:0;
-      height:100%;
-      border-radius:8px;
-      overflow:hidden;
-      box-shadow:0 4px 10px rgba(47,111,189,.22);
-      pointer-events:none;
-    }
-    .bar-work-segment.segment-first:not(.segment-last){border-top-right-radius:3px;border-bottom-right-radius:3px;}
-    .bar-work-segment.segment-last:not(.segment-first){border-top-left-radius:3px;border-bottom-left-radius:3px;}
-    .bar-work-segment.segment-middle{border-radius:3px;}
-    .bar-work-segment .bar-label{position:relative;z-index:3;display:block;padding:0 9px;line-height:45px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 1px rgba(15,23,42,.25);}
-    .bar-work-segment .bar-progress{z-index:1;}
-    .bar-work-segment .bar-feedback-dot{pointer-events:auto;}
+    .bar.bar-continuous-task.selected{outline:2px solid rgba(37,99,235,.30);outline-offset:2px;}
+    .bar.bar-continuous-task .bar-label{position:relative;z-index:3;line-height:45px;}
+    .bar.bar-continuous-task .bar-progress{z-index:1;}
     .workday-rule-note{display:block;color:#64748b;font-size:11px;font-weight:800;margin-top:3px;}
     @media print{
-      .printing .bar.bar-workday-shell{height:15px!important;box-shadow:none!important;}
-      .printing .bar-work-segment{border-radius:2px!important;box-shadow:none!important;}
-      .printing .bar-work-segment .bar-label{font-size:6px!important;line-height:15px!important;font-weight:900!important;text-shadow:none!important;}
+      .printing .bar.bar-continuous-task{height:15px!important;box-shadow:none!important;}
+      .printing .bar.bar-continuous-task .bar-label{font-size:6px!important;line-height:15px!important;font-weight:900!important;text-shadow:none!important;}
     }
 
   </style>
@@ -1631,8 +1614,67 @@ var CWS = window.CWS;</script>
       return model;
     }
     function ensureModel(projectId){ let m=getModel(projectId); if(!m.rows.length && projectId){ m=generateModel(projectId); saveModel(projectId,m,"Fasen gegenereerd"); } return m; }
-    function summarySchedule(model, index){ const row=model.rows[index]; const children=[]; for(let i=index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(row.level||0);i++){ const sc=model.sched[model.rows[i].id]; if(sc?.start&&sc?.end) children.push(sc); } if(!children.length) return {}; return { start:children.map(x=>x.start).sort()[0], end:children.map(x=>x.end).sort().at(-1) }; }
-    function rowSchedule(model, row, index){ return row.type==="summary" ? summarySchedule(model,index) : (model.sched[row.id]||{}); }
+    function storedRowSchedule(model, row){ return (model?.sched && row?.id ? (model.sched[row.id]||{}) : {}) || {}; }
+    function rowWorkdayDuration(row, sc){
+      const direct = Number(row?.duration || row?.days || row?.duur || row?.workdays);
+      if(Number.isFinite(direct) && direct > 0) return Math.max(1, Math.round(direct));
+      const derived = sc?.start && sc?.end ? workdaysBetween(state(), sc.start, sc.end).length : 0;
+      return Math.max(1, derived || calendarDuration(sc?.start, sc?.end) || 1);
+    }
+    function effectiveTaskSchedule(st, row, rawSc){
+      const sc = rawSc || {};
+      const rawStart = sc.start || row?.start || row?.startDate || row?.datumStart || row?.begindatum;
+      const start = nextWorkingIso(st, rawStart || sc.end || toIso(new Date()));
+      const desired = rowWorkdayDuration(row, sc);
+      const currentWorkdays = sc.start && sc.end ? workdaysBetween(st, sc.start, sc.end).length : 0;
+      // Recovery rule: restored legacy D1 rows sometimes have correct row.duration but
+      // missing/short sched.end. In that case do not render a 1-day marker; derive the
+      // visible end from the duration. This is render-only and does not auto-save.
+      if(!sc.end || currentWorkdays < desired){
+        return { start, end:addWorkingDays(st, start, desired), workdays:desired, derived:true };
+      }
+      const fixedEnd = previousWorkingIso(st, sc.end);
+      return { start, end:fixedEnd || sc.end, workdays:Math.max(1,currentWorkdays), derived:false };
+    }
+    function effectiveScheduleMap(model, st=state()){
+      const map = {};
+      const rows = Array.isArray(model?.rows) ? model.rows : [];
+      rows.forEach((row,index)=>{
+        if(!row || row.type === "summary") return;
+        map[row.id] = effectiveTaskSchedule(st, row, storedRowSchedule(model,row));
+      });
+      rows.forEach((row,index)=>{
+        if(!row || row.type !== "summary") return;
+        const children=[];
+        for(let i=index+1;i<rows.length&&Number(rows[i].level)>Number(row.level||0);i++){
+          const sc=map[rows[i].id];
+          if(sc?.start&&sc?.end) children.push(sc);
+        }
+        map[row.id] = children.length ? { start:children.map(x=>x.start).sort()[0], end:children.map(x=>x.end).sort().at(-1) } : {};
+      });
+      return map;
+    }
+
+    function continuousBarGeometry(row, sc, range, st=state()){
+      // V66: one central visual geometry function.
+      // Working-day rules decide planning/capacity, but the screen/PDF must show one
+      // readable continuous bar over the calendar span. Legacy D1 rows can have a
+      // short/missing sched.end while their row.duration/workdays is correct; always
+      // choose the widest safe calendar span.
+      const start = nextWorkingIso(st, sc?.start || row?.start || row?.startDate || range.start);
+      const desiredWorkdays = row?.type === "summary"
+        ? Math.max(1, sc?.start && sc?.end ? duration(sc.start, sc.end) : 1)
+        : rowWorkdayDuration(row, sc || {});
+      const derivedEnd = addWorkingDays(st, start, desiredWorkdays);
+      const storedEnd = sc?.end ? previousWorkingIso(st, sc.end) : derivedEnd;
+      const end = calendarDuration(start, storedEnd) >= calendarDuration(start, derivedEnd) ? storedEnd : derivedEnd;
+      const left = xFor(start, range);
+      const width = Math.max(pxPerDay(), calendarDuration(start, end) * pxPerDay());
+      return { start, end, left, width, workdays: desiredWorkdays };
+    }
+
+    function summarySchedule(model, index){ const row=model.rows[index]; const map=effectiveScheduleMap(model,state()); return map[row.id] || {}; }
+    function rowSchedule(model, row, index){ const map=effectiveScheduleMap(model,state()); return map[row.id] || {}; }
     function parsePred(raw){
       const s=String(raw||"").trim();
       if(!s) return [];
@@ -1671,7 +1713,7 @@ var CWS = window.CWS;</script>
       const selected=new Set(parsePred(raw).map(p=>String(p.id)));
       return predecessorCandidates(model,rowId).map(x=>`<option value="${esc(x.row.id)}" ${selected.has(String(x.row.id))?"selected":""}>${x.nr} - ${esc(x.row.name||x.row.id)}</option>`).join("");
     }
-    function filteredRows(model){ const dept=UI.dept, res=UI.resource, q=String($("#searchInput")?.value||"").toLowerCase(); return model.rows.map((row,index)=>({row,index,sc:rowSchedule(model,row,index)})).filter(x=>{ const r=x.row; const matchSelf=(!dept||r.department===dept)&&(!res||r.resourceId===res)&&(!q||[r.id,r.name,r.department].join(" ").toLowerCase().includes(q)); if(r.type!=="summary") return matchSelf; // keep summary if any direct/desc child visible
+    function filteredRows(model, scheduleMap=null){ const dept=UI.dept, res=UI.resource, q=String($("#searchInput")?.value||"").toLowerCase(); const sm=scheduleMap || effectiveScheduleMap(model,state()); return model.rows.map((row,index)=>({row,index,sc:sm[row.id]||{}})).filter(x=>{ const r=x.row; const matchSelf=(!dept||r.department===dept)&&(!res||r.resourceId===res)&&(!q||[r.id,r.name,r.department].join(" ").toLowerCase().includes(q)); if(r.type!=="summary") return matchSelf; // keep summary if any direct/desc child visible
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
     function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const sorted=dates.slice().sort(); const min=sorted[0]; const max=sorted.at(-1); const start=startOfWeek(addDays(min,-7)); if(UI.printMode){ const endPad=startOfWeek(addDays(max,7)); return {start,days:Math.max(14,dayDiff(start,endPad)+7)}; } let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
     function pxPerDay(){ if(UI.printMode) return Number(UI.printDayW||12); return UI.zoom==="day"?34:UI.zoom==="week"?22:10; }
@@ -1746,16 +1788,9 @@ var CWS = window.CWS;</script>
       UI.projectId=pid;
       if(!pid){ $("#ganttHead").innerHTML=""; $("#tableRows").innerHTML=""; $("#lanes").innerHTML='<div class="empty">Geen projecten beschikbaar.</div>'; return; }
       const liveModel=ensureModel(pid);
-      if(!UI.revisionId){
-        const fixedCount=normalizeModelSchedulesForWorkdays(st, liveModel);
-        if(fixedCount){
-          saveModel(pid, liveModel, `${fixedCount} taakdatum(s) naar werkbare dagen gecorrigeerd`);
-          toast(`${fixedCount} taakdatum(s) naar werkbare dagen gecorrigeerd`, "warn");
-          return;
-        }
-      }
       const model=activeModelForRender(liveModel);
-      const rows=filteredRows(model);
+      const scheduleMap=effectiveScheduleMap(model,st);
+      const rows=filteredRows(model,scheduleMap);
       rows.forEach((x,i)=>{ x.row._displayNo=i+1; });
       const cids=UI.showCritical?criticalIds(model):new Set();
       const cols=visibleColumns();
@@ -1782,10 +1817,9 @@ var CWS = window.CWS;</script>
       $("#lanes").style.width=chartW+"px";
       $("#lanes").style.minWidth=chartW+"px";
       $("#lanes").innerHTML=rows.map(({row,index,sc})=>{
-        const segments=workSegments(st, sc.start||range.start, sc.end||sc.start||range.start, range);
-        const fallbackLeft=xFor(sc.start||range.start,range);
-        const firstLeft=segments[0]?.left ?? fallbackLeft;
-        const lastRight=segments.length ? Math.max(...segments.map(seg=>seg.left+seg.width)) : firstLeft+pxPerDay();
+        const geom=continuousBarGeometry(row, sc, range, st);
+        const firstLeft=geom.left;
+        const lastRight=geom.left+geom.width;
         const isCritical=cids.has(row.id);
         const base=row.baselineStart&&row.baselineEnd?`<div class="baseline" style="left:${xFor(row.baselineStart,range)}px;width:${Math.max(pxPerDay(),calendarDuration(row.baselineStart,row.baselineEnd)*pxPerDay())}px"></div>`:"";
         const labels=loadLabelConfig();
@@ -1801,20 +1835,13 @@ var CWS = window.CWS;</script>
         const title=[beforeText,insideText,afterText].filter(Boolean).join(" | ") || row.name;
         let barHtml="";
         if(row.type==="summary"){
-          const summaryLeft=xFor(sc.start||range.start,range);
-          const summaryW=Math.max(pxPerDay(),calendarDuration(sc.start,sc.end)*pxPerDay());
-          barHtml=`<div class="bar summary ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" style="left:${summaryLeft}px;width:${summaryW}px"><span class="bar-label" title="${esc(title)}">${esc(insideText)}</span></div>`;
+          const summaryLeft=geom.left;
+          const summaryW=geom.width;
+          barHtml=`<div class="bar summary ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" data-start="${esc(geom.start||"")}" data-end="${esc(geom.end||"")}" data-v66-continuous-geometry="1" style="left:${summaryLeft}px;width:${summaryW}px"><span class="bar-label" title="${esc(title)}">${esc(insideText)}</span></div>`;
         }else{
-          const renderSegments=segments.length?segments:[{left:fallbackLeft,width:pxPerDay(),start:sc.start,end:sc.start}];
-          const shellLeft=firstLeft;
-          const shellW=Math.max(pxPerDay(), lastRight-firstLeft);
-          const segmentHtml=renderSegments.map((seg,segIndex,arr)=>{
-            const first=segIndex===0, last=segIndex===arr.length-1;
-            const segCls=`bar-work-segment ${first?"segment-first":"segment-middle"} ${last?"segment-last":""}`;
-            const labelHtml=first?`<span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>`:`<span class="bar-label" title="${esc(title)}"></span>`;
-            return `<span class="${segCls}" data-segment="${segIndex+1}/${arr.length}" style="left:${Math.max(0,seg.left-shellLeft)}px;width:${seg.width}px;background:${esc(colorHex(row.colorKey))}">${`<span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span>`}${labelHtml}${(row.feedback||row.why)&&first?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}</span>`;
-          }).join("");
-          barHtml=`<div class="bar bar-workday-shell ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" data-workday-shell="1" style="left:${shellLeft}px;width:${shellW}px"><span class="handle left"></span>${segmentHtml}<span class="handle right"></span></div>`;
+          const barLeft=geom.left;
+          const barW=geom.width;
+          barHtml=`<div class="bar bar-continuous-task ${row.locked?"locked":""} ${isCritical?"critical":""} ${row.id===UI.selected?"selected":""}" data-id="${esc(row.id)}" data-start="${esc(geom.start||"")}" data-end="${esc(geom.end||"")}" data-v65-continuous-task="1" data-v66-continuous-geometry="1" style="left:${barLeft}px;width:${barW}px;background:${esc(colorHex(row.colorKey))}"><span class="handle left"></span><span class="bar-progress ${Number(row.progress||0)>=100?"done":""}" style="width:${Math.max(0,Math.min(100,Number(row.progress||0)||0))}%"></span><span class="bar-label" title="${esc(title + (row.feedback||row.why?` | Terugkoppeling: ${row.feedback||row.why}`:""))}">${esc(insideText)}</span>${(row.feedback||row.why)?`<span class="bar-feedback-dot" title="${esc(row.feedback||row.why)}">i</span>`:""}<span class="handle right"></span></div>`;
         }
         return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${dayGridLineHtml}${nonWorkShadeHtml}${base}${beforeHtml}${barHtml}${afterHtml}</div>`;
       }).join("");
@@ -1823,7 +1850,7 @@ var CWS = window.CWS;</script>
       if(tl){ tl.style.display=(todayX>=0&&todayX<=chartW)?"block":"none"; tl.style.left=todayX+"px"; tl.style.height=`calc(var(--headH) + ${rows.length*(UI.printMode?22:48)}px)`; }
       $("#board").className="board "+(UI.view==="table"?"table-only":UI.view==="diagram"?"diagram-only":"");
       const revMeta=model._revision ? ` | revisie ${model._revision.revNo||""} | revisiedatum ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"} | status ${model._revision.status||"—"}${model._revision.description?` | ${model._revision.description}`:""}` : " | live planning";
-      $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | planning: alleen werkbare dagen | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
+      $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | planning: werkbare dagen + PDF-balkweergave + V66 geometrie | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
       renderLegend(rows);
       renderPrintTaskTable(rows);
       renderPrintCalendars($("#timeline")?.innerHTML || "", chartW);
@@ -2144,13 +2171,18 @@ var CWS = window.CWS;</script>
         bar.addEventListener("pointerdown",e=>{
           if(e.detail>=2){ e.preventDefault(); return; }
           const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move";
-          UI.drag={id,handle,startX:e.clientX,orig:{...(model.sched[id]||{})}};
+          const rowIndex=model.rows.findIndex(r=>r.id===id);
+          const eff=rowSchedule(model,row,rowIndex)||{};
+          const baseSc={...(eff.start||eff.end?eff:(model.sched[id]||{}))};
+          if(!baseSc.start && bar.dataset.start) baseSc.start=bar.dataset.start;
+          if((!baseSc.end || calendarDuration(baseSc.start,baseSc.end)<=1) && bar.dataset.end) baseSc.end=bar.dataset.end;
+          UI.drag={id,handle,startX:e.clientX,orig:baseSc};
           bar.setPointerCapture(e.pointerId);
           e.preventDefault();
         });
       });
     }
-    window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const st=state(); let sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc=shiftScheduleByWorkdays(st,UI.drag.orig,d); } else if(UI.drag.handle==="left"){ sc=normalizeSchedule(st,addDays(UI.drag.orig.start,d),UI.drag.orig.end); } else { sc=normalizeSchedule(st,UI.drag.orig.start,addDays(UI.drag.orig.end,d)); } const bars=$$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); bars.forEach((bar,i)=>{ if(i>0) bar.style.opacity=".35"; }); const bar=bars[0]; if(bar){ bar.style.left=xFor(sc.start,{start:UI.originStart})+"px"; bar.style.width=Math.max(pxPerDay(),calendarDuration(sc.start,sc.end)*pxPerDay())+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
+    window.addEventListener("pointermove",e=>{ if(!UI.drag) return; const d=Math.round((e.clientX-UI.drag.startX)/pxPerDay()); const st=state(); let sc={...UI.drag.orig}; if(UI.drag.handle==="move"){ sc=shiftScheduleByWorkdays(st,UI.drag.orig,d); } else if(UI.drag.handle==="left"){ sc=normalizeSchedule(st,addDays(UI.drag.orig.start,d),UI.drag.orig.end); } else { sc=normalizeSchedule(st,UI.drag.orig.start,addDays(UI.drag.orig.end,d)); } const bars=$$(`.bar[data-id="${cssEsc(UI.drag.id)}"]`); bars.forEach((bar,i)=>{ if(i>0) bar.style.opacity=".35"; }); const bar=bars[0]; if(bar){ const row=getModel(currentProjectId()).rows.find(r=>r.id===UI.drag.id)||{}; const geom=continuousBarGeometry(row,sc,{start:UI.originStart,days:9999},st); bar.style.left=geom.left+"px"; bar.style.width=geom.width+"px"; bar.dataset.tmpStart=sc.start; bar.dataset.tmpEnd=sc.end; } });
     window.addEventListener("pointerup",()=>{ if(!UI.drag) return; if(UI.revisionId){ UI.drag=null; render(); return; } const id=UI.drag.id, pid=currentProjectId(), model=getModel(pid), st=state(); const bar=$(`.bar[data-id="${cssEsc(id)}"]`); if(bar?.dataset.tmpStart&&bar?.dataset.tmpEnd){ model.sched[id]=normalizeSchedule(st,bar.dataset.tmpStart,bar.dataset.tmpEnd); saveModel(pid,model,"Balk bijgewerkt op werkbare dagen"); } UI.drag=null; render(); });
     function drawDeps(model,rows,range){
       const svg=$("#depSvg"); svg.innerHTML="";
@@ -2181,12 +2213,13 @@ var CWS = window.CWS;</script>
       const sourceGap = UI.printMode ? Math.max(2,w*.14) : Math.max(5,w*.18);
       const targetGap = UI.printMode ? Math.max(3,w*.34) : Math.max(10,w*.46);
       const minElbow = UI.printMode ? Math.max(8,w*.62) : Math.max(22,w*.95);
+      const effectiveMap=effectiveScheduleMap(model,state());
       model.rows.forEach(row=>{
         const i=rowIndex.get(row.id); if(i==null) return;
         parsePred(row.predecessor).forEach(p=>{
           const pi=rowIndex.get(p.id); if(pi==null) return;
-          const predSc=model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id));
-          const sc=model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id));
+          const predSc=effectiveMap[p.id]||model.sched[p.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===p.id));
+          const sc=effectiveMap[row.id]||model.sched[row.id]||summarySchedule(model,model.rows.findIndex(r=>r.id===row.id));
           if(!predSc?.end||!sc?.start) return;
           const predLeft=xFor(predSc.start||predSc.end,range);
           const predRight=xFor(predSc.end||predSc.start,range) + w;

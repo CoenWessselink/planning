@@ -44,7 +44,13 @@
     "preflight:v61": "node scripts/v61-store-boot-regression-preflight.mjs",
     "preflight:v62": "node scripts/v62-d1-schema-recovery-guard-preflight.mjs",
     "preflight:v63": "node scripts/v63-d1-recovery-hydration-preflight.mjs",
-    "preflight:v64": "node scripts/v64-gantt-workday-shell-preflight.mjs"
+    "preflight:v64": "node scripts/v64-gantt-workday-shell-preflight.mjs",
+    "preflight:v65": "node scripts/v65-gantt-continuous-bar-recovery-preflight.mjs",
+    "preflight:v66": "node scripts/v66-d1-legacy-normalizer-gantt-geometry-preflight.mjs",
+    "preflight:v67": "node scripts/v67-big-foundation-preflight.mjs",
+    "preflight:v68": "node scripts/v68-complete-foundation-preflight.mjs",
+    "preflight:v69": "node scripts/v69-test-runner-hardening-preflight.mjs",
+    "preflight:v70": "node scripts/v70-live-stability-gantt-capacity-preflight.mjs"
   },
   "devDependencies": {}
 }

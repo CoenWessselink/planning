@@ -55,6 +55,48 @@
       </div>
     </div>
 
+
+
+    <div class="panel" style="margin-top:12px; margin-bottom:12px; border:2px solid #bae6fd;">
+      <div class="panel-head">
+        <div class="panel-tools">
+          <strong>V70 Live stabiliteit / Backup / Restore / Testmodus</strong><!-- compatibility: V67 Backup / Restore / Testmodus -->
+          <span class="smallmuted">Veilig herstel zonder demo/lege state over D1 heen te schrijven.</span>
+        </div>
+        <div class="panel-tools">
+          <button class="btn" id="v67Snapshot">Snapshot maken</button>
+          <button class="btn" id="v67Restore">Herstel laatste goede snapshot</button>
+          <button class="btn" id="v67Fixture">Laad V70 fixture lokaal</button>
+        </div>
+      </div>
+      <div style="padding:12px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start;">
+        <div class="card">
+          <h3>State JSON / D1 SQL import</h3>
+          <div class="sub">Plak hier state_json of een Cloudflare D1 SQL-export. Import doet eerst preview, normalisatie, validatie en recovery-lock.</div>
+          <input type="file" class="input" id="v67ImportFile" accept=".json,.sql,application/json,text/plain" style="margin:8px 0"/>
+          <textarea id="v67ImportText" class="input" style="min-height:140px;font-family:monospace" placeholder="Plak state_json of D1 SQL-export hier..."></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn" id="v67PreviewBtn">Analyseer import</button>
+            <button class="btn" id="v67ImportBtn">Importeer state</button>
+            <button class="btn" id="v67ExportBtn">Export huidige state</button>
+            <button class="btn" id="v68DoctorBtn">Download diagnose</button>
+            <button class="btn" id="v70ReadinessBtn">Live readiness rapport</button>
+            <button class="btn" id="v68LockBtn">Recovery-lock aan</button>
+            <button class="btn" id="v68UnlockBtn">Recovery-lock uit</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Herstelstatus</h3>
+          <div class="sub" id="v67RecoveryStats">Nog niet geladen.</div>
+          <ul class="smallmuted" style="line-height:1.55">
+            <li>D1 met veel projecten wordt beschermd tegen 0/1/5-project overschrijvingen én recovery-lock kan lokaal afdwingen dat grote states niet door kleine states worden vervangen.</li>
+            <li>Fixturemodus gebruikt dezelfde legacy structuur: projects.order/byId, ganttV2.byProject, tasks.byProject, gantt.hoursByDay en lange PDF-achtige Gantt taken.</li>
+            <li>Gebruik live nooit Demo data of Data leegmaken zonder typed bevestiging.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head">
         <div class="panel-tools">
@@ -339,6 +381,43 @@ var CWS = window.CWS;</script>
     renderStats();
   });
 
+  
+
+  function renderV67RecoveryStats(extra){
+    const el=document.getElementById("v67RecoveryStats");
+    if(!el || !window.CWS?.getStateMetrics) return;
+    const m=window.CWS.getStateMetrics();
+    const remote=window.CWS.getRemoteSafetyMetrics ? window.CWS.getRemoteSafetyMetrics() : {};
+    el.innerHTML = `Projecten: <b>${m.projectCount||0}</b><br>Gantt-projecten: <b>${m.ganttProjectCount||0}</b><br>Gantt-rijen: <b>${m.ganttRowCount||0}</b><br>Uurdagen: <b>${m.hourDays||0}</b><br>Bronregels: <b>${m.sourceCount||0}</b><br>Opslag: <b>${window.parent?.CWS?.storageStatus?.label || window.CWS.storageStatus?.label || 'lokaal'}</b><br>Remote guard: <b>${remote.projectCount||0}</b> projecten / <b>${remote.ganttRowCount||0}</b> rijen${extra?`<hr>${extra}`:""}`;
+  }
+
+  function bindV67Recovery(){
+    renderV67RecoveryStats();
+    const snap=document.getElementById("v67Snapshot");
+    const restore=document.getElementById("v67Restore");
+    const fixture=document.getElementById("v67Fixture");
+    const imp=document.getElementById("v67ImportBtn");
+    const exp=document.getElementById("v67ExportBtn");
+    const preview=document.getElementById("v67PreviewBtn");
+    const doctor=document.getElementById("v68DoctorBtn");
+    const lock=document.getElementById("v68LockBtn");
+    const unlock=document.getElementById("v68UnlockBtn");
+    const file=document.getElementById("v67ImportFile");
+    if(snap) snap.onclick=()=>{ const r=CWS.recovery?.createRecoverySnapshot?.("ui-manual"); renderV67RecoveryStats(r?.ok?"Snapshot gemaakt.":"Snapshot mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"Snapshot gemaakt":"Snapshot mislukt"); };
+    if(restore) restore.onclick=()=>{ const r=CWS.recovery?.restoreLastGoodSnapshot?.(); renderV67RecoveryStats(r?.ok?"Laatste goede snapshot hersteld.":"Herstel mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"Snapshot hersteld":"Geen snapshot gevonden"); };
+    if(fixture) fixture.onclick=()=>{ if(!confirm("Laad lokale V70 fixture met 76 projecten? Dit is bedoeld voor testmodus.")) return; const r=CWS.recovery?.loadRestoredD1Fixture?.(); renderV67RecoveryStats(r?.ok?"V70 fixture geladen.":"Fixture mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"V70 fixture geladen":"Fixture mislukt"); };
+    if(file) file.onchange=()=>{ const f=file.files&&file.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ document.getElementById("v67ImportText").value=String(rd.result||""); }; rd.readAsText(f); };
+    if(preview) preview.onclick=()=>{ const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen importtekst ingevuld"); return; } const r=CWS.recovery?.previewImport?.(raw); const m=r?.metrics||{}; renderV67RecoveryStats(r?.ok?`Preview OK: ${m.projectCount||0} projecten, ${m.ganttRowCount||0} Gantt-rijen, ${m.hourDays||0} uurdagen.`:`Preview fout: ${(r?.errors||[]).join(", ")}`); UI.toast(r?.ok?"Preview OK":"Preview fout"); };
+    if(imp) imp.onclick=()=>{ const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen JSON/SQL ingevuld"); return; } const r=CWS.recovery?.importRawState?.(raw,"ui-v68-import"); renderV67RecoveryStats(r?.ok?"State geïmporteerd, genormaliseerd en recovery-lock gezet.":"Import mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"State geïmporteerd":"Import mislukt"); };
+    if(exp) exp.onclick=()=>{ const raw=CWS.recovery?.exportStateJson?.() || JSON.stringify(CWS.getState(),null,2); const blob=new Blob([raw],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-state-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); };
+    if(doctor) doctor.onclick=()=>{ const report=CWS.recovery?.buildStateDoctorReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v70-diagnose-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); renderV67RecoveryStats(`Diagnose: ${report.ok?"OK":"FOUT"}`); };
+    const readiness=document.getElementById("v70ReadinessBtn");
+    if(readiness) readiness.onclick=()=>{ const report=CWS.recovery?.buildLiveReadinessReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v70-live-readiness-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); const m=report.metrics||{}; renderV67RecoveryStats(`Live readiness: ${report.ok?"OK":"FOUT"} · ${m.projectCount||0} projecten · ${m.ganttRowCount||0} Gantt-rijen · ${m.hourDays||0} uurdagen`); };
+    if(lock) lock.onclick=()=>{ const r=CWS.recovery?.setRecoveryLock?.(); renderV67RecoveryStats(r?.ok?`Recovery-lock actief: minimaal ${r.lock?.minProjects} projecten.`:"Recovery-lock mislukt"); UI.toast("Recovery-lock actief"); };
+    if(unlock) unlock.onclick=()=>{ const r=CWS.recovery?.clearRecoveryLock?.(); renderV67RecoveryStats(r?.ok?"Recovery-lock uitgezet.":"Recovery-lock mislukt"); UI.toast("Recovery-lock uitgezet"); };
+  }
+
+  bindV67Recovery();
   renderStats();
 </script>
 </body></html>

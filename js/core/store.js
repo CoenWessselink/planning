@@ -91,7 +91,7 @@ window.CWS = window.CWS || {};
       }
     },
     reports: { active: "cap_week", templates: [] },
-    ganttV2: { expanded:{}, byProject:{}, ui:{ showCritical:false } }
+    ganttV2: { expanded:{}, byProject:{}, ui:{ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" } }
   });
 
   const mergeDefaults = (target, defaults) => {
@@ -279,9 +279,139 @@ window.CWS = window.CWS || {};
     }
   };
 
+
+  // V67 BIG FOUNDATION: deterministic restored-D1 fixture + safe recovery snapshots.
+  // This makes the real legacy D1 shape testable without Cloudflare Access:
+  // projects.order/byId + ganttV2.byProject + tasks.byProject + gantt.hoursByDay/sourcesByDay.
+  const V67_RECOVERY_SNAPSHOT_KEY = "tenant:default:cws.state.snapshot.v67.recovery";
+  const V67_LAST_GOOD_KEY = "tenant:default:cws.state.snapshot.v67.lastGood";
+  const V67_FIXTURE_MARKER = "v67-restored-d1-fixture";
+  const V68_COMPLETE_MARKER = "v68-complete-foundation";
+  const V69_TEST_RUNNER_HARDENING = "v69-test-runner-hardening";
+  const V70_LIVE_STABILITY_MARKER = "v70-live-stability-gantt-capacity-hardening";
+  const V68_LOCK_KEY = "tenant:default:cws.state.v68.recoveryLock";
+
+  const makeIsoRangeTask = (id, name, parent, dept, start, workdays, colorKey="c1", extra={}) => ({
+    row:{ id, name, type:extra.type || "task", level:extra.level ?? 1, parent:parent || "", department:dept, resourceId:extra.resourceId || "", progress:extra.progress || 0, status:extra.status || "Niet gestart", predecessor:extra.predecessor || "", locked:false, colorKey, hoursMode:extra.hoursMode || "auto", hoursSource:extra.hoursSource || "project-dept-hours", manualHours:0, hours:0, why:"", feedback:"", milestone:!!extra.milestone },
+    sched:{ start, end:extra.end || start, workdays }
+  });
+
+  const fixtureCalendarEnd = (startIso, calendarDays) => {
+    const d = new Date(String(startIso) + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + Math.max(0, Number(calendarDays||1) - 1));
+    const pad = n => String(n).padStart(2,"0");
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
+  };
+
+  const createRestoredD1Fixture = () => {
+    const st = defaultState();
+    st.meta.fixture = V67_FIXTURE_MARKER;
+    st.meta.v68CompleteFoundation = true;
+    st.meta.updatedAt = new Date().toISOString();
+    st.company.name = "Tasche Staalbouw";
+    st.settings.tables = st.settings.tables || {};
+    st.settings.tables.departments = [
+      { name:"Engineering", active:true },
+      { name:"Tekenwerk", active:true },
+      { name:"Productie", active:true },
+      { name:"Conservering", active:true },
+      { name:"Montage", active:true }
+    ];
+    st.settings.tables.employees = [
+      { name:"Engineering team", dept:"Engineering", ma:8, di:8, wo:8, do:8, vr:8, za:0, zo:0, active:true },
+      { name:"Tekenkamer", dept:"Tekenwerk", ma:16, di:16, wo:16, do:16, vr:16, za:0, zo:0, active:true },
+      { name:"Werkplaats", dept:"Productie", ma:40, di:40, wo:40, do:40, vr:40, za:0, zo:0, active:true },
+      { name:"Conservering", dept:"Conservering", ma:16, di:16, wo:16, do:16, vr:16, za:0, zo:0, active:true },
+      { name:"Montageploeg", dept:"Montage", ma:24, di:24, wo:24, do:24, vr:24, za:0, zo:0, active:true }
+    ];
+    st.projects.deptHours = Array.isArray(st.projects.deptHours) ? st.projects.deptHours : [];
+    const mainId = "P-ZERNIKE-19158";
+    st.projects.order.push(mainId);
+    st.projects.byId[mainId] = { id:mainId, nr:"19158", number:"19158", name:"Sportcentrum Zernike te Groningen - 19158 - Hegemen", client:"Hegeman", opdrachtgever:"Hegeman", status:"Ingepland", start:"01-06-2026", startDate:"01-06-2026", end:"07-03-2027", deptHours:{ Engineering:120, Tekenwerk:420, Productie:700, Conservering:260, Montage:480 } };
+    Object.entries(st.projects.byId[mainId].deptHours).forEach(([dept,hours]) => st.projects.deptHours.push({ projectId:mainId, dept, deptId:dept, hours }));
+    const model = { rows:[], sched:{} };
+    model.rows.push({ id:"Z-F1", name:"FASE 1", type:"summary", level:0, department:"Tekenwerk", resourceId:"", progress:0, status:"In uitvoering", predecessor:"", locked:false, colorKey:"c3", hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 });
+    model.sched["Z-F1"] = { start:"2026-06-01", end:"2027-03-07", workdays:266 };
+    const tasks = [
+      ["Z-T01","Werktekeningen ontvangen","Opdrachtgever","Engineering","2026-06-01",3,"c1"],
+      ["Z-T02","Detailberekeningen ter controle","Z-F1","Engineering","2026-06-04",31,"c1","Z-T01FS"],
+      ["Z-T03","Detailberekeningen definitief","Z-F1","Engineering","2026-07-17",14,"c1","Z-T02FS"],
+      ["Z-T04","Tekenwerk ter controle","Z-F1","Tekenwerk","2026-08-06",62,"c5","Z-T03FS"],
+      ["Z-T05","Tekenwerk gecontroleerd retour","Z-F1","Tekenwerk","2026-10-30",14,"c5","Z-T04FS"],
+      ["Z-T06","Tekenwerk voor uitvoering 1","Z-F1","Tekenwerk","2026-11-19",21,"c5","Z-T05FS"],
+      ["Z-T07","Tekenwerk gecontroleerd retour 1","Z-F1","Tekenwerk","2026-12-18",14,"c5","Z-T06FS"],
+      ["Z-T08","Tekenwerk voor uitvoering 2","Z-F1","Tekenwerk","2027-01-07",7,"c5","Z-T07FS"],
+      ["Z-T09","Ankers geleverd fase A","Z-F1","Productie","2027-01-18",5,"c2","Z-T08FS"],
+      ["Z-T10","Tekenwerk definitief","Z-F1","Tekenwerk","2027-01-25",5,"c5","Z-T09FS"],
+      ["Z-T11","Ankers geleverd fase B","Z-F1","Productie","2027-02-01",5,"c2","Z-T10FS"],
+      ["Z-T12","Werkplaatstekeningen","Z-F1","Tekenwerk","2027-02-08",12,"c5","Z-T11FS"],
+      ["Z-T13","Productie","Z-F1","Productie","2026-09-01",100,"c2","Z-T12FS"],
+      ["Z-T14","Conservering epoxy","Z-F1","Conservering","2026-11-02",73,"c6","Z-T13FS"],
+      ["Z-T15","Conservering verzinkt","Z-F1","Conservering","2027-02-15",5,"c6","Z-T14FS"],
+      ["Z-T16","Montage Fase A","Z-F1","Montage","2027-01-04",57,"c7","Z-T15FS"],
+      ["Z-T17","Montage fase B","Z-F1","Montage","2027-02-01",43,"c7","Z-T16FS"]
+    ];
+    tasks.forEach(([id,name,parent,dept,start,wd,color,pred])=>{
+      const end = fixtureCalendarEnd(start, Math.max(wd, Math.ceil(wd/5)*7 - 2));
+      const item = makeIsoRangeTask(id, name, parent === "Opdrachtgever" ? "Z-F1" : parent, dept, start, wd, color, { predecessor:pred||"", end });
+      model.rows.push(item.row);
+      model.sched[id] = item.sched;
+    });
+    st.ganttV2.byProject[mainId] = model;
+    st.tasks.byProject[mainId] = { phases:[{ id:"Z-F1", name:"FASE 1", tasks:model.rows.filter(r=>r.type!=="summary").map(r=>({ id:r.id, name:r.name, department:r.department })) }] };
+    for(let i=2;i<=76;i++){
+      const id = `P-FIX-${String(i).padStart(3,"0")}`;
+      const dept = ["Engineering","Tekenwerk","Productie","Conservering","Montage"][i%5];
+      st.projects.order.push(id);
+      st.projects.byId[id] = { id, nr:`F${String(i).padStart(4,"0")}`, number:`F${String(i).padStart(4,"0")}`, name:`Fixture project ${String(i).padStart(2,"0")}`, client:"Tasche Staalbouw", status:i%7===0?"Gereed":i%5===0?"In uitvoering":"Ingepland", start:"01-06-2026", deptHours:{ [dept]:80+i } };
+      st.projects.deptHours.push({ projectId:id, dept, deptId:dept, hours:80+i });
+      if(i<=12){
+        const mid=`${id}-F1`; const tid=`${id}-T1`;
+        st.ganttV2.byProject[id]={ rows:[{ id:mid, name:"Fase 1", type:"summary", level:0, department:dept, colorKey:"c1", hoursMode:"auto", hoursSource:"project-dept-hours" }, { id:tid, name:`${dept} taak`, type:"task", level:1, parent:mid, department:dept, colorKey:"c2", progress:0, status:"Niet gestart", predecessor:"", hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 }], sched:{} };
+        st.ganttV2.byProject[id].sched[mid] = { start:"2026-06-01", end:"2026-06-26", workdays:20 };
+        st.ganttV2.byProject[id].sched[tid] = { start:"2026-06-01", end:"2026-06-26", workdays:20 };
+        st.tasks.byProject[id] = { phases:[{ id:mid, name:"Fase 1", tasks:[{ id:tid, name:`${dept} taak`, department:dept }] }] };
+      }
+    }
+    return st;
+  };
+
+  const rememberLastGoodSnapshot = (snapshot, label="auto") => {
+    try{
+      const metrics = stateMetrics(snapshot);
+      if(Number(metrics.projectCount || 0) >= 20){
+        const raw = JSON.stringify({ label, createdAt:new Date().toISOString(), metrics, state:snapshot });
+        localStorage.setItem(V67_LAST_GOOD_KEY, raw);
+      }
+    }catch(_e){}
+  };
+
+  const readLastGoodSnapshot = () => {
+    try{
+      const raw = localStorage.getItem(V67_LAST_GOOD_KEY);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed?.state && typeof parsed.state === "object" ? parsed : null;
+    }catch(_e){ return null; }
+  };
+
   const load = () => {
-    const keys = [KEY_TENANT, KEY_GLOBAL, KEY_BACKUP, ...LEGACY_STATE_KEYS];
+    try{
+      const params = new URLSearchParams(window.location?.search || "");
+      const fixture = String(params.get("fixture") || params.get("loadLocalFixture") || "").toLowerCase();
+      if(fixture === "restored-d1" || fixture === "1" || fixture === "v67" || fixture === "v68" || fixture === "complete"){
+        const st = normalizeState(createRestoredD1Fixture());
+        rememberLastGoodSnapshot(st, "v67-fixture-load");
+        return st;
+      }
+    }catch(_e){}
+    const keys = [KEY_TENANT, KEY_GLOBAL, V67_LAST_GOOD_KEY, KEY_BACKUP, ...LEGACY_STATE_KEYS];
     for(const key of keys){
+      if(key === V67_LAST_GOOD_KEY){
+        const packed = readLastGoodSnapshot();
+        if(packed?.state) return normalizeState(packed.state);
+        continue;
+      }
       const st = readStateFromLocalKey(key);
       if(st) return normalizeState(st);
     }
@@ -289,6 +419,8 @@ window.CWS = window.CWS || {};
   };
 
   const normalizeState = (st) => {
+    // V67: single runtime normalizer. All legacy/object/array states must pass through here exactly once.
+    // Runtime invariant: projects.order/byId + ganttV2.byProject + tasks.byProject + gantt.hoursByDay/sourcesByDay.
     // V62 recovery normalizer: D1 can contain the older rich object schema
     // (projects.order/byId, ganttV2.byProject, gantt.hoursByDay) or, in older
     // trial exports, a flat array schema. Keep the rich schema intact and only
@@ -309,7 +441,7 @@ window.CWS = window.CWS || {};
       st.projects.order = Array.isArray(st.projects.order) && st.projects.order.length ? st.projects.order : Object.keys(st.projects.byId);
     }
     if(Array.isArray(st.ganttTasks)){
-      st.ganttV2 = st.ganttV2 || { expanded:{}, byProject:{}, ui:{} };
+      st.ganttV2 = st.ganttV2 || { expanded:{}, byProject:{}, ui:{ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" } };
       st.ganttV2.byProject = st.ganttV2.byProject || {};
       st.ganttTasks.forEach(row => {
         if(!row || typeof row !== "object") return;
@@ -392,7 +524,7 @@ window.CWS = window.CWS || {};
     st.ganttV2 = st.ganttV2 || { expanded:{}, byProject:{}, ui:{ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" } };
     st.ganttV2.expanded = st.ganttV2.expanded || {};
     st.ganttV2.byProject = st.ganttV2.byProject || {};
-    st.ganttV2.ui = st.ganttV2.ui || { showCritical:false, showDeps:true, viewMode:"both", zoom:"week" };
+    st.ganttV2.ui = Object.assign({ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" }, st.ganttV2.ui || {});
     Object.values(st.ganttV2.byProject || {}).forEach(model => {
       if(!model || !Array.isArray(model.rows)) return;
       model.rows.forEach(row => {
@@ -453,7 +585,10 @@ window.CWS = window.CWS || {};
     label:"Opslag detecteren...",
     unsynced:false,
     lastError:null,
-    remoteVersion:0
+    remoteVersion:0,
+    lastSuccessfulRemoteVersion:0,
+    lastSuccessfulSaveAt:null,
+    liveReadiness:null
   };
 
   const storageAdapter = {
@@ -571,9 +706,7 @@ window.CWS = window.CWS || {};
     saveTimer = setTimeout(async()=>{
       try{
         await storageAdapter.save(deepClone(state));
-        storageStatus.unsynced = false;
-        storageStatus.lastError = null;
-        state.meta.dirty = false;
+        markRemoteSaveOk("remote-save-ok");
       }catch(error){
         storageStatus.unsynced = true;
         storageStatus.lastError = error.message;
@@ -621,8 +754,103 @@ window.CWS = window.CWS || {};
         if(!Number.isFinite(Number(hours)) || Number(hours) < 0) errors.push(`Gantt ${iso}/${dept}: ongeldige uren.`);
       });
     });
+    // V68 COMPLETE FOUNDATION: hard tenant-state invariants before save.
+    Object.entries(st.ganttV2?.byProject || {}).forEach(([projectId, model]) => {
+      if(!byId[projectId]) errors.push(`Gantt-project ${projectId} heeft geen project in Projecten.`);
+      const ids = new Set();
+      (Array.isArray(model?.rows) ? model.rows : []).forEach((row, i) => {
+        if(!row?.id) errors.push(`Gantt ${projectId}/${i}: taak zonder id.`);
+        if(row?.id && ids.has(String(row.id))) errors.push(`Gantt ${projectId}: dubbele taak-id ${row.id}.`);
+        if(row?.id) ids.add(String(row.id));
+        const sc = model?.sched?.[row?.id] || {};
+        if(row?.type !== "summary"){
+          if(!row?.department) errors.push(`Gantt ${projectId}/${row?.id}: afdeling ontbreekt.`);
+          if(sc?.start && sc?.end){
+            const a = new Date(String(sc.start).slice(0,10) + "T00:00:00Z");
+            const b = new Date(String(sc.end).slice(0,10) + "T00:00:00Z");
+            if(Number.isFinite(a.getTime()) && Number.isFinite(b.getTime()) && b < a) errors.push(`Gantt ${projectId}/${row.id}: einddatum ligt vóór startdatum.`);
+          }
+        }
+      });
+    });
+    const m = stateMetrics(st);
+    const recoveryLock = (()=>{ try{ return JSON.parse(localStorage.getItem(V68_LOCK_KEY)||"null"); }catch(_){ return null; } })();
+    if(recoveryLock?.locked && m.projectCount < Number(recoveryLock.minProjects || 20)){
+      errors.push(`V68 recovery-lock: opslaan geweigerd omdat state ${m.projectCount} projecten bevat en lock minimaal ${recoveryLock.minProjects} verwacht.`);
+    }
     lastValidation = { valid:errors.length === 0, errors };
     return lastValidation;
+  };
+
+  const buildLiveReadinessReport = (candidate=state) => {
+    const st = normalizeState(deepClone(candidate || state));
+    rebuildGanttHoursByDay(st);
+    const metrics = stateMetrics(st);
+    const validation = validateState(st);
+    const ganttProjects = Object.entries(st.ganttV2?.byProject || {});
+    const projectIds = new Set(st.projects?.order || Object.keys(st.projects?.byId || {}));
+    const orphanGanttProjects = ganttProjects.map(([pid]) => pid).filter(pid => !projectIds.has(pid));
+    const emptyGanttProjectSelection = metrics.projectCount > 0 && metrics.ganttProjectCount === 0;
+    const workingDayHourViolations = [];
+    Object.entries(st.gantt?.hoursByDay || {}).forEach(([iso, byDept]) => {
+      if(!getGlobalNonWorkISO(st, iso)) return;
+      const total = Object.values(byDept || {}).reduce((sum, value) => sum + Math.max(0, baseNum(value)), 0);
+      if(total > 0) workingDayHourViolations.push({ iso, total });
+    });
+    const longTasks = [];
+    ganttProjects.forEach(([projectId, model]) => {
+      (model?.rows || []).forEach(row => {
+        if(!row || row.type === 'summary') return;
+        const sc = model?.sched?.[row.id] || {};
+        const wd = Math.max(baseNum(sc.workdays), baseNum(row.workdays), baseNum(row.duration), baseNum(row.days));
+        if(wd >= 20) longTasks.push({ projectId, taskId:row.id, name:row.name || row.id, workdays:wd });
+      });
+    });
+    const errors = [];
+    const warnings = [];
+    if(metrics.projectCount <= 5 && Number(remoteSafetySnapshot?.projectCount || 0) >= 20) errors.push('Browserstate bevat 0/1/5 projecten terwijl remote veel projecten bevat.');
+    if(metrics.projectCount === 0) warnings.push('Geen projecten in actuele runtime-state.');
+    if(emptyGanttProjectSelection) warnings.push('Projecten aanwezig maar geen Gantt-projectmodellen gevonden.');
+    if(orphanGanttProjects.length) errors.push(`Gantt bevat ${orphanGanttProjects.length} project(en) zonder projectrecord.`);
+    if(workingDayHourViolations.length) errors.push(`Er staan uren op ${workingDayHourViolations.length} niet-werkbare dag(en).`);
+    if(!validation.valid) warnings.push(...validation.errors.slice(0,10));
+    const report = {
+      ok: errors.length === 0,
+      marker: V70_LIVE_STABILITY_MARKER,
+      createdAt: new Date().toISOString(),
+      storage: { ...storageStatus },
+      remoteSafety: { ...remoteSafetySnapshot },
+      metrics,
+      validation,
+      gantt: {
+        projectModels: metrics.ganttProjectCount,
+        rows: metrics.ganttRowCount,
+        longTasks: longTasks.slice(0,25),
+        longTaskCount: longTasks.length,
+        orphanGanttProjects
+      },
+      capacity: {
+        hourDays: metrics.hourDays,
+        sourceCount: metrics.sourceCount,
+        workingDayHourViolations: workingDayHourViolations.slice(0,25)
+      },
+      errors,
+      warnings
+    };
+    storageStatus.liveReadiness = report;
+    return report;
+  };
+
+  const markRemoteSaveOk = (label='remote-save-ok') => {
+    storageStatus.unsynced = false;
+    storageStatus.lastError = null;
+    storageStatus.lastSuccessfulRemoteVersion = remoteVersion;
+    storageStatus.lastSuccessfulSaveAt = new Date().toISOString();
+    state.meta.dirty = false;
+    state.meta.lastSuccessfulRemoteVersion = remoteVersion;
+    state.meta.lastSuccessfulSaveAt = storageStatus.lastSuccessfulSaveAt;
+    rememberLastGoodSnapshot(state, label);
+    writeLocalSnapshot(state);
   };
 
   const save = () => {
@@ -633,6 +861,7 @@ window.CWS = window.CWS || {};
       return false;
     }
     try{
+      rememberLastGoodSnapshot(state, "before-save");
       writeLocalSnapshot(state);
       if(storageStatus.mode === "api") scheduleRemoteSave();
       return true;
@@ -1663,6 +1892,130 @@ window.CWS = window.CWS || {};
     }
   };
 
+
+  const importRawState = (raw, label="manual-import") => {
+    const preview = previewImport(raw);
+    if(!preview.ok) return { ok:false, errors:preview.errors || ["Import mislukt."], metrics:preview.metrics, validation:preview.validation };
+    const next = preview.state;
+    const validation = preview.validation;
+    const metrics = preview.metrics;
+    if(!stateHasBusinessData(next)) return { ok:false, errors:["Import bevat geen bruikbare projecten/taken."], metrics };
+    rememberLastGoodSnapshot(state, "before-import");
+    state = next;
+    state.meta = state.meta || {};
+    state.meta.importedAt = new Date().toISOString();
+    state.meta.importLabel = label;
+    state.meta.v68CompleteFoundation = true;
+    appendAudit(state, "v68_import_state", { label, metrics });
+    rememberLastGoodSnapshot(state, label);
+    if(metrics.projectCount >= 20) setRecoveryLock(metrics.projectCount, `import-${label}`);
+    save();
+    notify();
+    return { ok:true, validation, metrics, state };
+  };
+
+  const loadRestoredD1Fixture = () => importRawState(createRestoredD1Fixture(), "v67-restored-d1-fixture");
+
+  const exportStateJson = () => JSON.stringify(state, null, 2);
+
+  // V68 COMPLETE FOUNDATION: import preview, SQL extraction, state doctor and recovery-lock.
+  const extractStateJsonFromAnyText = (input) => {
+    if(input && typeof input === "object") return input;
+    const raw = String(input || "").trim();
+    if(!raw) throw new Error("Geen state JSON aangeleverd.");
+    try{ return JSON.parse(raw); }catch(_e){}
+
+    // D1 export usually contains an INSERT row with the JSON state in a SQL string.
+    // We try multiple safe patterns before falling back to balanced JSON extraction.
+    const unescapeSql = (txt) => txt.replace(/''/g, "'").replace(/\\"/g, '\"');
+    const directStart = raw.indexOf('{"schemaVersion"');
+    if(directStart >= 0){
+      const directEnd = raw.lastIndexOf('}');
+      if(directEnd > directStart){
+        const candidate = raw.slice(directStart, directEnd + 1);
+        try{ return JSON.parse(candidate); }catch(_e){}
+      }
+    }
+    const insertCandidates = [];
+    const re = /'([^']*(?:schemaVersion|projects|ganttV2)[^']*)'/g;
+    let match;
+    while((match = re.exec(raw))){ insertCandidates.push(unescapeSql(match[1])); if(insertCandidates.length > 25) break; }
+    for(const candidate of insertCandidates){
+      const a = candidate.indexOf('{');
+      const b = candidate.lastIndexOf('}');
+      if(a >= 0 && b > a){
+        try{ return JSON.parse(candidate.slice(a,b+1)); }catch(_e){}
+      }
+    }
+    const jsonish = raw.replace(/\r?\n/g, " ");
+    const a = jsonish.indexOf('{');
+    const b = jsonish.lastIndexOf('}');
+    if(a >= 0 && b > a){
+      try{ return JSON.parse(unescapeSql(jsonish.slice(a,b+1))); }catch(_e){}
+    }
+    throw new Error("Geen bruikbare state_json gevonden. Upload/plak JSON of D1 SQL-export met app_state.state_json.");
+  };
+
+  const previewImport = (raw) => {
+    try{
+      const parsed = extractStateJsonFromAnyText(raw);
+      const next = normalizeState(deepClone(parsed));
+      rebuildGanttHoursByDay(next);
+      const validation = validateState(next);
+      const metrics = stateMetrics(next);
+      return { ok:stateHasBusinessData(next), metrics, validation, errors:stateHasBusinessData(next) ? validation.errors : ["Import bevat geen businessdata."], state:next };
+    }catch(error){
+      return { ok:false, errors:[error.message], metrics:null, validation:{ valid:false, errors:[error.message] } };
+    }
+  };
+
+  const buildStateDoctorReport = (candidate=state) => {
+    const st = normalizeState(deepClone(candidate || state));
+    rebuildGanttHoursByDay(st);
+    const metrics = stateMetrics(st);
+    const validation = validateState(st);
+    const checks = [];
+    const add = (id, ok, detail="") => checks.push({ id, ok:!!ok, status:ok?"OK":"FOUT", detail });
+    add("projects-present", metrics.projectCount >= 1, `${metrics.projectCount} projecten`);
+    add("legacy-project-schema", metrics.hasLegacyObjectSchema, "projects.order/byId aanwezig");
+    add("gantt-present", metrics.ganttRowCount >= 1, `${metrics.ganttRowCount} Gantt-rijen`);
+    add("capacity-hours-present", metrics.hourDays >= 1 || metrics.ganttRowCount === 0, `${metrics.hourDays} dagen met uren`);
+    add("validation", validation.valid, validation.errors.slice(0,5).join(" | "));
+    const orphanGantt = Object.keys(st.ganttV2?.byProject || {}).filter(pid => !st.projects?.byId?.[pid]);
+    add("no-orphan-gantt-projects", orphanGantt.length === 0, orphanGantt.slice(0,5).join(", "));
+    const weekendHours = Object.entries(st.gantt?.hoursByDay || {}).filter(([iso, depts]) => getGlobalNonWorkISO(st, iso) && Object.values(depts || {}).some(v => Number(v)>0));
+    add("no-weekend-hours", weekendHours.length === 0, `${weekendHours.length} dagen met uren op niet-werkbare dag`);
+    const longBars = Object.values(st.ganttV2?.byProject || {}).flatMap(model => (model?.rows||[]).filter(r => r.type!=="summary").map(r => ({ row:r, sc:model.sched?.[r.id]||{} }))).filter(x => Number(x.sc?.workdays || x.row?.duration || 0) >= 20);
+    add("long-gantt-bars-detectable", longBars.length >= 1 || metrics.ganttRowCount === 0, `${longBars.length} lange taken gevonden`);
+    return { ok:checks.every(c=>c.ok), createdAt:new Date().toISOString(), marker:V68_COMPLETE_MARKER, metrics, validation, checks };
+  };
+
+  const setRecoveryLock = (minProjects=null, reason="manual") => {
+    const metrics = stateMetrics(state);
+    const lock = { locked:true, minProjects:Number(minProjects || Math.max(20, metrics.projectCount || 20)), reason, metrics, createdAt:new Date().toISOString() };
+    localStorage.setItem(V68_LOCK_KEY, JSON.stringify(lock));
+    return { ok:true, lock };
+  };
+
+  const clearRecoveryLock = () => { localStorage.removeItem(V68_LOCK_KEY); return { ok:true }; };
+
+  const getRecoveryLock = () => { try{ return JSON.parse(localStorage.getItem(V68_LOCK_KEY)||"null"); }catch(_){ return null; } };
+
+  const createRecoverySnapshot = (label="manual") => {
+    const metrics = stateMetrics(state);
+    try{
+      localStorage.setItem(V67_RECOVERY_SNAPSHOT_KEY, JSON.stringify({ label, createdAt:new Date().toISOString(), metrics, state }));
+      rememberLastGoodSnapshot(state, `snapshot-${label}`);
+      return { ok:true, metrics };
+    }catch(error){ return { ok:false, errors:[error.message], metrics }; }
+  };
+
+  const restoreLastGoodSnapshot = () => {
+    const packed = readLastGoodSnapshot();
+    if(!packed?.state) return { ok:false, errors:["Geen laatste goede snapshot gevonden."] };
+    return importRawState(packed.state, `restore-${packed.label || "last-good"}`);
+  };
+
   const init = async () => {
     await storageAdapter.detect();
     if(storageStatus.mode === "api"){
@@ -1689,15 +2042,21 @@ window.CWS = window.CWS || {};
           const validation = validateState(incoming);
           if(validation.valid || stateHasBusinessData(incoming)){
             state = incoming;
+            rememberLastGoodSnapshot(state, "remote-d1-load");
             writeLocalSnapshot(state);
             storageStatus.mode = "api";
             storageStatus.label = `Cloudflare D1 - gedeelde interne testdata (${remoteSafetySnapshot.projectCount} projecten)`;
             storageStatus.lastError = validation.valid ? null : `D1 legacy-state geladen met waarschuwing: ${validation.errors[0] || "validatie waarschuwing"}`;
-            storageStatus.unsynced = !validation.valid;
+            // V70: a valid business D1 state may have non-critical legacy warnings.
+            // Do not keep the app in D1-conflict/unsynced state if the remote state
+            // was successfully hydrated and contains projects/Gantt data.
+            storageStatus.unsynced = false;
             if(!validation.valid){
               state.meta = state.meta || {};
               state.meta.recoveryWarning = storageStatus.lastError;
+              state.meta.liveValidationWarnings = validation.errors.slice(0,25);
             }
+            buildLiveReadinessReport(state);
           }else{
             storageStatus.unsynced = true;
             storageStatus.lastError = `D1-state bevat geen bruikbare projecten/taken.`;
@@ -1731,8 +2090,9 @@ window.CWS = window.CWS || {};
       state.user.role = currentUser.role;
       state.ui.role = state.roles?.[currentUser.role]?.name || currentUser.role;
     }
+    buildLiveReadinessReport(state);
     notify();
-    return { storage:{...storageStatus}, user:{...currentUser} };
+    return { storage:{...storageStatus}, user:{...currentUser}, liveReadiness:storageStatus.liveReadiness };
   };
 
   // expose API
@@ -1755,6 +2115,27 @@ window.CWS = window.CWS || {};
     getRemoteVersion: () => remoteVersion,
     getStateMetrics: () => stateMetrics(state),
     getRemoteSafetyMetrics: () => ({ ...remoteSafetySnapshot }),
+    recovery: {
+      createRestoredD1Fixture,
+      loadRestoredD1Fixture,
+      importRawState,
+      exportStateJson,
+      createRecoverySnapshot,
+      restoreLastGoodSnapshot,
+      readLastGoodSnapshot,
+      previewImport,
+      extractStateJsonFromAnyText,
+      buildStateDoctorReport,
+      setRecoveryLock,
+      clearRecoveryLock,
+      getRecoveryLock,
+      completeMarker: V68_COMPLETE_MARKER,
+      testRunnerHardeningMarker: V69_TEST_RUNNER_HARDENING,
+      liveStabilityMarker: V70_LIVE_STABILITY_MARKER,
+      buildLiveReadinessReport,
+      markRemoteSaveOk,
+      fixtureMarker: V67_FIXTURE_MARKER
+    },
     getCurrentUser: () => ({ ...currentUser, name:state.user?.name || currentUser.email }),
     subscribe,
     resetDemo,

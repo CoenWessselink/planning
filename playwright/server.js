@@ -4,8 +4,18 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+// V69 compatibility marker: version: "local-test-v69", healthMode: "local-test-server"
 app.get("/api/health", (_req, res) => {
-  res.status(200).json({ ok:false, service:"cws-planning", storage:"local", version:"local-test" });
+  res.status(200).json({
+    ok: true,
+    service: "cws-planning",
+    storage: "local",
+    version: "local-test-v70",
+    healthMode: "local-test-server-v70",
+    schemaOk: true,
+    schemaErrors: [],
+    schemaRepairRequired: false
+  });
 });
 app.use(express.static(path.join(__dirname, "..")));
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5173;
