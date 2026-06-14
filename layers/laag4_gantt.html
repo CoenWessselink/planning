@@ -2175,6 +2175,7 @@ var CWS = window.CWS;</script>
         bar.addEventListener("click",e=>{
           e.stopPropagation();
           selectRow(model,id);
+          if(window.matchMedia?.("(max-width: 767px)")?.matches){ e.preventDefault(); openEdit(id); return; }
           if(e.detail>=2){ e.preventDefault(); openEdit(id); }
         });
         bar.addEventListener("dblclick",e=>{ e.preventDefault(); e.stopPropagation(); selectRow(model,id); openEdit(id); });
@@ -2183,6 +2184,7 @@ var CWS = window.CWS;</script>
           if(e.button != null && e.button !== 0) return;
           if(e.detail>=2){ e.preventDefault(); return; }
           const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move";
+          if(e.pointerType==="touch" && window.matchMedia?.("(max-width: 767px)")?.matches && handle==="move") return;
           const rowIndex=model.rows.findIndex(r=>r.id===id);
           const eff=rowSchedule(model,row,rowIndex)||{};
           const baseSc={...(eff.start||eff.end?eff:(model.sched[id]||{}))};

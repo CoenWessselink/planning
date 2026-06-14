@@ -90,9 +90,9 @@ try {
   await waitFor(async() => {
     const response = await fetch(`http://127.0.0.1:${port}/api/health`);
     const data = await response.json();
-    return response.ok && data.ok && data.version === "local-test-v72";
+    return response.ok && data.ok && data.version === "local-test-v73";
   });
-  check("lokale V72 health", true);
+  check("lokale V73 health (V72 regressiesuite)", true);
 
   browser = spawn(chrome, [
     "--headless=new",
@@ -105,11 +105,13 @@ try {
     "about:blank"
   ], { stdio:["ignore","ignore","ignore"], windowsHide:true });
 
-  const version = await waitFor(async() => {
-    const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`);
-    return response.ok ? response.json() : null;
+  const pageTarget = await waitFor(async() => {
+    const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`);
+    if(!response.ok) return null;
+    const targets = await response.json();
+    return targets.find(item => item.type === "page" && item.webSocketDebuggerUrl) || null;
   });
-  socket = new WebSocket(version.webSocketDebuggerUrl);
+  socket = new WebSocket(pageTarget.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
     socket.onopen = resolve;
     socket.onerror = reject;
@@ -132,9 +134,6 @@ try {
     }
   };
 
-  const target = await cdp("Target.createTarget", { url:"about:blank" });
-  const attached = await cdp("Target.attachToTarget", { targetId:target.targetId, flatten:true });
-  sessionId = attached.sessionId;
   await cdp("Page.enable");
   await cdp("Runtime.enable");
 

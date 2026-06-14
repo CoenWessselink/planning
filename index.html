@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CWS Planning - Interne testversie</title>
   <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/responsive-v73.css">
 </head>
 <body>
   <div class="headerbar">
@@ -52,6 +53,7 @@
   <script src="js/core/ui.js"></script>
   <script src="js/core/attention.js"></script>
   <script src="js/core/router.js"></script>
+  <script src="js/core/mobile_adapter.js"></script>
   <script src="js/core/responsive.js"></script>
   <script src="js/core/apps_menu.js"></script>
   <script src="js/core/export.js"></script>
@@ -81,6 +83,7 @@
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
+        CWS_MobileAdapter.bind();
         Router.boot();
         CWS_Responsive.bind();
         document.body.dataset.cwsReady = "true";

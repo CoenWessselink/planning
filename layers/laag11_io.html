@@ -60,7 +60,7 @@
     <div class="panel" style="margin-top:12px; margin-bottom:12px; border:2px solid #bae6fd;">
       <div class="panel-head">
         <div class="panel-tools">
-          <strong>V72 Live stabiliteit / Backup / Restore / Testmodus</strong><!-- compatibility: V70 V67 Backup / Restore / Testmodus -->
+          <strong>V73 Responsive hardening / Backup / Restore / Testmodus</strong><!-- compatibility: V72 V70 V67 Backup / Restore / Testmodus -->
           <span class="smallmuted">Veilig herstel zonder demo/lege state over D1 heen te schrijven.</span>
         </div>
         <div class="panel-tools">
@@ -80,7 +80,7 @@
             <button class="btn" id="v67ImportBtn">Importeer state</button>
             <button class="btn" id="v67ExportBtn">Export huidige state</button>
             <button class="btn" id="v68DoctorBtn">Download diagnose</button>
-            <button class="btn" id="v70ReadinessBtn">V72 Live readiness rapport</button>
+            <button class="btn" id="v70ReadinessBtn">V73 Live readiness rapport</button>
             <button class="btn" id="v68LockBtn">Recovery-lock aan</button>
             <button class="btn" id="v68UnlockBtn">Recovery-lock uit</button>
           </div>
@@ -113,7 +113,7 @@
 
   <div class="footerbar">
     <div class="smallmuted">CSV-import is actief. XLSX-import volgt later als lokale vendored importmodule; geen CLI-workaround meer. Import werkt op basis van Projectnummer en ResourceNaam.</div>
-    <div class="smallmuted">V72 Cloudflare Pages + D1</div>
+    <div class="smallmuted">V73 Cloudflare Pages + D1</div>
   </div>
 </div>
 
@@ -423,11 +423,11 @@ var CWS = window.CWS;</script>
     if(fixture) fixture.onclick=()=>{ if(!requireRole(["admin"],"testfixture")) return; CWS.audit?.("demo_data_attempt", { source:"v72-fixture" }); if(!typedConfirm("FIXTURE LADEN","Laad de lokale V72 testfixture met 76 projecten.")) return; CWS.recovery?.createRecoverySnapshot?.("before-fixture"); const r=CWS.recovery?.loadRestoredD1Fixture?.(); renderV67RecoveryStats(r?.ok?"V72 fixture geladen.":"Fixture mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"V72 fixture geladen":"Fixture mislukt"); };
     if(file) file.onchange=()=>{ const f=file.files&&file.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ document.getElementById("v67ImportText").value=String(rd.result||""); lastImportPreview=null; lastImportRaw=""; }; rd.readAsText(f); };
     if(preview) preview.onclick=()=>{ const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen importtekst ingevuld"); return; } const r=CWS.recovery?.previewImport?.(raw); lastImportPreview=r; lastImportRaw=raw; const m=r?.metrics||{}, cur=r?.currentMetrics||{}, d=r?.delta||{}; renderV67RecoveryStats(r?.ok?`Preview ${r.canImport?"OK":"GEBLOKKEERD"}: ${cur.projectCount||0} naar ${m.projectCount||0} projecten (${d.projects>=0?"+":""}${d.projects||0}), ${cur.ganttRowCount||0} naar ${m.ganttRowCount||0} Gantt-rijen (${d.ganttRows>=0?"+":""}${d.ganttRows||0}). ${(r.validation?.errors||[]).slice(0,3).join(" | ")}`:`Preview fout: ${(r?.errors||[]).join(", ")}`); UI.toast(r?.canImport?"Preview OK":"Preview bevat blokkerende fouten"); };
-    if(imp) imp.onclick=()=>{ if(!requireRole(["admin","planner"],"import")) return; const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen JSON/SQL ingevuld"); return; } if(raw!==lastImportRaw || !lastImportPreview){ UI.toast("Analyseer deze import eerst opnieuw"); return; } if(!lastImportPreview.canImport){ UI.toast("Import geblokkeerd door validatiefouten"); return; } CWS.audit?.("import_attempt", { currentMetrics:lastImportPreview.currentMetrics, incomingMetrics:lastImportPreview.metrics }); if(!typedConfirm("IMPORTEREN","Pas de geanalyseerde import toe. Er wordt eerst een herstelpunt gemaakt.")) return; const r=CWS.recovery?.importRawState?.(raw,"ui-v72-import"); renderV67RecoveryStats(r?.ok?"State geimporteerd, genormaliseerd en recovery-lock gezet.":"Import mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"State geimporteerd":"Import mislukt"); if(r?.ok){ lastImportPreview=null; lastImportRaw=""; } };
+    if(imp) imp.onclick=()=>{ if(!requireRole(["admin","planner"],"import")) return; const raw=document.getElementById("v67ImportText").value.trim(); if(!raw){ UI.toast("Geen JSON/SQL ingevuld"); return; } if(raw!==lastImportRaw || !lastImportPreview){ UI.toast("Analyseer deze import eerst opnieuw"); return; } if(!lastImportPreview.canImport){ UI.toast("Import geblokkeerd door validatiefouten"); return; } CWS.audit?.("import_attempt", { currentMetrics:lastImportPreview.currentMetrics, incomingMetrics:lastImportPreview.metrics }); if(!typedConfirm("IMPORTEREN","Pas de geanalyseerde import toe. Er wordt eerst een herstelpunt gemaakt.")) return; const r=CWS.recovery?.importRawState?.(raw,"ui-v73-import"); renderV67RecoveryStats(r?.ok?"State geimporteerd, genormaliseerd en recovery-lock gezet.":"Import mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"State geimporteerd":"Import mislukt"); if(r?.ok){ lastImportPreview=null; lastImportRaw=""; } };
     if(exp) exp.onclick=()=>{ const raw=CWS.recovery?.exportStateJson?.() || JSON.stringify(CWS.getState(),null,2); const blob=new Blob([raw],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-state-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); };
-    if(doctor) doctor.onclick=()=>{ const report=CWS.recovery?.buildStateDoctorReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v72-state-doctor-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); renderV67RecoveryStats(`Diagnose: ${report.ok?"OK":"FOUT"}`); };
+    if(doctor) doctor.onclick=()=>{ const report=CWS.recovery?.buildStateDoctorReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v73-state-doctor-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); renderV67RecoveryStats(`Diagnose: ${report.ok?"OK":"FOUT"}`); };
     const readiness=document.getElementById("v70ReadinessBtn");
-    if(readiness) readiness.onclick=()=>{ const report=CWS.recovery?.buildLiveReadinessReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v72-live-readiness-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); const m=report.metrics||{}; renderV67RecoveryStats(`Live readiness: ${report.ok?"OK":"FOUT"} · ${m.projectCount||0} projecten · ${m.ganttRowCount||0} Gantt-rijen · ${m.hourDays||0} uurdagen`); };
+    if(readiness) readiness.onclick=()=>{ const report=CWS.recovery?.buildLiveReadinessReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v73-live-readiness-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); const m=report.metrics||{}; renderV67RecoveryStats(`Live readiness: ${report.ok?"OK":"FOUT"} · ${m.projectCount||0} projecten · ${m.ganttRowCount||0} Gantt-rijen · ${m.hourDays||0} uurdagen`); };
     if(lock) lock.onclick=()=>{ const r=CWS.recovery?.setRecoveryLock?.(); renderV67RecoveryStats(r?.ok?`Recovery-lock actief: minimaal ${r.lock?.minProjects} projecten.`:"Recovery-lock mislukt"); UI.toast("Recovery-lock actief"); };
     if(unlock) unlock.onclick=()=>{ if(!requireRole(["admin"],"recovery-lock uitzetten")) return; const r=CWS.recovery?.clearRecoveryLock?.(); renderV67RecoveryStats(r?.ok?"Recovery-lock uitgezet.":"Recovery-lock mislukt"); UI.toast("Recovery-lock uitgezet"); };
   }
