@@ -5,9 +5,10 @@ import path from "node:path";
 // Compatibility markers retained for V69/V70 checks:
 // version: "local-test-v69", healthMode: "local-test-server"
 // local-test-v70, local-test-server-v70
+// V72 compatibility: const version = "local-test-v72"; local-test-server-v72
 const root = path.resolve(process.cwd());
 const port = Number(process.env.PORT || 5173);
-const version = "local-test-v72";
+const version = "local-test-v73";
 const contentTypes = new Map([
   [".css", "text/css; charset=utf-8"],
   [".html", "text/html; charset=utf-8"],
@@ -45,7 +46,7 @@ const server = http.createServer(async (req, res) => {
         service: "cws-planning",
         storage: "local",
         version,
-        healthMode: "local-test-server-v72",
+        healthMode: "local-test-server-v73",
         schemaOk: true,
         schemaErrors: [],
         schemaRepairRequired: false,

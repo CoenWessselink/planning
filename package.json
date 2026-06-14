@@ -8,7 +8,7 @@
     "build": "npm run lint && npm run preflight:all",
     "test": "npm run preflight:all && npm run test:e2e",
     "lint": "npm run lint:syntax",
-    "test:e2e": "node scripts/e2e-fallback.mjs && node scripts/headless-v72-smoke.mjs",
+    "test:e2e": "node scripts/e2e-fallback.mjs && node scripts/headless-v72-smoke.mjs && node tests/responsive/v73-responsive-smoke.mjs",
     "test:headless": "node scripts/headless-v72-smoke.mjs",
     "test:e2e:headed": "node scripts/e2e-fallback.mjs --headed",
     "test:e2e:report": "node scripts/e2e-fallback.mjs && node scripts/open_report_hint.js",
@@ -58,6 +58,7 @@
     "preflight:v70": "node scripts/v70-live-stability-gantt-capacity-preflight.mjs",
     "preflight:v71": "node scripts/v71-duplicate-task-id-repair-preflight.mjs",
     "preflight:v72": "node scripts/v72-complete-program-mobile-hardening-preflight.mjs",
+    "preflight:v73": "node scripts/v73-tablet-mobile-responsive-hardening-preflight.mjs",
     "preflight:all": "node scripts/run-all-preflights.mjs"
   },
   "devDependencies": {}

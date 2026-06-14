@@ -134,11 +134,15 @@ const UI = (() => {
   // Modal + Wizard helpers
   // -----------------------------
   const openModal = ({ title="", subtitle="", contentEl=null, actions=[] } = {}) => {
+    const previousFocus = document.activeElement;
     const overlay = document.createElement('div');
     overlay.className = 'cws-modal-overlay';
 
     const modal = document.createElement('div');
     modal.className = 'cws-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('tabindex', '-1');
 
     const hdr = document.createElement('div');
     hdr.className = 'cws-modal-hdr';
@@ -148,6 +152,7 @@ const UI = (() => {
     close.className = 'btn';
     close.textContent = '✕';
     close.title = 'Sluiten';
+    close.setAttribute('aria-label', 'Sluiten');
     hdr.appendChild(h);
     hdr.appendChild(close);
 
@@ -173,17 +178,43 @@ const UI = (() => {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    let closed = false;
+    const onKey = (e) => {
+      if (e.key === 'Escape') api.close();
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if (!focusable.length) {
+        e.preventDefault();
+        modal.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     const api = {
-      close: () => { overlay.remove(); },
+      close: () => {
+        if (closed) return;
+        closed = true;
+        window.removeEventListener('keydown', onKey);
+        overlay.remove();
+        if (previousFocus?.focus) requestAnimationFrame(() => previousFocus.focus());
+      },
       overlay,
       modal,
       body
     };
-    const onKey = (e) => { if (e.key === 'Escape') api.close(); };
     window.addEventListener('keydown', onKey);
-    const cleanup = () => window.removeEventListener('keydown', onKey);
-    close.addEventListener('click', () => { api.close(); cleanup(); });
-    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) { api.close(); cleanup(); } });
+    close.addEventListener('click', api.close);
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) api.close(); });
+    requestAnimationFrame(() => (modal.querySelector('button,input,select,textarea') || modal).focus());
     return api;
   };
 

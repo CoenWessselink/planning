@@ -1,0 +1,459 @@
+/* CWS Planning V73 - tablet/mobile responsive hardening.
+   Desktop vanaf 1200px blijft door de bestaande module-CSS bepaald. */
+:root {
+  --v73-touch-target: 44px;
+  --v73-mobile-gap: 8px;
+  --v73-tablet-gap: 10px;
+  --v73-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body {
+  max-width: 100%;
+}
+
+:where(button, [role="button"], a, input, select, textarea):focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .48);
+  outline-offset: 2px;
+}
+
+.v73-scroll-container {
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.v73-gantt-mobile-hint {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  body.is-tablet,
+  body[data-cws-v73-viewport^="tablet"] {
+    --v73-layout-gap: var(--v73-tablet-gap);
+  }
+
+  :where(.page-shell, .panel, .gantt-shell, .cap-shell) {
+    max-width: 100%;
+  }
+
+  :where(.toolbar, .buttonbar, .filterbar, .panel-tools, .table-toolbar, .module-head, .panel-head) {
+    gap: var(--v73-tablet-gap);
+    flex-wrap: wrap;
+  }
+
+  :where(.tabs, .toolbar, .buttonbar, .filterbar) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :where(.table-wrap, .tablewrap, .matrix-wrap, .heatmap-wrap, .board-wrap, .rep-right, .assign-right, .pb-right) {
+    max-width: 100%;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :where(.modal, .dialog, .drawer, .cws-modal) {
+    width: min(960px, 90vw);
+    max-width: 90vw;
+    max-height: 90dvh;
+  }
+
+  :where(.modal-body, .dialog-body, .drawer-body, .cws-modal-body) {
+    overflow: auto;
+    max-height: calc(90dvh - 112px);
+  }
+
+  .gantt-shell .toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .gantt-shell .board-wrap {
+    overflow: auto;
+    touch-action: pan-x pan-y;
+  }
+
+  .gantt-shell .handle {
+    width: 14px;
+  }
+
+  .settings-wrap,
+  .report-wrap,
+  .assign-wrap,
+  .pb-wrap {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+  body[data-cws-v73-viewport="tablet-landscape"] :where(.side, .rep-left, .assign-left, .pb-left) {
+    min-width: 230px;
+    max-width: 32vw;
+  }
+
+  body[data-cws-v73-viewport="tablet-landscape"] .apps-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 899px) {
+  body[data-cws-v73-viewport="tablet-portrait"] :where(.settings-wrap, .report-wrap, .assign-wrap, .pb-wrap, .dash-grid) {
+    grid-template-columns: 1fr !important;
+    height: auto;
+  }
+
+  body[data-cws-v73-viewport="tablet-portrait"] :where(.side, .rep-left, .assign-left, .pb-left) {
+    width: 100%;
+    max-width: none;
+    max-height: 34dvh;
+    overflow: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+  }
+
+  body[data-cws-v73-viewport="tablet-portrait"] .apps-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  body.is-mobile,
+  body[data-cws-v73-viewport^="mobile"] {
+    --v73-layout-gap: var(--v73-mobile-gap);
+    min-width: 0;
+  }
+
+  :where(.page-shell, .panel, .gantt-shell, .cap-shell, .content, .tiles, .card-grid) {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  :where(.module-head, .panel-head, .head) {
+    align-items: flex-start;
+    gap: var(--v73-mobile-gap);
+  }
+
+  :where(.toolbar, .buttonbar, .filterbar, .panel-tools, .table-toolbar, .actions) {
+    display: flex;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    gap: 7px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :where(.toolbar, .buttonbar, .filterbar, .panel-tools, .table-toolbar, .actions) > * {
+    flex: 0 0 auto;
+  }
+
+  :where(button, .btn, .smallbtn, .pagebtn, .iconbtn, [role="button"], input, select, textarea) {
+    min-height: var(--v73-touch-target);
+  }
+
+  :where(input, select, textarea) {
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  :where(.tabs, .tabs360, .tabstrip) {
+    display: flex;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :where(.tabs, .tabs360, .tabstrip) > * {
+    flex: 0 0 auto;
+  }
+
+  :where(.table-wrap, .tablewrap, .matrix-wrap, .heatmap-wrap, .board-wrap, .rep-right, .assign-right, .pb-right, .report-panel, pre) {
+    max-width: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :where(.form-grid, .field-row, .formrow, .excel-grid) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  :where(.modal-backdrop, .modalback, .npBackdrop, .cws-modal-overlay) {
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+  }
+
+  :where(.modal, .dialog, .drawer, .cws-modal, .modal.modal-sm, .modal.wide) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  :where(.modal-body, .dialog-body, .drawer-body, .cws-modal-body) {
+    min-height: 0;
+    max-height: none !important;
+    flex: 1 1 auto;
+    overflow: auto;
+    padding-bottom: calc(18px + var(--v73-safe-bottom)) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :where(.modal-head, .modal-foot, .cws-modal-hdr, .cws-modal-ftr) {
+    flex: 0 0 auto;
+  }
+
+  :where(.modal-foot, .cws-modal-ftr) {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: #fff;
+    padding-bottom: calc(12px + var(--v73-safe-bottom));
+  }
+
+  #npBackdrop .modal-body > div:last-child {
+    position: sticky;
+    bottom: calc(-18px - var(--v73-safe-bottom));
+    z-index: 4;
+    margin-left: -12px !important;
+    margin-right: -12px !important;
+    padding: 10px 12px calc(10px + var(--v73-safe-bottom));
+    background: #fff;
+    border-top: 1px solid var(--border, #e2e8f0);
+  }
+
+  .projects-infinite-panel .table-wrap {
+    max-height: calc(100dvh - 280px) !important;
+  }
+
+  .projects-infinite-panel .panel-head > div,
+  .projects-infinite-panel .table-toolbar {
+    width: 100%;
+  }
+
+  .projects-infinite-panel #search,
+  .projects-infinite-panel #fuzzyQ {
+    min-width: min(72vw, 290px);
+  }
+
+  .v73-gantt-mobile-hint {
+    display: block;
+    margin: 0 10px 8px;
+    padding: 8px 10px;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .gantt-shell .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  .gantt-shell .toolbar-group {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .gantt-shell #projectSel {
+    min-width: min(78vw, 310px);
+  }
+
+  .gantt-shell .board-wrap {
+    max-width: 100%;
+    overflow: auto;
+    touch-action: pan-x pan-y;
+  }
+
+  .gantt-shell .board {
+    min-width: max-content !important;
+  }
+
+  .gantt-shell .handle {
+    width: 18px;
+  }
+
+  .gantt-shell .bar {
+    min-height: 36px;
+    touch-action: pan-y;
+  }
+
+  .cap-shell .toolbar,
+  .cap-shell .legend {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .cap-shell .matrix {
+    min-width: 1100px !important;
+  }
+
+  .cap-shell .why,
+  .cap-shell .dept-edit {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .pb-filters {
+    display: flex;
+    max-width: 100%;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding: 8px;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pb-filters > * {
+    flex: 0 0 auto;
+  }
+
+  .pb-wrap {
+    max-width: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pb-wrap .pb-left {
+    min-width: 220px;
+  }
+
+  .pb-wrap .pb-right {
+    min-width: 760px;
+    overflow: auto;
+  }
+
+  .pb-cell {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .tablewrap + .scrollbar-dock,
+  .matrix-wrap + .scrollbar-dock {
+    bottom: calc(58px + var(--v73-safe-bottom));
+  }
+
+  .tabs360 {
+    padding-bottom: 4px;
+  }
+
+  .summary-cards,
+  .tiles,
+  .card-grid,
+  .tilegrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  :where(.settings-wrap, .report-wrap, .assign-wrap, .pb-wrap, .dash-grid, .grid) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    height: auto !important;
+  }
+
+  :where(.side, .rep-left, .assign-left, .pb-left) {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 32dvh;
+    overflow: auto;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+  }
+
+  .cws-yearcal-grid {
+    grid-template-columns: minmax(270px, 1fr) !important;
+  }
+
+  .cws-week-toggles {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .io-recovery-grid,
+  .io-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .io-recovery-grid :where(pre, textarea, .panel, .card) {
+    max-width: 100%;
+    overflow: auto;
+  }
+
+  .health-table,
+  .task-progress-table,
+  .revision-table,
+  .detail-table {
+    min-width: 720px;
+  }
+}
+
+@media (max-width: 430px) {
+  body[data-cws-v73-viewport="mobile-small"] {
+    --v73-mobile-gap: 6px;
+  }
+
+  .apps-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  :where(.kpi, .kpi2, .tiles) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .mobile-bottom-nav button {
+    min-width: 0;
+    padding-inline: 3px;
+  }
+
+  .projects-infinite-panel #search,
+  .projects-infinite-panel #fuzzyQ {
+    min-width: 250px;
+  }
+}
+
+@media print {
+  .v73-gantt-mobile-hint,
+  .mobile-bottom-nav,
+  .mobile-toolbar,
+  .v37-mobile-action-dock {
+    display: none !important;
+  }
+
+  html,
+  body {
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  :where(.modal, .dialog, .drawer, .cws-modal) {
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+  }
+}

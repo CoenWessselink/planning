@@ -8,10 +8,11 @@ const CWS_Responsive = (() => {
     {id:"apps", label:"Menu", icon:"☰"},
   ];
 
-  const viewport = () => window.innerWidth <= 760 ? "mobile" : (window.innerWidth <= 1180 ? "tablet" : "desktop");
+  const viewport = () => window.CWS_MobileAdapter?.profile?.().family || (window.innerWidth <= 767 ? "mobile" : (window.innerWidth <= 1199 ? "tablet" : "desktop"));
   const activeApp = () => (window.Router?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "projecten");
 
   function applyViewport(){
+    window.CWS_MobileAdapter?.apply?.();
     document.body.dataset.cwsViewport = viewport();
     document.documentElement.dataset.cwsViewport = viewport();
     markActive();
@@ -51,6 +52,7 @@ const CWS_Responsive = (() => {
 
   function enhanceDocument(doc){
     const vp=viewport();
+    window.CWS_MobileAdapter?.enhanceDocument?.(doc, window.innerWidth);
     doc.documentElement.dataset.cwsViewport=vp;
     doc.body.dataset.cwsViewport=vp;
     doc.body.classList.add("cws-responsive-frame");
