@@ -249,6 +249,12 @@ try {
     check("Gantt linker-resize houdt einde vast", resized.ok, JSON.stringify(resized));
   } else check("Gantt linker resize-handle gevonden", false);
 
+  const repeatedBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect(),id=bar.dataset.id,pid=document.querySelector('#projectSel')?.value,model=CWS.getState().ganttV2.byProject[pid],sc=model.sched[id],row=model.rows.find(item=>item.id===id);return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration};})()`, 22);
+  if(repeatedBefore) {
+    const repeated = await evaluate(`(()=>{const model=CWS.getState().ganttV2.byProject[${JSON.stringify(repeatedBefore.pid)}],sc=model.sched[${JSON.stringify(repeatedBefore.id)}],row=model.rows.find(item=>item.id===${JSON.stringify(repeatedBefore.id)});return {ok:sc.start===${JSON.stringify(repeatedBefore.start)} && sc.workdays===row.duration && sc.workdays>=${Number(repeatedBefore.workdays)} && sc.workdays<=${Number(repeatedBefore.workdays)+1},start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration,before:${JSON.stringify(repeatedBefore)}};})()`);
+    check("Gantt opeenvolgende resize telt alleen werkelijk gesnapte werkdag", repeated.ok, JSON.stringify(repeated));
+  } else check("Gantt herhaalde resize-handle gevonden", false);
+
   const clampBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.left');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid};})()`, 900, 8);
   if(clampBefore) {
     const clamped = await evaluate(`(()=>{const sc=CWS.getState().ganttV2.byProject[${JSON.stringify(clampBefore.pid)}].sched[${JSON.stringify(clampBefore.id)}];return {ok:sc.start===sc.end,start:sc.start,end:sc.end,validation:CWS.getLastValidation()};})()`);
@@ -285,6 +291,13 @@ try {
   const corrupted = await evaluate(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!bar)return null;const id=bar.dataset.id,pid=document.querySelector('#projectSel')?.value;CWS.setState(st=>{const model=st.ganttV2.byProject[pid],row=model.rows.find(item=>item.id===id),sc=model.sched[id];row.duration=4;model.sched[id]={...sc,start:'2026-06-01',end:'2028-02-21',workdays:638,explicitRange:false};return st;});return {id,pid};})()`);
   await delay(300);
   check("Gantt duurkolom toont betrouwbare taakduur", await evaluate(`document.querySelector('tr[data-id="${corrupted.id}"] .duration-input')?.value === '4'`));
+  const recoveredResizeBefore = corrupted && await dragPointer(`(()=>{const bar=document.querySelector('.bar[data-id="${corrupted.id}"]'),h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,id:${JSON.stringify(corrupted.id)},pid:${JSON.stringify(corrupted.pid)}};})()`, 22);
+  if(recoveredResizeBefore) {
+    const recoveredResize = await evaluate(`(()=>{const model=CWS.getState().ganttV2.byProject[${JSON.stringify(corrupted.pid)}],row=model.rows.find(item=>item.id===${JSON.stringify(corrupted.id)}),sc=model.sched[${JSON.stringify(corrupted.id)}];return {ok:row.duration===sc.workdays && sc.workdays>=4 && sc.workdays<=5,start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration};})()`);
+    check("Gantt resize springt niet naar legacy-einddatum of 600+ dagen", recoveredResize.ok, JSON.stringify(recoveredResize));
+  } else check("Gantt legacy resize-handle gevonden", false);
+  await evaluate(`CWS.setState(st=>{const model=st.ganttV2.byProject[${JSON.stringify(corrupted.pid)}],row=model.rows.find(item=>item.id===${JSON.stringify(corrupted.id)}),sc=model.sched[${JSON.stringify(corrupted.id)}];row.duration=4;model.sched[${JSON.stringify(corrupted.id)}]={...sc,start:'2026-06-01',end:'2028-02-21',workdays:638,explicitRange:false};return st;})`);
+  await delay(250);
   await evaluate("document.querySelector('#boardWrap').scrollTop=0;document.querySelector('#boardWrap').scrollLeft=0");
   const recoveredBefore = corrupted && await dragPointer(`(()=>{const bar=document.querySelector('.bar[data-id="${corrupted.id}"]');if(!bar)return null;const r=bar.getBoundingClientRect();return {x:r.left+Math.min(r.width/2,120),y:r.top+r.height/2,id:${JSON.stringify(corrupted.id)},pid:${JSON.stringify(corrupted.pid)}};})()`, 44);
   if(recoveredBefore) {
