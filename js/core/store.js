@@ -18,6 +18,8 @@ window.CWS = window.CWS || {};
   const IDENTITY_FETCH_TIMEOUT_MS = 8000;
   const STATE_FETCH_TIMEOUT_MS = 30000;
   const SAVE_FETCH_TIMEOUT_MS = 15000;
+  const MAX_GANTT_DATE_SCAN_DAYS = 3660;
+  const MAX_GANTT_WORKDAYS = 2600;
   const BOOT_PHASES = [
     "booting",
     "shell-ready",
@@ -902,7 +904,7 @@ window.CWS = window.CWS || {};
 
   const scheduleIdle = (fn, timeout=1800) => {
     if(typeof requestIdleCallback === "function") return requestIdleCallback(fn, { timeout });
-    return setTimeout(fn, Math.min(timeout, 900));
+    return setTimeout(fn, timeout);
   };
 
   const markBootPhase = (phase, extra={}) => {
@@ -1703,9 +1705,11 @@ window.CWS = window.CWS || {};
       const d0 = sc.start ? new Date(sc.start+"T00:00:00Z") : addDaysUTC(base, Math.max(0, (Number(sc.s)||1)-1));
       const d1 = sc.end ? new Date(sc.end+"T00:00:00Z") : addDaysUTC(base, Math.max(0, (Number(sc.e)||Number(sc.s)||1)-1));
       let d = d0;
-      while(d <= d1){
+      let scanned = 0;
+      while(d <= d1 && scanned < MAX_GANTT_DATE_SCAN_DAYS){
         if(isWorkdayUTC(st, d)) out.add(isoDateUTC(d));
         d = addDaysUTC(d, 1);
+        scanned += 1;
       }
     });
     return out;
@@ -2116,12 +2120,14 @@ window.CWS = window.CWS || {};
     if(!Number.isFinite(d0.getTime()) || !Number.isFinite(d1.getTime())) return out;
     if(d1 < d0){ const t=d0; d0=d1; d1=t; }
     let d = d0;
-    while(d <= d1){
+    let scanned = 0;
+    while(d <= d1 && scanned < MAX_GANTT_DATE_SCAN_DAYS){
       if(isWorkdayUTC(st, d)){
         const iso = isoDateUTC(d);
         if(!getGlobalNonWorkISO(st, iso)) out.push(iso);
       }
       d = addDaysUTC(d, 1);
+      scanned += 1;
     }
     return out;
   };
@@ -2151,7 +2157,7 @@ window.CWS = window.CWS || {};
   };
 
   const addGanttWorkdays = (st, startIso, workdays) => {
-    const total = Math.max(1, Number(workdays)||1);
+    const total = Math.min(MAX_GANTT_WORKDAYS, Math.max(1, Number(workdays)||1));
     let iso = nextGanttWorkIso(st, startIso);
     let count = 1;
     while(count < total){
@@ -2584,20 +2590,56 @@ window.CWS = window.CWS || {};
       try{
         state.meta = state.meta || {};
         state.meta.v78PostBootIntegrityStartedAt = new Date().toISOString();
-        const before = JSON.stringify({ gantt:state.gantt || {}, meta:state.meta?.lastStateDoctorAt || null });
-        if(needsBootCapacityRebuild(state)) rebuildGanttHoursByDay(state);
-        const report = buildLiveReadinessReport(state);
+        const diagnostics = collectGanttDiagnostics(state);
+        const metrics = stateMetrics(state);
+        const report = {
+          ok:diagnostics.invalidDateCount === 0 && diagnostics.orphanPredecessorCount === 0,
+          lightweight:true,
+          fullStateDoctorDeferred:true,
+          createdAt:new Date().toISOString(),
+          metrics,
+          diagnostics
+        };
         state.meta.v78PostBootIntegrityFinishedAt = new Date().toISOString();
         state.meta.v78PostBootIntegrityReason = reason;
+        state.meta.v79AutomaticCapacityRebuildDeferred = needsBootCapacityRebuild(state);
         storageStatus.liveReadiness = report;
-        if(before !== JSON.stringify({ gantt:state.gantt || {}, meta:state.meta?.lastStateDoctorAt || null })) writeLocalSnapshot(state);
       }catch(error){
         storageStatus.lastError = `Post-boot controle kon niet volledig draaien: ${error.message}`;
         recordWarning(storageStatus.lastError);
-      }finally{
-        notify();
       }
-    }, 2200);
+    }, 8000);
+  };
+
+  let bootSnapshotTimer = null;
+  const scheduleBootSnapshotPersistence = (snapshot, label="remote-d1-load") => {
+    if(bootSnapshotTimer) clearTimeout(bootSnapshotTimer);
+    bootSnapshotTimer = setTimeout(() => {
+      scheduleIdle(() => {
+        try{
+          const raw = JSON.stringify(snapshot);
+          const createdAt = new Date().toISOString();
+          const metrics = stateMetrics(snapshot);
+          localStorage.setItem(KEY_TENANT, raw);
+          setTimeout(() => {
+            try{ localStorage.setItem(KEY_GLOBAL, raw); }catch(_){}
+          }, 250);
+          setTimeout(() => {
+            try{ localStorage.setItem(KEY_BACKUP, raw); }catch(_){}
+          }, 500);
+          if(Number(metrics.projectCount || 0) >= 20){
+            setTimeout(() => {
+              try{
+                const prefix = JSON.stringify({ label, createdAt, metrics }).slice(0, -1);
+                localStorage.setItem(V67_LAST_GOOD_KEY, `${prefix},"state":${raw}}`);
+              }catch(_){}
+            }, 750);
+          }
+        }catch(error){
+          recordWarning(`Lokale herstelcache kon niet worden bijgewerkt: ${error.message}`);
+        }
+      }, 8000);
+    }, 3000);
   };
 
   // V77 compatibility notes for V63 static preflight:
@@ -2734,8 +2776,7 @@ window.CWS = window.CWS || {};
             storageStatus.lastError = null;
             storageStatus.unsynced = false;
             storageStatus.lastSuccessfulD1LoadAt = new Date().toISOString();
-            rememberLastGoodSnapshot(state, "remote-d1-load");
-            writeLocalSnapshot(state);
+            scheduleBootSnapshotPersistence(state, "remote-d1-load");
             markBootPhase("remote-state-ready");
           }else{
             markBootPhase("local-fallback-considered");

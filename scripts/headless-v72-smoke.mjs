@@ -155,6 +155,14 @@ try {
   await waitFor(async() => evaluate("document.querySelector('#appFrame')?.contentDocument?.querySelector('#matrix') != null"), 15_000);
   check("V78 Capaciteit opent na state-ready", true);
 
+  await cdp("Page.navigate", { url:`http://127.0.0.1:${port}/index.html?bootTest=production-regression&app=gantt` });
+  await waitFor(async() => evaluate("document.body?.dataset?.cwsReady === 'true'"), 10_000);
+  await waitFor(async() => evaluate("document.querySelector('#appFrame')?.contentDocument?.querySelectorAll('#tableRows tr')?.length >= 180"), 10_000);
+  check("V79 productie-achtige boot blijft snel", await evaluate("CWS.storageStatus.bootDurationMs < 4000"), await evaluate("String(CWS.storageStatus.bootDurationMs) + ' ms'"));
+  check("V79 Gantt toont projecten bij zware legacy-state", await evaluate("document.querySelector('#appFrame')?.contentDocument?.querySelectorAll('#projectSel option')?.length === 76"));
+  check("V79 Gantt begrenst extreme legacy-datum", await evaluate("document.querySelector('#appFrame')?.contentDocument?.querySelectorAll('#timeline .tl-row .day')?.length <= 730"));
+  check("V79 Gantt rendert 180 productietaken zonder wit scherm", await evaluate("document.querySelector('#appFrame')?.contentDocument?.querySelectorAll('#tableRows tr')?.length === 180"));
+
   await cdp("Page.navigate", { url:`http://127.0.0.1:${port}/index.html?fixture=restored-d1&bootTest=fallback` });
   await waitFor(async() => evaluate("document.body?.dataset?.cwsReady === 'true'"), 15_000);
   check("V78 fallback wordt pas na state-fout gekozen", await evaluate("CWS.storageStatus.stateSource === 'fixture' && CWS.getState().projects.order.length === 76"));

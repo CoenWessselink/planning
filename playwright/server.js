@@ -24,7 +24,7 @@ const contentTypes = new Map([
   [".webp", "image/webp"],
 ]);
 
-function createRemoteMockState() {
+function createRemoteMockState({ pathological=false } = {}) {
   const projects = { order:[], byId:{}, deptHours:[] };
   const ganttV2 = { expanded:{}, byProject:{}, ui:{ showCritical:false, showDeps:true, viewMode:"both", zoom:"week" } };
   for (let i = 1; i <= 76; i += 1) {
@@ -35,6 +35,21 @@ function createRemoteMockState() {
       rows:[{ id:`${id}-T1`, name:"Remote taak", type:"task", level:1, department:"Engineering", hoursMode:"auto", hours:0 }],
       sched:{ [`${id}-T1`]:{ start:"2026-06-15", end:"2026-06-19", workdays:5 } }
     };
+  }
+  if (pathological) {
+    const id = projects.order[0];
+    const rows = [];
+    const sched = {};
+    for (let i = 1; i <= 180; i += 1) {
+      const taskId = `${id}-LOAD-${String(i).padStart(3, "0")}`;
+      rows.push({ id:taskId, name:`Productietaak ${i}`, type:"task", level:1, department:"Engineering", hoursMode:"auto", hours:0 });
+      sched[taskId] = {
+        start:"2026-06-15",
+        end:i === 180 ? "9999-12-31" : "2026-06-19",
+        ...(i === 180 ? {} : { workdays:5 })
+      };
+    }
+    ganttV2.byProject[id] = { rows, sched };
   }
   return {
     schemaVersion:12,
@@ -95,9 +110,9 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/state") {
       const bootTest = requestUrl.searchParams.get("bootTest");
-      if (bootTest === "remote-d1") {
+      if (bootTest === "remote-d1" || bootTest === "production-regression") {
         await new Promise(resolve => setTimeout(resolve, 450));
-        const body = JSON.stringify(createRemoteMockState());
+        const body = JSON.stringify(createRemoteMockState({ pathological:bootTest === "production-regression" }));
         res.writeHead(200, {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store",

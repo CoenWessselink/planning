@@ -1388,6 +1388,9 @@ var CWS = window.CWS;</script>
     function toast(msg, type){ const el=$("#toast"); el.textContent=msg; el.style.background=type==="bad"?"#991b1b":type==="warn"?"#92400e":"#172033"; el.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove("show"),2200); }
     function setNotice(msg, kind="warn"){ const n=$("#notice"); if(!msg){ n.classList.add("hidden"); return; } n.textContent=msg; n.className="notice"; if(kind==="bad"){ n.style.borderColor="#fecaca"; n.style.background="#fef2f2"; n.style.color="#991b1b"; } else { n.style.borderColor="#fed7aa"; n.style.background="#fff7ed"; n.style.color="#9a3412"; } }
     function setSave(msg, kind="ok"){ const b=$("#saveBadge"); b.textContent=msg; b.className="badge "+(kind==="bad"?"bad":kind==="warn"?"warn":"ok"); }
+    const MAX_SCREEN_TIMELINE_DAYS = 730;
+    const MAX_DATE_SCAN_DAYS = 3660;
+    const MAX_TASK_WORKDAYS = 2600;
     const pad = n => String(n).padStart(2,"0");
     function parseDate(v){ if(!v) return null; const s=String(v).trim(); let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) return new Date(Date.UTC(+m[1],+m[2]-1,+m[3])); m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/); if(m) return new Date(Date.UTC(+m[3],+m[2]-1,+m[1])); return null; }
     function toIso(v){ const d = v instanceof Date ? v : parseDate(v); return d ? `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}` : ""; }
@@ -1404,13 +1407,14 @@ var CWS = window.CWS;</script>
     function previousWorkingIso(st, iso){ let d=toIso(iso)||toIso(new Date()); for(let i=0;i<900;i++){ if(isWorkingIso(st,d)) return d; d=addDays(d,-1); } return d; }
     function workdaysBetween(st, s, e){
       const out=[]; if(!s||!e) return out; let a=toIso(s), b=toIso(e); if(!a||!b) return out; if(dayDiff(a,b)<0){ const t=a; a=b; b=t; }
-      for(let d=a; dayDiff(d,b)<=0; d=addDays(d,1)){ if(isWorkingIso(st,d)) out.push(d); }
+      let scanned=0;
+      for(let d=a; dayDiff(d,b)<=0 && scanned<MAX_DATE_SCAN_DAYS; d=addDays(d,1),scanned++){ if(isWorkingIso(st,d)) out.push(d); }
       return out;
     }
     function duration(s,e){ return Math.max(1, workdaysBetween(state(),s,e).length || calendarDuration(s,e)); }
     /* V41 compatibility: addDays(start,days-1) is superseded by addWorkingDays for V59. */
     function addWorkingDays(st, startIso, workdays){
-      const total=Math.max(1,Number(workdays)||1); let cur=nextWorkingIso(st,startIso); let count=1;
+      const total=Math.min(MAX_TASK_WORKDAYS,Math.max(1,Number(workdays)||1)); let cur=nextWorkingIso(st,startIso); let count=1;
       while(count<total){ cur=nextWorkingIso(st,addDays(cur,1)); count++; }
       return cur;
     }
@@ -1716,8 +1720,11 @@ var CWS = window.CWS;</script>
       const derivedEnd = addWorkingDays(st, start, desiredWorkdays);
       const storedEnd = sc?.end ? previousWorkingIso(st, sc.end) : derivedEnd;
       const end = calendarDuration(start, storedEnd) >= calendarDuration(start, derivedEnd) ? storedEnd : derivedEnd;
-      const left = xFor(start, range);
-      const width = Math.max(pxPerDay(), calendarDuration(start, end) * pxPerDay());
+      const rangeEnd = addDays(range.start, Math.max(0, Number(range.days || 1) - 1));
+      const visibleStart = start < range.start ? range.start : (start > rangeEnd ? rangeEnd : start);
+      const visibleEnd = end > rangeEnd ? rangeEnd : (end < range.start ? range.start : end);
+      const left = xFor(visibleStart, range);
+      const width = Math.max(pxPerDay(), calendarDuration(visibleStart, visibleEnd) * pxPerDay());
       return { start, end, left, width, workdays: desiredWorkdays };
     }
 
@@ -1773,7 +1780,25 @@ var CWS = window.CWS;</script>
     }
     function filteredRows(model, scheduleMap=null){ const dept=UI.dept, res=UI.resource, q=String($("#searchInput")?.value||"").toLowerCase(); const sm=scheduleMap || effectiveScheduleMap(model,state()); return model.rows.map((row,index)=>({row,index,sc:sm[row.id]||{}})).filter(x=>{ const r=x.row; const matchSelf=(!dept||r.department===dept)&&(!res||r.resourceId===res)&&(!q||[r.id,r.name,r.department].join(" ").toLowerCase().includes(q)); if(r.type!=="summary") return matchSelf; // keep summary if any direct/desc child visible
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
-    function timelineRange(rows, st, pid){ const dates=[]; rows.forEach(x=>{ if(x.sc?.start)dates.push(x.sc.start); if(x.sc?.end)dates.push(x.sc.end); }); if(!dates.length) dates.push(firstProjectStart(st,pid)); const sorted=dates.slice().sort(); const min=sorted[0]; const max=sorted.at(-1); const start=startOfWeek(addDays(min,-7)); if(UI.printMode){ const endPad=startOfWeek(addDays(max,7)); return {start,days:Math.max(14,dayDiff(start,endPad)+7)}; } let days=UI.zoom==="month"?120:UI.zoom==="week"?70:42; const needed=dayDiff(start,max)+14; days=Math.max(days,needed); return {start,days}; }
+    function timelineRange(rows, st, pid){
+      const anchor=toIso(firstProjectStart(st,pid))||toIso(new Date());
+      const dates=[];
+      rows.forEach(x=>{
+        [x.sc?.start,x.sc?.end].forEach(value=>{
+          const iso=toIso(value);
+          if(iso && Math.abs(dayDiff(anchor,iso))<=MAX_DATE_SCAN_DAYS) dates.push(iso);
+        });
+      });
+      if(!dates.length) dates.push(anchor);
+      const sorted=dates.slice().sort();
+      const min=sorted[0];
+      const max=sorted.at(-1);
+      const start=startOfWeek(addDays(min,-7));
+      const required=Math.max(14,dayDiff(start,max)+14);
+      if(UI.printMode) return {start,days:Math.min(MAX_SCREEN_TIMELINE_DAYS,required)};
+      const base=UI.zoom==="month"?120:UI.zoom==="week"?70:42;
+      return {start,days:Math.min(MAX_SCREEN_TIMELINE_DAYS,Math.max(base,required))};
+    }
     function pxPerDay(){ if(UI.printMode) return Number(UI.printDayW||12); return UI.zoom==="day"?34:UI.zoom==="week"?22:10; }
     function targetPrintWidth(){ return UI.printMode ? 1760 : Math.max(1120, Math.min(1460, (window.innerWidth||1360)-120)); }
     function setPrintDayWidth(range){
@@ -2738,7 +2763,7 @@ var CWS = window.CWS;</script>
         }
         scheduleRender("store-subscribe");
       }); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>scheduleRender("resize"),120); }); }
-    bind(); render();
+    bind(); scheduleRender("initial");
   })();
   </script>
 </body>
