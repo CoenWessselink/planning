@@ -14,7 +14,7 @@ check('V66 centrale Gantt-balkgeometrie aanwezig', /function continuousBarGeomet
 check('V66 drag gebruikt effectieve rowSchedule als basis', /const eff=rowSchedule\(model,row,rowIndex\)\|\|\{\}/.test(gantt));
 check('V66 pointermove gebruikt continuousBarGeometry', /const geom=continuousBarGeometry\(row,sc,\{start:UI\.originStart,days:9999\},st\)/.test(gantt));
 check('V66 dependencylijnen gebruiken effectiveScheduleMap', /const effectiveMap=effectiveScheduleMap\(model,state\(\)\)/.test(gantt));
-check('V66 visuele balkbreedte gebruikt max stored en derived end', /calendarDuration\(start, storedEnd\).*calendarDuration\(start, derivedEnd\)/s.test(gantt));
+check('V66 visuele balkbreedte vertrouwt stored end alleen bij passende werkdagenduur', /storedWorkdays===desiredWorkdays\s*\?\s*storedEnd\s*:\s*derivedEnd/.test(gantt) && /taskDurationForInteraction\(row, sc \|\| \{\}\)/.test(gantt));
 check('V66 geen workday shell segment renderer', !/data-workday-shell="1"/.test(gantt) && !/segmentHtml=renderSegments/.test(gantt));
 
 const legacy = {

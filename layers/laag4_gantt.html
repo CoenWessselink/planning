@@ -1501,23 +1501,42 @@ var CWS = window.CWS;</script>
       if(Number.isFinite(scheduleDuration)&&scheduleDuration>=1) return Math.round(scheduleDuration);
       return duration(sc?.start,sc?.end)||1;
     }
+    function interactionSchedule(st,row,sc){
+      const raw=sc||{};
+      const workdays=taskDurationForInteraction(row,raw);
+      const start=nextWorkingIso(st,raw.start||raw.end||toIso(new Date()));
+      const storedEnd=raw.end?previousWorkingIso(st,raw.end):"";
+      const storedWorkdays=storedEnd?workdaysBetween(st,start,storedEnd).length:0;
+      const end=storedEnd&&storedEnd>=start&&storedWorkdays===workdays
+        ? storedEnd
+        : addWorkingDays(st,start,workdays);
+      return {start,end,workdays};
+    }
+    function resizeWorkdayDelta(st,fromIso,toIso){
+      const direction=dayDiff(fromIso,toIso)>=0?1:-1;
+      let cursor=fromIso, count=0, scanned=0;
+      while(cursor!==toIso && scanned<MAX_DATE_SCAN_DAYS){
+        cursor=addDays(cursor,direction);
+        if(isWorkingIso(st,cursor)) count+=direction;
+        scanned++;
+      }
+      return count;
+    }
     function resizeScheduleByPointer(st, sc, handle, delta){
       const originalStart=nextWorkingIso(st,sc.start);
       const originalEnd=previousWorkingIso(st,sc.end);
-      const originalWorkdays=Math.max(1,Number(sc.workdays)||duration(originalStart,originalEnd)||1);
+      const originalWorkdays=Math.max(1,Number(sc.workdays)||1);
       if(handle==="left"){
         let start=nextWorkingIso(st,addDays(originalStart,delta));
         if(start>originalEnd) start=originalEnd;
-        const expected=Math.max(1,originalWorkdays-delta);
-        const counted=Math.max(1,workdaysBetween(st,start,originalEnd).length);
-        const workdays=start===originalEnd?1:(Math.abs(counted-expected)<=2?counted:expected);
+        const crossed=resizeWorkdayDelta(st,originalStart,start);
+        const workdays=Math.max(1,originalWorkdays-crossed);
         return {start,end:originalEnd,workdays};
       }
       let end=previousWorkingIso(st,addDays(originalEnd,delta));
       if(end<originalStart) end=originalStart;
-      const expected=Math.max(1,originalWorkdays+delta);
-      const counted=Math.max(1,workdaysBetween(st,originalStart,end).length);
-      const workdays=end===originalStart?1:(Math.abs(counted-expected)<=2?counted:expected);
+      const crossed=resizeWorkdayDelta(st,originalEnd,end);
+      const workdays=Math.max(1,originalWorkdays+crossed);
       return {start:originalStart,end,workdays};
     }
     function workSegments(st,startIso,endIso,range){
@@ -1768,15 +1787,16 @@ var CWS = window.CWS;</script>
       const sc = rawSc || {};
       const rawStart = sc.start || row?.start || row?.startDate || row?.datumStart || row?.begindatum;
       const start = nextWorkingIso(st, rawStart || sc.end || toIso(new Date()));
-      if(sc.explicitRange && sc.start && sc.end && sc.start<=sc.end){
+      const desired = taskDurationForInteraction(row,sc);
+      const explicitWorkdays=sc.start&&sc.end?workdaysBetween(st,sc.start,sc.end).length:0;
+      if(sc.explicitRange && sc.start && sc.end && sc.start<=sc.end && explicitWorkdays===desired){
         return {
           start:sc.start,
           end:sc.end,
-          workdays:Math.max(1,Number(sc.workdays)||workdaysBetween(st,sc.start,sc.end).length||calendarDuration(sc.start,sc.end)||1),
+          workdays:desired,
           derived:false
         };
       }
-      const desired = rowWorkdayDuration(row, sc);
       const currentWorkdays = sc.start && sc.end ? workdaysBetween(st, sc.start, sc.end).length : 0;
       // Recovery rule: restored legacy D1 rows sometimes have correct row.duration but
       // missing/short sched.end. In that case do not render a 1-day marker; derive the
@@ -1815,10 +1835,11 @@ var CWS = window.CWS;</script>
       const start = nextWorkingIso(st, sc?.start || row?.start || row?.startDate || range.start);
       const desiredWorkdays = row?.type === "summary"
         ? Math.max(1, sc?.start && sc?.end ? duration(sc.start, sc.end) : 1)
-        : rowWorkdayDuration(row, sc || {});
+        : taskDurationForInteraction(row, sc || {});
       const derivedEnd = addWorkingDays(st, start, desiredWorkdays);
       const storedEnd = sc?.end ? previousWorkingIso(st, sc.end) : derivedEnd;
-      const end = calendarDuration(start, storedEnd) >= calendarDuration(start, derivedEnd) ? storedEnd : derivedEnd;
+      const storedWorkdays=storedEnd?workdaysBetween(st,start,storedEnd).length:0;
+      const end = row?.type==="summary" || storedWorkdays===desiredWorkdays ? storedEnd : derivedEnd;
       const rangeEnd = addDays(range.start, Math.max(0, Number(range.days || 1) - 1));
       const visibleStart = start < range.start ? range.start : (start > rangeEnd ? rangeEnd : start);
       const visibleEnd = end > rangeEnd ? rangeEnd : (end < range.start ? range.start : end);
@@ -2385,10 +2406,10 @@ var CWS = window.CWS;</script>
           const rowIndex=model.rows.findIndex(r=>r.id===id);
           const eff=rowSchedule(model,row,rowIndex)||{};
           const stored=model.sched[id]||{};
-          const baseSc={...(stored.start&&stored.end?stored:(eff.start||eff.end?eff:stored))};
-          if(!baseSc.start && bar.dataset.start) baseSc.start=bar.dataset.start;
-          if((!baseSc.end || calendarDuration(baseSc.start,baseSc.end)<=1) && bar.dataset.end) baseSc.end=bar.dataset.end;
-          const originalDuration=taskDurationForInteraction(row,baseSc);
+          const rawBase={...(stored.start||stored.end?stored:eff)};
+          if(!rawBase.start && bar.dataset.start) rawBase.start=bar.dataset.start;
+          const baseSc=interactionSchedule(state(),row,rawBase);
+          const originalDuration=baseSc.workdays;
           const immutableRef=Object.freeze({
             projectId:pid,
             rowId:id,
