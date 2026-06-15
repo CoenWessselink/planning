@@ -17,7 +17,14 @@
     .notice{margin:12px 18px;padding:10px 12px;border:1px solid #fed7aa;border-radius:11px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:13px}.notice.hidden{display:none}.meta-line{display:flex;justify-content:center;color:#7b8797;font-size:12px;padding:8px 18px 12px 18px}
     .board-wrap{margin:0 18px 18px;border:1px solid var(--line);border-radius:13px;overflow:auto;background:#fff;position:relative}.board{display:grid;grid-template-columns:minmax(620px,var(--leftW)) max-content;min-width:1180px}.board.table-only{grid-template-columns:1fr}.board.table-only .chart-pane{display:none}.board.diagram-only{grid-template-columns:max-content}.board.diagram-only .table-pane{display:none}.table-pane{position:sticky;left:0;z-index:5;background:#fff;border-right:1px solid var(--line);box-shadow:4px 0 10px rgba(15,23,42,.03)}
     table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}.gantt-table thead th{height:var(--headH);vertical-align:bottom;position:sticky;top:0;z-index:7;background:linear-gradient(#fff,#f8fafc);border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;color:#334155;white-space:nowrap}.gantt-table tbody tr{height:var(--rowH)}.gantt-table td{height:var(--rowH);padding:0 8px;border-bottom:1px solid #eef2f7;vertical-align:middle;white-space:nowrap}.gantt-table tr:hover td{background:#f8fbff}.gantt-table tr.selected td{background:#eaf3ff}.taskcell{display:flex;align-items:center;gap:6px;min-width:230px}.twisty{width:16px;text-align:center;color:#334155}.taskname{border:0;background:transparent;height:34px;min-width:160px;width:100%;font-weight:650}.taskname:focus,.cellinput:focus{outline:2px solid #bfdbfe;border-radius:8px;background:#fff}.summary .taskname{font-weight:900}.cellinput{border:0;background:transparent;height:34px;width:100%;min-width:74px}.smallinput{min-width:56px;width:66px}.color-select,.resource-select,.dept-select{width:100%;height:34px;border:0;background:transparent}.lockbox{width:18px;height:18px}.row-actions{display:flex;gap:5px;align-items:center;justify-content:center}.iconbtn{width:28px;height:28px;border:1px solid #d7dee8;border-radius:8px;background:#fff;color:#0f172a;font-weight:900;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.iconbtn:hover{background:#eff6ff;border-color:#93c5fd}.iconbtn.danger:hover{background:#fef2f2;border-color:#fca5a5;color:#991b1b}.iconbtn:disabled{opacity:.45;cursor:not-allowed}.chart-pane{min-width:900px;position:relative;background:#fff}.timeline{height:var(--headH);position:sticky;top:0;z-index:4;background:linear-gradient(#fff,#f8fafc);border-bottom:1px solid var(--line);display:grid;grid-template-rows:34px 34px 34px}.tl-row{display:grid;min-width:max-content}.tl-cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;color:#475569;font-weight:700}.tl-cell.day.weekend{background:#fafafa;color:#94a3b8}.tl-cell.today{background:#fef2f2;color:#b91c1c}.lane{height:var(--rowH);position:relative;border-bottom:1px solid #eef2f7;background-image:linear-gradient(to right,#e7ecf3 1px,transparent 1px);background-size:var(--dayW) 100%}.lane:nth-child(even){background-color:#fbfdff}.bar{position:absolute;top:2px;height:45px;border-radius:8px;background:var(--blue);color:#fff;display:flex;align-items:center;padding:0 9px;font-size:12px;font-weight:800;box-shadow:0 4px 10px rgba(47,111,189,.22);cursor:grab;overflow:hidden}.bar.locked{opacity:.65;filter:grayscale(.25);cursor:not-allowed}.bar.critical{box-shadow:0 0 0 2px rgba(220,38,38,.65),0 4px 10px rgba(47,111,189,.22)}.bar.summary{background:transparent!important;box-shadow:none;cursor:default;color:#111827;padding:0}.bar.summary:before{content:"";position:absolute;left:0;right:0;top:20px;border-top:4px solid rgba(15,23,42,.90);border-radius:2px}.bar.summary:after{content:"";position:absolute;left:0;right:0;top:29px;border-top:2px solid rgba(15,23,42,.85);border-radius:2px}.bar-label{position:relative;z-index:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar-progress{position:absolute;left:0;top:0;bottom:0;background:rgba(187,247,208,.62);border-right:2px solid rgba(22,101,52,.72);z-index:1;pointer-events:none}.bar-progress.done{background:rgba(220,252,231,.82)}.bar-feedback-dot{position:absolute;right:5px;top:5px;width:14px;height:14px;border-radius:999px;background:#fff;color:#1d4ed8;border:1px solid rgba(29,78,216,.35);font-size:10px;line-height:12px;text-align:center;font-weight:900;z-index:3;box-shadow:0 1px 3px rgba(15,23,42,.18)}.handle{position:absolute;top:0;width:8px;height:100%;background:rgba(255,255,255,.26);cursor:ew-resize}.handle.left{left:0}.handle.right{right:0}.summary .handle{display:none}.baseline{position:absolute;height:7px;border-radius:4px;background:#111827;opacity:.32;bottom:3px}.dep-svg{position:absolute;left:0;top:var(--headH);width:100%;height:calc(100% - var(--headH));pointer-events:none;overflow:visible}.empty{margin:18px;padding:24px;border:1px dashed #cbd5e1;border-radius:14px;text-align:center;color:#64748b;background:#f8fafc}.context{margin:0 18px 18px;border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}.context-head{padding:11px 13px;border-bottom:1px solid var(--line);font-weight:900}.context-body{padding:12px;color:#475569;font-size:13px}.ctx-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px}.ctx-card{border:1px solid #e2e8f0;border-radius:10px;padding:9px;background:#f8fafc}.ctx-card b{display:block;color:#0f172a;margin-bottom:3px}.modalback{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:1000}.modalback.show{display:flex}.modal{width:min(920px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 18px 60px rgba(15,23,42,.28);border:1px solid #e2e8f0}.modal-head,.modal-foot{padding:14px 16px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center}.modal-foot{border-top:1px solid #e2e8f0;border-bottom:0;justify-content:flex-end;gap:8px}.modal-body{padding:16px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#64748b;font-weight:700}.field input,.field select,.field textarea{height:38px;border:1px solid #d7dee8;border-radius:10px;padding:0 10px;background:#fff}.field textarea{height:76px;padding:10px;resize:vertical}.gantt-context-menu{position:fixed;z-index:1600;min-width:230px;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 18px 48px rgba(15,23,42,.22);padding:6px;display:none}.gantt-context-menu.show{display:block}.gantt-context-menu button{width:100%;height:34px;border:0;background:#fff;border-radius:9px;text-align:left;padding:0 10px;font-size:13px;font-weight:700;color:#0f172a;cursor:pointer}.gantt-context-menu button:hover{background:#eff6ff;color:#1d4ed8}.gantt-context-menu button.danger:hover{background:#fef2f2;color:#991b1b}.gantt-context-menu .sep{height:1px;background:#e5e7eb;margin:5px 4px}.gantt-context-menu .title{font-size:11px;font-weight:900;color:#64748b;padding:6px 10px 4px;text-transform:uppercase;letter-spacing:.04em}.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#172033;color:#fff;border-radius:999px;padding:10px 14px;font-weight:800;font-size:13px;box-shadow:0 12px 30px rgba(15,23,42,.25);opacity:0;pointer-events:none;transition:.18s;z-index:1200}.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}@media print{@page{size:A3 landscape;margin:10mm}.toolbar,.notice,.context,.module-head .status{display:none!important}body{padding:0;background:#fff}.gantt-shell,.board-wrap{box-shadow:none;border:0;margin:0}.board{min-width:0}.table-pane{position:relative}.chart-pane{overflow:visible}.bar{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
-
+    /* V79 pointer targets: make move/resize reliable without changing print geometry. */
+    .bar:not(.summary){padding-left:12px;padding-right:12px;touch-action:none;user-select:none}
+    .bar:not(.summary):active{cursor:grabbing}
+    .bar-label,.bar-feedback-dot{pointer-events:none}
+    .handle{width:14px;z-index:4;touch-action:none;background:rgba(255,255,255,.20)}
+    .handle.left{border-radius:8px 0 0 8px}
+    .handle.right{border-radius:0 8px 8px 0}
+    .handle:hover{background:rgba(255,255,255,.42)}
 
     /* V12 Gantt alignment fix
        The left task table has 11 columns. In V11 the table was wider than the
@@ -1010,6 +1017,17 @@
     }
 
   .gantt-dragging{user-select:none!important;cursor:grabbing!important}.bar.drag-preview{box-shadow:0 0 0 2px rgba(37,99,235,.30),0 6px 16px rgba(37,99,235,.22)}
+    /* Runtime layout: keep the sticky task table from covering the chart. */
+    .board:not(.table-only):not(.diagram-only){
+      grid-template-columns:48vw max-content!important;
+      min-width:calc(48vw + 900px)!important;
+    }
+    .board:not(.table-only):not(.diagram-only) .table-pane{
+      width:48vw!important;
+      min-width:48vw!important;
+      max-width:48vw!important;
+      overflow-x:auto!important;
+    }
   </style>
 </head>
 <body>
@@ -1429,6 +1447,18 @@ var CWS = window.CWS;</script>
       let start=nextWorkingIso(st, addDays(sc.start, delta));
       return normalizeSchedule(st,start,null,wd);
     }
+    function resizeScheduleByPointer(st, sc, handle, delta){
+      const originalStart=nextWorkingIso(st,sc.start);
+      const originalEnd=previousWorkingIso(st,sc.end);
+      if(handle==="left"){
+        let start=nextWorkingIso(st,addDays(originalStart,delta));
+        if(start>originalEnd) start=originalEnd;
+        return {start,end:originalEnd,workdays:Math.max(1,workdaysBetween(st,start,originalEnd).length)};
+      }
+      let end=previousWorkingIso(st,addDays(originalEnd,delta));
+      if(end<originalStart) end=originalStart;
+      return {start:originalStart,end,workdays:Math.max(1,workdaysBetween(st,originalStart,end).length)};
+    }
     function workSegments(st,startIso,endIso,range){
       const days=workdaysBetween(st,startIso,endIso);
       if(!days.length) return [];
@@ -1677,6 +1707,14 @@ var CWS = window.CWS;</script>
       const sc = rawSc || {};
       const rawStart = sc.start || row?.start || row?.startDate || row?.datumStart || row?.begindatum;
       const start = nextWorkingIso(st, rawStart || sc.end || toIso(new Date()));
+      if(sc.explicitRange && sc.start && sc.end && sc.start<=sc.end){
+        return {
+          start:sc.start,
+          end:sc.end,
+          workdays:Math.max(1,Number(sc.workdays)||workdaysBetween(st,sc.start,sc.end).length||calendarDuration(sc.start,sc.end)||1),
+          derived:false
+        };
+      }
       const desired = rowWorkdayDuration(row, sc);
       const currentWorkdays = sc.start && sc.end ? workdaysBetween(st, sc.start, sc.end).length : 0;
       // Recovery rule: restored legacy D1 rows sometimes have correct row.duration but
@@ -2281,7 +2319,8 @@ var CWS = window.CWS;</script>
           if(e.pointerType==="touch" && window.matchMedia?.("(max-width: 767px)")?.matches && handle==="move") return;
           const rowIndex=model.rows.findIndex(r=>r.id===id);
           const eff=rowSchedule(model,row,rowIndex)||{};
-          const baseSc={...(eff.start||eff.end?eff:(model.sched[id]||{}))};
+          const stored=model.sched[id]||{};
+          const baseSc={...(stored.start&&stored.end?stored:(eff.start||eff.end?eff:stored))};
           if(!baseSc.start && bar.dataset.start) baseSc.start=bar.dataset.start;
           if((!baseSc.end || calendarDuration(baseSc.start,baseSc.end)<=1) && bar.dataset.end) baseSc.end=bar.dataset.end;
           const originalDuration=duration(baseSc.start,baseSc.end);
@@ -2296,6 +2335,7 @@ var CWS = window.CWS;</script>
             ...immutableRef,
             handle,
             startX:e.clientX,
+            dayWidth:pxPerDay(),
             pointerId:e.pointerId,
             originalSchedule:Object.freeze({...baseSc, workdays:originalDuration}),
             tempSchedule:null,
@@ -2315,17 +2355,15 @@ var CWS = window.CWS;</script>
     window.addEventListener("pointermove",e=>{
       const drag=UI.drag;
       if(!drag || e.pointerId!==drag.pointerId) return;
-      const delta=Math.round((e.clientX-drag.startX)/pxPerDay());
+      const delta=Math.round((e.clientX-drag.startX)/drag.dayWidth);
       if(delta===drag.lastDelta){ e.preventDefault(); return; }
       drag.lastDelta=delta;
       const st=state();
       let schedule={...drag.originalSchedule};
       if(drag.handle==="move"){
         schedule=shiftScheduleByWorkdays(st,drag.originalSchedule,delta);
-      }else if(drag.handle==="left"){
-        schedule=normalizeSchedule(st,addDays(drag.originalStart,delta),drag.originalEnd);
       }else{
-        schedule=normalizeSchedule(st,drag.originalStart,addDays(drag.originalEnd,delta));
+        schedule=resizeScheduleByPointer(st,drag.originalSchedule,drag.handle,delta);
       }
       drag.tempSchedule=schedule;
       drag.previewSchedule=schedule;
@@ -2369,14 +2407,16 @@ var CWS = window.CWS;</script>
         const model=getModel(drag.projectId);
         const row=model.rows.find(item=>item.id===drag.rowId);
         if(!row || row.locked || row.type==="summary") return;
-        const normalized=normalizeSchedule(
-          state(),
-          drag.tempSchedule.start,
-          drag.tempSchedule.end,
-          drag.handle==="move" ? drag.originalDuration : null
-        );
+        const normalized=drag.handle==="move"
+          ? normalizeSchedule(
+              state(),
+              drag.tempSchedule.start,
+              drag.tempSchedule.end,
+              drag.originalDuration
+            )
+          : {...drag.tempSchedule};
         if(!normalized.start || !normalized.end){ toast("Wijziging geweigerd: ongeldige taakdatum.","warn"); return; }
-        model.sched[drag.rowId]={...(model.sched[drag.rowId]||{}),...normalized};
+        model.sched[drag.rowId]={...(model.sched[drag.rowId]||{}),...normalized,explicitRange:true};
         row.duration=normalized.workdays;
         normalizeModelSchedulesForWorkdays(state(),model);
         const action=drag.handle==="move"?"gantt_task_moved":"gantt_task_resized";
@@ -2390,6 +2430,9 @@ var CWS = window.CWS;</script>
           originalEnd:drag.originalEnd,
           start:normalized.start,
           end:normalized.end,
+          workdays:normalized.workdays,
+          pointerDelta:drag.lastDelta,
+          pointerDayWidth:drag.dayWidth,
           deferPersistence:true,
           v74DragResizeFreezeFix:true,
           v75PointerLifecycleFix:true, v76BootRenderLoopFix:true

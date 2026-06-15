@@ -1449,6 +1449,34 @@ window.CWS = window.CWS || {};
     }
     const next = resultValue && typeof resultValue === "object" && !Array.isArray(resultValue) ? resultValue : draft;
     normalizeState(next);
+    const mutationPayload = typeof payload === "function" ? {} : (payload || {});
+    if(
+      (action === "gantt_task_moved" || action === "gantt_task_resized") &&
+      mutationPayload.projectId && mutationPayload.rowId &&
+      mutationPayload.start && mutationPayload.end
+    ){
+      const model = next.ganttV2?.byProject?.[mutationPayload.projectId];
+      const row = model?.rows?.find(item => String(item?.id) === String(mutationPayload.rowId));
+      if(model && row){
+        const current = model.sched?.[mutationPayload.rowId] || {};
+        const workdays = Math.max(
+          1,
+          baseNum(mutationPayload.workdays) ||
+          baseNum(current.workdays) ||
+          getTaskWorkdays(next, mutationPayload.start, mutationPayload.end).length ||
+          baseNum(row.duration) ||
+          1
+        );
+        model.sched[mutationPayload.rowId] = {
+          ...current,
+          start:mutationPayload.start,
+          end:mutationPayload.end,
+          workdays,
+          explicitRange:true
+        };
+        row.duration = workdays;
+      }
+    }
     rebuildGanttHoursByDay(next);
     if(viewerBlocked(before, next)){
       try{ window.UI?.toast?.("Viewer heeft alleen leesrechten."); }catch(_){}
@@ -2177,12 +2205,24 @@ window.CWS = window.CWS || {};
     return { start, end:addGanttWorkdays(st, start, days), workdays:days };
   };
 
-  const normalizeGanttModelSchedules = (st, model) => {
+  const normalizeGanttModelSchedules = (st, model, options={}) => {
     if(!model || !Array.isArray(model.rows)) return model || { rows:[], sched:{} };
     model.sched = model.sched && typeof model.sched === "object" ? model.sched : {};
     model.rows.forEach(row => {
       if(!row || row.type === "summary" || row.type === "phase") return;
       const sc = model.sched[row.id] || {};
+      if(options.preserveExplicitRange && sc.start && sc.end && sc.start <= sc.end){
+        const explicitWorkdays = Math.max(
+          1,
+          baseNum(sc.workdays) ||
+          getTaskWorkdays(st, sc.start, sc.end).length ||
+          baseNum(row.duration || row.days || row.duur) ||
+          1
+        );
+        model.sched[row.id] = { ...sc, start:sc.start, end:sc.end, workdays:explicitWorkdays };
+        row.duration = explicitWorkdays;
+        return;
+      }
       const scheduleWorkdays = sc.start && sc.end ? getTaskWorkdays(st, sc.start, sc.end).length : 0;
       const preferred = Math.max(1, scheduleWorkdays || baseNum(row.duration || row.days || row.duur) || 1);
       const fixed = normalizeGanttScheduleRange(st, sc.start, sc.end, preferred);
@@ -2353,7 +2393,12 @@ window.CWS = window.CWS || {};
       return mutate(action, { projectId, ...mutationMeta }, draft => {
         draft.ganttV2 = draft.ganttV2 || { byProject:{}, ui:{} };
         draft.ganttV2.byProject = draft.ganttV2.byProject || {};
-        draft.ganttV2.byProject[projectId] = normalizeGanttModelSchedules(draft, deepClone(model));
+        const preserveExplicitRange = action === "gantt_task_moved" || action === "gantt_task_resized";
+        draft.ganttV2.byProject[projectId] = normalizeGanttModelSchedules(
+          draft,
+          deepClone(model),
+          { preserveExplicitRange }
+        );
         rebuildGanttHoursByDay(draft);
       });
     },

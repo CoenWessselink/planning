@@ -80,6 +80,25 @@ async function openRoute(route, width=1440, height=1000) {
 async function mouse(type, x, y, buttons=0) {
   await cdp("Input.dispatchMouseEvent", { type, x, y, button:"left", buttons, clickCount:1 });
 }
+async function dragPointer(targetExpression, deltaX, steps=5) {
+  let target = await evaluate(targetExpression);
+  if(!target) return null;
+  const viewportWidth = await evaluate("window.innerWidth");
+  if(target.x < 12 || target.x > viewportWidth - 12) {
+    await evaluate(`document.querySelector('#boardWrap').scrollLeft += ${JSON.stringify(target.x - (viewportWidth * .72))}`);
+    await delay(100);
+    target = await evaluate(targetExpression);
+  }
+  if(!target || target.x < 12 || target.x > viewportWidth - 12) return null;
+  await mouse("mouseMoved", target.x, target.y, 0);
+  await mouse("mousePressed", target.x, target.y, 1);
+  for(let step=1; step<=steps; step+=1) {
+    await mouse("mouseMoved", target.x + (deltaX * step / steps), target.y, 1);
+  }
+  await mouse("mouseReleased", target.x + deltaX, target.y, 0);
+  await delay(250);
+  return target;
+}
 
 try {
   server = spawn(process.execPath, ["scripts/serve.mjs", `--port=${port}`], {
@@ -206,23 +225,37 @@ try {
   await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
   check("Gantt projectdropdown gevuld", await evaluate("document.querySelectorAll('#projectSel option').length > 0"));
   check("Gantt brede continue balk zichtbaar", await evaluate("Array.from(document.querySelectorAll('.bar:not(.summary)')).some(el => el.getBoundingClientRect().width > 60)"));
-  await evaluate("document.querySelector('.bar:not(.summary):not(.locked)')?.scrollIntoView({block:'center',inline:'center'})");
+  check("Gantt tabel bedekt de balken niet", await evaluate(`(()=>{const table=document.querySelector('.table-pane');const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!table||!bar)return false;const t=table.getBoundingClientRect(),r=bar.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return t.right<=r.left && !!hit?.closest('.bar');})()`));
+  await evaluate("document.querySelector('#boardWrap').scrollLeft=0");
   await delay(150);
-  const dragBefore = await evaluate(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!bar)return null;const r=bar.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`);
+  const dragBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!bar)return null;const r=bar.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`, 66);
   if(dragBefore) {
-    await evaluate(`(()=>{const pid=${JSON.stringify(dragBefore.pid)},id=${JSON.stringify(dragBefore.id)};const model=CWS.gantt.getProjectGantt(pid);const sc=model.sched[id];const add=(iso,n)=>{const d=new Date(iso+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};model.sched[id]={...sc,start:add(sc.start,7),end:add(sc.end,7)};return CWS.gantt.saveProjectGantt(pid,model,{action:"gantt_task_moved",rowId:id,originalStart:sc.start,originalEnd:sc.end,start:model.sched[id].start,end:model.sched[id].end}).ok;})()`);
-    await delay(300);
     const dragged = await evaluate(`(()=>{const sc=CWS.getState().ganttV2.byProject[${JSON.stringify(dragBefore.pid)}].sched[${JSON.stringify(dragBefore.id)}];return {ok:sc.start!==${JSON.stringify(dragBefore.start)} && CWS.getState().meta.lastAction==='gantt_task_moved',start:sc.start,end:sc.end,lastAction:CWS.getState().meta.lastAction,validation:CWS.getLastValidation()};})()`);
     check("Gantt drag werkt met één mutatie", dragged.ok, JSON.stringify(dragged));
   } else check("Gantt dragbare balk gevonden", false);
 
-  const resizeBefore = await evaluate(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,end:sc.end};})()`);
+  const resizeBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`, 66);
   if(resizeBefore) {
-    await evaluate(`(()=>{const pid=${JSON.stringify(resizeBefore.pid)},id=${JSON.stringify(resizeBefore.id)};const model=CWS.gantt.getProjectGantt(pid);const sc=model.sched[id];const d=new Date(sc.end+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+7);model.sched[id]={...sc,end:d.toISOString().slice(0,10)};return CWS.gantt.saveProjectGantt(pid,model,{action:"gantt_task_resized",rowId:id,handle:"right",originalEnd:sc.end,end:model.sched[id].end}).ok;})()`);
-    await delay(300);
-    const resized = await evaluate(`(()=>{const sc=CWS.getState().ganttV2.byProject[${JSON.stringify(resizeBefore.pid)}].sched[${JSON.stringify(resizeBefore.id)}];return {ok:sc.end!==${JSON.stringify(resizeBefore.end)} && CWS.getState().meta.lastAction==='gantt_task_resized',end:sc.end,lastAction:CWS.getState().meta.lastAction,validation:CWS.getLastValidation()};})()`);
-    check("Gantt rechter-resize werkt met validatie", resized.ok, JSON.stringify(resized));
+    const resized = await evaluate(`(()=>{const st=CWS.getState(),sc=st.ganttV2.byProject[${JSON.stringify(resizeBefore.pid)}].sched[${JSON.stringify(resizeBefore.id)}];return {ok:sc.start===${JSON.stringify(resizeBefore.start)} && sc.end!==${JSON.stringify(resizeBefore.end)} && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(resizeBefore)},validation:CWS.getLastValidation()};})()`);
+    check("Gantt rechter-resize houdt start vast", resized.ok, JSON.stringify(resized));
   } else check("Gantt resize-handle gevonden", false);
+
+  const leftResizeBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.left');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`, 44);
+  if(leftResizeBefore) {
+    const resized = await evaluate(`(()=>{const st=CWS.getState(),sc=st.ganttV2.byProject[${JSON.stringify(leftResizeBefore.pid)}].sched[${JSON.stringify(leftResizeBefore.id)}];return {ok:sc.start!==${JSON.stringify(leftResizeBefore.start)} && sc.end===${JSON.stringify(leftResizeBefore.end)} && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(leftResizeBefore)},validation:CWS.getLastValidation()};})()`);
+    check("Gantt linker-resize houdt einde vast", resized.ok, JSON.stringify(resized));
+  } else check("Gantt linker resize-handle gevonden", false);
+
+  const clampBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.left');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid};})()`, 900, 8);
+  if(clampBefore) {
+    const clamped = await evaluate(`(()=>{const sc=CWS.getState().ganttV2.byProject[${JSON.stringify(clampBefore.pid)}].sched[${JSON.stringify(clampBefore.id)}];return {ok:sc.start===sc.end,start:sc.start,end:sc.end,validation:CWS.getLastValidation()};})()`);
+    check("Gantt linker-resize kruist einddatum niet", clamped.ok, JSON.stringify(clamped));
+  }
+  const rightClampBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid};})()`, -900, 8);
+  if(rightClampBefore) {
+    const clamped = await evaluate(`(()=>{const sc=CWS.getState().ganttV2.byProject[${JSON.stringify(rightClampBefore.pid)}].sched[${JSON.stringify(rightClampBefore.id)}];return {ok:sc.start===sc.end,start:sc.start,end:sc.end,validation:CWS.getLastValidation()};})()`);
+    check("Gantt rechter-resize kruist startdatum niet", clamped.ok, JSON.stringify(clamped));
+  }
 
   await openRoute("layers/laag5_capaciteit.html?fixture=restored-d1", 390, 844);
   await evaluate("CWS.rebuildGanttHoursByDay()");
