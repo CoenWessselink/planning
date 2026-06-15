@@ -1046,12 +1046,14 @@
         max-height:calc(100vh - 180px);
         overscroll-behavior:contain;
       }
-      .gantt-table{font-size:10.5px!important}
-      .gantt-table thead th{height:var(--headH)!important;padding:6px 5px!important;font-size:9px}
+      .gantt-table{font-size:9px!important}
+      .gantt-table thead th{height:var(--headH)!important;padding:6px 4px!important;font-size:8px}
       .gantt-table tbody tr,.gantt-table td{height:var(--rowH)!important}
-      .gantt-table td{padding:0 5px!important}
-      .taskname,.cellinput,.color-select,.resource-select,.dept-select{height:28px!important;font-size:10.5px}
-      .taskname{font-weight:650}
+      .gantt-table td{padding:0 4px!important;font-size:9px!important}
+      .taskname,.cellinput,.color-select,.resource-select,.dept-select{height:27px!important;font-size:9px!important}
+      .taskname{font-weight:600}
+      .rowno-cell,.pred-nos{font-size:8.5px}
+      .date-cell .weekno{font-size:7px}
       .iconbtn{width:24px;height:24px;border-radius:7px;font-size:11px}
       .timeline{height:var(--headH)!important;grid-template-rows:26px 26px 26px!important}
       .tl-cell{font-size:9px}
@@ -1259,7 +1261,7 @@ var CWS = window.CWS;</script>
     function saveColumnOrder(ids){ try{ localStorage.setItem(COL_ORDER_KEY, JSON.stringify(ids)); }catch(e){} }
     function visibleColumns(){ const set=loadVisibleCols(); const order=loadColumnOrder(); const byId=new Map(ALL_COLUMNS.map(c=>[c.id,c])); return order.map(id=>byId.get(id)).filter(c=>c&&set.has(c.id)); }
     function textForCol(col,row,sc){
-      const d=duration(sc.start,sc.end);
+      const d=taskDurationForInteraction(row,sc);
       if(col.id==="rowno") return row._displayNo || "";
       if(col.id==="id") return row.id;
       if(col.id==="name") return row.name;
@@ -1353,7 +1355,7 @@ var CWS = window.CWS;</script>
       if(col.id==="name") return `<div class="taskcell"><span class="twisty">${row.type==="summary"?"▾":""}</span><span style="width:${indent}px"></span><input class="taskname" data-k="name" value="${esc(row.name)}" ${dis}></div>`;
       if(col.id==="start") return dateInputCell("start", sc.start, row.type==="summary"||row.locked||readOnly?"disabled":"");
       if(col.id==="end") return dateInputCell("end", sc.end, row.type==="summary"||row.locked||readOnly?"disabled":"");
-      if(col.id==="duration") return `<input class="cellinput duration-input" type="number" min="1" step="1" data-k="duration" value="${duration(sc.start,sc.end)}" ${row.type==="summary"||row.locked||readOnly?"disabled":""}> d`;
+      if(col.id==="duration") return `<input class="cellinput duration-input" type="number" min="1" step="1" data-k="duration" value="${taskDurationForInteraction(row,sc)}" ${row.type==="summary"||row.locked||readOnly?"disabled":""}> d`;
       if(col.id==="progress") return `<input class="cellinput smallinput" data-k="progress" value="${Number(row.progress||0)}" ${dis}>%`;
       if(col.id==="taskStatus") return `<select class="resource-select" data-k="status" ${dis}>${["Niet gestart","In uitvoering","Gereed","Aandacht","Geblokkeerd","N.v.t."].map(v=>`<option value="${v}" ${(row.status||((Number(row.progress||0)>=100)?"Gereed":(Number(row.progress||0)>0?"In uitvoering":"Niet gestart")))===v?"selected":""}>${v}</option>`).join("")}</select>`;
       if(col.id==="feedback") return `<input class="cellinput" data-k="feedback" title="${esc(row.feedback||row.why||"")}" value="${esc(row.feedback||row.why||"")}" ${dis}>`;
@@ -1894,10 +1896,13 @@ var CWS = window.CWS;</script>
       return {start,days:Math.min(MAX_SCREEN_TIMELINE_DAYS,Math.max(base,required))};
     }
     function pxPerDay(){ if(UI.printMode) return Number(UI.printDayW||12); return UI.zoom==="day"?34:UI.zoom==="week"?22:10; }
-    function targetPrintWidth(){ return UI.printMode ? 1760 : Math.max(1120, Math.min(1460, (window.innerWidth||1360)-120)); }
-    function setPrintDayWidth(range){
-      const target=targetPrintWidth();
-      UI.printDayW=Math.max(4.2, Math.min(18, Number(((target-2)/Math.max(1,range.days)).toFixed(3))));
+    function targetPrintWidth(printLeftW=0){
+      if(UI.printMode) return Math.max(820, 1500-Math.max(0,Number(printLeftW)||0));
+      return Math.max(1120, Math.min(1460, (window.innerWidth||1360)-120));
+    }
+    function setPrintDayWidth(range,printLeftW=0){
+      const target=targetPrintWidth(printLeftW);
+      UI.printDayW=Math.max(1.5, Math.min(18, Number(((target-2)/Math.max(1,range.days)).toFixed(3))));
       document.documentElement.style.setProperty("--dayW", UI.printDayW+"px");
     }
     function extendRangeForViewport(range,leftW){ if(UI.printMode||UI.view==="table") return range; const wrap=$("#boardWrap"); const w=pxPerDay(); const visible=Math.max(0,(wrap?.clientWidth||0)-(UI.view==="both"?leftW:0)-2); const minDays=Math.ceil(visible/w); return minDays>range.days ? {...range, days:minDays} : range; }
@@ -1991,6 +1996,7 @@ var CWS = window.CWS;</script>
       const scheduleMap=effectiveScheduleMap(model,st);
       const rows=filteredRows(model,scheduleMap);
       rows.forEach((x,i)=>{ x.row._displayNo=i+1; });
+      const printLeftW=renderPrintTaskTable(rows);
       const cids=UI.showCritical?criticalIds(model):new Set();
       const cols=visibleColumns();
       const widths=columnWidths(cols, rows);
@@ -1998,7 +2004,7 @@ var CWS = window.CWS;</script>
       document.documentElement.style.setProperty("--leftW", leftW+"px");
       $("#ganttTable").style.width=leftW+"px";
       let range=timelineRange(rows,st,pid);
-      if(UI.printMode) setPrintDayWidth(range); else { UI.printDayW=null; range=extendRangeForViewport(range,leftW); }
+      if(UI.printMode) setPrintDayWidth(range,printLeftW); else { UI.printDayW=null; range=extendRangeForViewport(range,leftW); }
       UI.originStart=range.start;
       updatePrintHeader(model, range);
       const days=buildTimeline(range);
@@ -2051,7 +2057,6 @@ var CWS = window.CWS;</script>
       const revMeta=model._revision ? ` | revisie ${model._revision.revNo||""} | revisiedatum ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"} | status ${model._revision.status||"—"}${model._revision.description?` | ${model._revision.description}`:""}` : " | live planning";
       $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | planning: werkbare dagen + PDF-balkweergave + V66 geometrie | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
       renderLegend(rows);
-      renderPrintTaskTable(rows);
       renderPrintCalendars($("#timeline")?.innerHTML || "", chartW);
       wireColumnDrag();
       wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range); renderContext(model);
@@ -2066,10 +2071,10 @@ var CWS = window.CWS;</script>
     }
     function renderPrintTaskTable(rows){
       const host=$("#printTaskTable");
-      if(!host) return;
+      if(!host) return 0;
       const rowsData=rows.map(({row,sc})=>{
         const res = textForCol({id:"resource"}, row, sc) || "—";
-        const days = duration(sc.start, sc.end);
+        const days = taskDurationForInteraction(row,sc);
         return {row,sc,res,days};
       });
       const longestName=Math.max("Naam".length,...rowsData.map(x=>String(x.row.name||"").length));
@@ -2092,6 +2097,7 @@ var CWS = window.CWS;</script>
       document.documentElement.style.setProperty("--v47-print-left-w",leftW+"px");
       const body=rowsData.map(({row,res,days})=>`<tr class="${row.type==="summary"?"summary-row":""}"><td>${esc(row._displayNo||"")}</td><td title="${esc(row.name)}">${esc(row.name)}</td><td title="${esc(res)}">${esc(res)}</td><td>${esc(days)} d</td></tr>`).join("");
       host.innerHTML=`<table><colgroup><col style="width:var(--v47-col-no,var(--v46-col-no))"><col style="width:var(--v47-col-name,var(--v46-col-name))"><col style="width:var(--v47-col-res,var(--v46-col-res))"><col style="width:var(--v47-col-dur,var(--v46-col-dur))"></colgroup><thead><tr><th>Regel nr</th><th>Naam</th><th>Resource</th><th>Duur</th></tr></thead><tbody>${body}</tbody></table>`;
+      return leftW;
     }
 
     function uniqueRowId(model, base){
@@ -2294,7 +2300,7 @@ var CWS = window.CWS;</script>
               const iso=toIso(el.value);
               if(!iso){toast("Ongeldige datum","bad");render();return;}
               model.sched[rowId]=model.sched[rowId]||{};
-              const oldDur=duration(model.sched[rowId].start, model.sched[rowId].end) || 1;
+              const oldDur=taskDurationForInteraction(row,model.sched[rowId]);
               if(k==="start"){
                 const fixed=normalizeSchedule(state(),iso,null,oldDur);
                 model.sched[rowId].start=fixed.start;
@@ -2850,7 +2856,7 @@ var CWS = window.CWS;</script>
         render();
       });
     }
-    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); const boardWrap=$("#boardWrap"); boardWrap.addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); boardWrap.addEventListener("wheel",e=>{ if(Math.abs(e.deltaY)<=Math.abs(e.deltaX)) return; const max=Math.max(0,boardWrap.scrollHeight-boardWrap.clientHeight); if(max<=0) return; const next=Math.max(0,Math.min(max,boardWrap.scrollTop+e.deltaY)); if(next!==boardWrap.scrollTop){ boardWrap.scrollTop=next; e.preventDefault(); } },{passive:false}); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
+    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); const boardWrap=$("#boardWrap"); boardWrap.addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); boardWrap.addEventListener("wheel",e=>{ const horizontalDelta=Math.abs(e.deltaX)>1?e.deltaX:(e.shiftKey?e.deltaY:0); if(horizontalDelta){ const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+horizontalDelta)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } return; } const maxY=Math.max(0,boardWrap.scrollHeight-boardWrap.clientHeight); const nextY=Math.max(0,Math.min(maxY,boardWrap.scrollTop+e.deltaY)); if(nextY!==boardWrap.scrollTop){ boardWrap.scrollTop=nextY; e.preventDefault(); return; } const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+e.deltaY)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } },{passive:false,capture:true}); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
         if(UI._suppressSubscriberRender || UI._finishingPointerMutation || UI.drag){
           UI._pendingSubscriberRender=true;
           return;
