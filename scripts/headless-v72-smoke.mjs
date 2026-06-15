@@ -80,6 +80,9 @@ async function openRoute(route, width=1440, height=1000) {
 async function mouse(type, x, y, buttons=0) {
   await cdp("Input.dispatchMouseEvent", { type, x, y, button:"left", buttons, clickCount:1 });
 }
+async function wheel(x, y, deltaY) {
+  await cdp("Input.dispatchMouseEvent", { type:"mouseWheel", x, y, deltaX:0, deltaY });
+}
 async function dragPointer(targetExpression, deltaX, steps=5) {
   let target = await evaluate(targetExpression);
   if(!target) return null;
@@ -236,13 +239,13 @@ try {
 
   const resizeBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`, 66);
   if(resizeBefore) {
-    const resized = await evaluate(`(()=>{const st=CWS.getState(),sc=st.ganttV2.byProject[${JSON.stringify(resizeBefore.pid)}].sched[${JSON.stringify(resizeBefore.id)}];return {ok:sc.start===${JSON.stringify(resizeBefore.start)} && sc.end!==${JSON.stringify(resizeBefore.end)} && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(resizeBefore)},validation:CWS.getLastValidation()};})()`);
+    const resized = await evaluate(`(()=>{const st=CWS.getState(),model=st.ganttV2.byProject[${JSON.stringify(resizeBefore.pid)}],sc=model.sched[${JSON.stringify(resizeBefore.id)}],row=model.rows.find(item=>item.id===${JSON.stringify(resizeBefore.id)});return {ok:sc.start===${JSON.stringify(resizeBefore.start)} && sc.end!==${JSON.stringify(resizeBefore.end)} && row.duration===sc.workdays && sc.workdays<50 && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(resizeBefore)},validation:CWS.getLastValidation()};})()`);
     check("Gantt rechter-resize houdt start vast", resized.ok, JSON.stringify(resized));
   } else check("Gantt resize-handle gevonden", false);
 
   const leftResizeBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.left');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`, 44);
   if(leftResizeBefore) {
-    const resized = await evaluate(`(()=>{const st=CWS.getState(),sc=st.ganttV2.byProject[${JSON.stringify(leftResizeBefore.pid)}].sched[${JSON.stringify(leftResizeBefore.id)}];return {ok:sc.start!==${JSON.stringify(leftResizeBefore.start)} && sc.end===${JSON.stringify(leftResizeBefore.end)} && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(leftResizeBefore)},validation:CWS.getLastValidation()};})()`);
+    const resized = await evaluate(`(()=>{const st=CWS.getState(),model=st.ganttV2.byProject[${JSON.stringify(leftResizeBefore.pid)}],sc=model.sched[${JSON.stringify(leftResizeBefore.id)}],row=model.rows.find(item=>item.id===${JSON.stringify(leftResizeBefore.id)});return {ok:sc.start!==${JSON.stringify(leftResizeBefore.start)} && sc.end===${JSON.stringify(leftResizeBefore.end)} && row.duration===sc.workdays && sc.workdays<50 && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(leftResizeBefore)},validation:CWS.getLastValidation()};})()`);
     check("Gantt linker-resize houdt einde vast", resized.ok, JSON.stringify(resized));
   } else check("Gantt linker resize-handle gevonden", false);
 
@@ -256,6 +259,23 @@ try {
     const clamped = await evaluate(`(()=>{const sc=CWS.getState().ganttV2.byProject[${JSON.stringify(rightClampBefore.pid)}].sched[${JSON.stringify(rightClampBefore.id)}];return {ok:sc.start===sc.end,start:sc.start,end:sc.end,validation:CWS.getLastValidation()};})()`);
     check("Gantt rechter-resize kruist startdatum niet", clamped.ok, JSON.stringify(clamped));
   }
+
+  await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
+  const compact = await evaluate(`(()=>{const row=document.querySelector('.gantt-table tbody tr'),table=document.querySelector('.gantt-table'),bar=document.querySelector('.bar:not(.summary)');return {rowHeight:row?.getBoundingClientRect().height||0,tableFont:parseFloat(getComputedStyle(table).fontSize)||0,barHeight:bar?.getBoundingClientRect().height||0};})()`);
+  check("Gantt desktopweergave is compact", compact.rowHeight <= 39 && compact.tableFont <= 11 && compact.barHeight <= 35, JSON.stringify(compact));
+  const scrollTarget = await evaluate(`(()=>{const wrap=document.querySelector('#boardWrap');wrap.style.maxHeight='240px';wrap.scrollTop=0;const r=wrap.getBoundingClientRect();return {x:r.left+r.width*.75,y:r.top+r.height*.7};})()`);
+  await wheel(scrollTarget.x, scrollTarget.y, 240);
+  await delay(100);
+  check("Gantt wielscroll werkt zonder voorafgaande klik", await evaluate("document.querySelector('#boardWrap').scrollTop > 0"));
+
+  const corrupted = await evaluate(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!bar)return null;const id=bar.dataset.id,pid=document.querySelector('#projectSel')?.value;CWS.setState(st=>{const model=st.ganttV2.byProject[pid],row=model.rows.find(item=>item.id===id),sc=model.sched[id];row.duration=4;model.sched[id]={...sc,start:'2026-06-01',end:'2028-02-21',workdays:638,explicitRange:false};return st;});return {id,pid};})()`);
+  await delay(300);
+  await evaluate("document.querySelector('#boardWrap').scrollTop=0;document.querySelector('#boardWrap').scrollLeft=0");
+  const recoveredBefore = corrupted && await dragPointer(`(()=>{const bar=document.querySelector('.bar[data-id="${corrupted.id}"]');if(!bar)return null;const r=bar.getBoundingClientRect();return {x:r.left+Math.min(r.width/2,120),y:r.top+r.height/2,id:${JSON.stringify(corrupted.id)},pid:${JSON.stringify(corrupted.pid)}};})()`, 44);
+  if(recoveredBefore) {
+    const recovered = await evaluate(`(()=>{const st=CWS.getState(),model=st.ganttV2.byProject[${JSON.stringify(corrupted.pid)}],row=model.rows.find(item=>item.id===${JSON.stringify(corrupted.id)}),sc=model.sched[${JSON.stringify(corrupted.id)}];const span=(new Date(sc.end+'T00:00:00Z')-new Date(sc.start+'T00:00:00Z'))/86400000;return {ok:row.duration===4 && sc.workdays===4 && span<14,start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration,span};})()`);
+    check("Gantt slepen herstelt geen 600+ dagen uit legacy-einddatum", recovered.ok, JSON.stringify(recovered));
+  } else check("Gantt legacy-duur regressiebalk gevonden", false);
 
   await openRoute("layers/laag5_capaciteit.html?fixture=restored-d1", 390, 844);
   await evaluate("CWS.rebuildGanttHoursByDay()");
