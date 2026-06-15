@@ -106,7 +106,7 @@ try {
   await waitFor(async () => {
     const response = await fetch(`http://127.0.0.1:${port}/api/health`);
     const data = await response.json();
-    return response.ok && ["local-test-v73","local-test-v76","local-test-v77"].includes(data.version);
+    return response.ok && ["local-test-v73","local-test-v76","local-test-v77","local-test-v78"].includes(data.version);
   });
   check("lokale V73 health", true);
 

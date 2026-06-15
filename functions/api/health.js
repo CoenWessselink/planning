@@ -1,3 +1,4 @@
+// V78 production boot/data hydration marker: internal-test-v78 v78-lightweight-no-state-load
 // V77 app boot D1 Access production fix marker: internal-test-v77 v77-lightweight-no-state-load
 // compatibility marker: internal-test-v73; V76 active marker: internal-test-v76; V77 active marker: internal-test-v77
 // V76 boot/render-loop hardening marker: internal-test-v76
@@ -22,8 +23,8 @@ export async function onRequestGet(context) {
       ok: true,
       service: "cws-planning",
       storage: "d1",
-      version: "internal-test-v77",
-      healthMode: "v77-lightweight-no-state-load", // compatibility: v72-lightweight-no-state-load v70-lightweight-no-state-load v67-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
+      version: "internal-test-v78",
+      healthMode: "v78-lightweight-no-state-load", // compatibility: v77-lightweight-no-state-load v72-lightweight-no-state-load v70-lightweight-no-state-load
       schemaOk: schema.ok,
       schemaErrors: schema.errors,
       schemaRepairRequired: !schema.ok
@@ -33,7 +34,7 @@ export async function onRequestGet(context) {
       ok: false,
       service: "cws-planning",
       storage: "d1",
-      healthMode: "v77-lightweight-no-state-load", // compatibility: v72-lightweight-no-state-load v70-lightweight-no-state-load v67-lightweight-no-state-load // compatibility marker: v57-lightweight-no-state-load
+      healthMode: "v78-lightweight-no-state-load", // compatibility: v77-lightweight-no-state-load v72-lightweight-no-state-load v70-lightweight-no-state-load
       error: error.message
     }, 500);
   }

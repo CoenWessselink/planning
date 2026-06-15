@@ -95,7 +95,8 @@ const CWS_MobileAdapter = (() => {
         });
       }
       frameObserver.disconnect();
-      frameObserver.observe(frame.contentDocument.body, { childList:true, subtree:true });
+      const frameBody = frame.contentDocument?.body;
+      if(frameBody instanceof Node) frameObserver.observe(frameBody, { childList:true, subtree:true });
     } catch {}
   }
 

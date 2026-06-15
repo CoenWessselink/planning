@@ -51,6 +51,7 @@ const CWS_Responsive = (() => {
   }
 
   function enhanceDocument(doc){
+    if(!doc?.documentElement || !doc?.body) return;
     const vp=viewport();
     window.CWS_MobileAdapter?.enhanceDocument?.(doc, window.innerWidth);
     doc.documentElement.dataset.cwsViewport=vp;
@@ -66,6 +67,7 @@ const CWS_Responsive = (() => {
   }
 
   function observeDynamicContent(doc){
+    if(!doc?.documentElement || !doc?.body) return;
     if(doc.documentElement.dataset.v72ResponsiveObserver === "true") return;
     doc.documentElement.dataset.v72ResponsiveObserver = "true";
     let queued=false;
@@ -79,7 +81,7 @@ const CWS_Responsive = (() => {
         installMobileInputFocusGuard(doc);
       });
     });
-    observer.observe(doc.body,{childList:true,subtree:true});
+    if(doc.body?.nodeType === 1) observer.observe(doc.body,{childList:true,subtree:true});
   }
 
   function addMobileToolbar(doc){

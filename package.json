@@ -63,7 +63,8 @@
     "preflight:v74": "node scripts/v74-gantt-drag-resize-freeze-preflight.mjs",
     "preflight:v75": "node scripts/v75-gantt-pointer-lifecycle-preflight.mjs",
     "preflight:v76": "node scripts/v76-gantt-boot-render-loop-preflight.mjs",
-    "preflight:v77": "node scripts/v77-app-boot-d1-access-production-preflight.mjs"
+    "preflight:v77": "node scripts/v77-app-boot-d1-access-production-preflight.mjs",
+    "preflight:v78": "node scripts/v78-production-boot-data-hydration-preflight.mjs"
   },
   "devDependencies": {}
 }

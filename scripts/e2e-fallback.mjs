@@ -143,3 +143,9 @@ if(process.exitCode) process.exit(process.exitCode);
 
 check("V68 complete foundation: SQL import, state doctor en recovery-lock", read("functions/api/health.js").includes("internal-test-v68") && read("js/core/store.js").includes("extractStateJsonFromAnyText") && read("js/core/store.js").includes("buildStateDoctorReport") && read("js/core/store.js").includes("V68_LOCK_KEY") && read("layers/laag11_io.html").includes("Analyseer import") && read("layers/laag11_io.html").includes("Download diagnose") && fs.readFileSync("package.json", "utf8").includes('"preflight:v68"'));
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V78 shell start voor hydration en router wacht op state-ready", read("index.html").indexOf("Router.boot()") < read("index.html").indexOf("await CWS.init()") && read("js/core/router.js").includes("CWS.isStateReady") && read("js/core/router.js").includes("srcdoc"));
+check("V78 remote D1 prioriteit en fallback/save guards", read("js/core/store.js").includes("stateHasAuthoritativeBusinessData") && read("js/core/store.js").includes("stateSource = \"remote-d1\"") && read("js/core/store.js").includes("Save tijdens boot geblokkeerd") && read("js/core/store.js").includes("fallback mag productie-D1 niet automatisch overschrijven"));
+check("V78 identity non-blocking en productie-identiteit veilig", read("js/core/store.js").includes("const identityPromise = storageAdapter.identity()") && read("functions/api/identity.js").includes("actorEmail") && read("js/core/store.js").includes('if(runtime.isLocal) currentUser = { email:"local-dev@cws.test"'));
+check("V78 Boot & Data Diagnose beschikbaar", read("layers/laag11_io.html").includes("Boot &amp; Data Diagnose") && read("js/core/store.js").includes("getDiagnostics"));
+if(process.exitCode) process.exit(process.exitCode);

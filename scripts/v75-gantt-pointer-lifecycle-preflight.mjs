@@ -10,7 +10,7 @@ function check(label, pass, detail="") {
 const pkg = JSON.parse(read("package.json"));
 const gantt = read("layers/laag4_gantt.html");
 
-const finishMatch = gantt.match(/function finishPointerMutation\(event, cancelled=false\)\{([\s\S]*?)\n    \}\n    window\.addEventListener\("pointerup"/);
+const finishMatch = gantt.match(/function finishPointerMutation\(event, cancelled=false\)\{([\s\S]*?)\r?\n    \}\r?\n    window\.addEventListener\("pointerup"/);
 const finishBody = finishMatch?.[1] || "";
 const beforeSave = finishBody.split(/const result\s*=\s*saveModel/)[0] || finishBody;
 const afterSave = finishBody.split(/const result\s*=\s*saveModel/)[1] || "";
