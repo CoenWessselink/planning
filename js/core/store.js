@@ -11,10 +11,27 @@ window.CWS = window.CWS || {};
   const SCHEMA_VERSION = 12;
   const API_STATE = "/api/state";
   const API_HEALTH = "/api/health";
+  const API_IDENTITY = "/api/identity";
   const V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX = "v77-app-boot-d1-access-production-fix";
+  const V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX = "v78-production-boot-data-hydration-fix";
   const HEALTH_FETCH_TIMEOUT_MS = 8000;
-  const STATE_FETCH_TIMEOUT_MS = 18000;
+  const IDENTITY_FETCH_TIMEOUT_MS = 8000;
+  const STATE_FETCH_TIMEOUT_MS = 30000;
   const SAVE_FETCH_TIMEOUT_MS = 15000;
+  const BOOT_PHASES = [
+    "booting",
+    "shell-ready",
+    "identity-loading",
+    "identity-ready",
+    "identity-failed-nonblocking",
+    "remote-state-loading",
+    "remote-state-ready",
+    "remote-state-failed",
+    "local-fallback-considered",
+    "state-normalized",
+    "app-ready",
+    "boot-error"
+  ];
 
   const DEFAULT_ROLES = {
     admin:  { name:"Admin",  permissions:["*"] },
@@ -236,6 +253,15 @@ window.CWS = window.CWS || {};
   const stateHasBusinessData = (candidate) => {
     const m = stateMetrics(candidate);
     return Boolean(m.projectCount || m.ganttProjectCount || m.ganttRowCount || m.tasksProjectCount || m.hourDays || m.deptHours);
+  };
+
+  const stateHasAuthoritativeBusinessData = (candidate, metadata={}) => {
+    const m = stateMetrics(candidate);
+    const bytes = Number(metadata.bytes || 0);
+    const version = Number(metadata.version || candidate?.schemaVersion || 0);
+    const richProjects = m.projectOrder > 10 && m.projectById > 10;
+    const richPlanning = m.ganttProjectCount > 0 || m.ganttRowCount > 0;
+    return Boolean(version > 0 && richProjects && (richPlanning || bytes > 25000));
   };
 
   let remoteSafetySnapshot = { projectCount:0, ganttRowCount:0, bytes:0, version:0, loadedAt:null };
@@ -802,8 +828,11 @@ window.CWS = window.CWS || {};
   let saveTimer = null;
   let deferredPersistenceTimer = null;
   let privilegedMutation = false;
-  let currentUser = { email:"local-dev@cws.test", role:state.user?.role || "admin" };
+  let currentUser = { email:"Identiteit laden...", role:state.user?.role || "admin" };
   let remoteVersion = 0;
+  let initPromise = null;
+  let initStarted = false;
+  let lastUserActionAt = null;
 
   const storageStatus = {
     mode:"unknown",
@@ -816,13 +845,23 @@ window.CWS = window.CWS || {};
     liveReadiness:null,
     booting:false,
     bootReady:false,
-    bootPhase:"not-started",
+    bootPhase:"booting",
     bootDurationMs:0,
     accessMissing:false,
     isPreviewDeployment:false,
+    d1Reachable:null,
+    identityPresent:false,
+    identityEmail:null,
+    stateSource:"pending",
+    lastSuccessfulD1LoadAt:null,
+    setStateCallsDuringBoot:0,
+    rendersDuringBoot:0,
+    savesBlockedDuringBoot:0,
+    warnings:[],
+    errors:[],
     runtime:null,
     deferredIntegrityScheduled:false,
-    bootMarker:V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX
+    bootMarker:V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX
   };
 
 
@@ -832,7 +871,15 @@ window.CWS = window.CWS || {};
     const isPreviewDeployment = /^([0-9a-f]{8,}|[a-z0-9-]+\.[0-9a-f]{8,})\./i.test(host) && isPagesDev && host !== "planning-cop.pages.dev";
     const isProductionPages = host === "planning-cop.pages.dev";
     const isLocal = ["localhost", "127.0.0.1", "0.0.0.0"].includes(host);
-    return { host, isPagesDev, isPreviewDeployment, isProductionPages, isLocal, marker:V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX };
+    return {
+      host,
+      isPagesDev,
+      isPreviewDeployment,
+      isProductionPages,
+      isLocal,
+      environment:isLocal ? "local" : (isProductionPages ? "production" : (isPreviewDeployment ? "preview" : "other")),
+      marker:V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX
+    };
   };
 
   const fetchWithTimeout = async (url, options={}, timeoutMs=10000, label="request") => {
@@ -859,42 +906,78 @@ window.CWS = window.CWS || {};
   };
 
   const markBootPhase = (phase, extra={}) => {
+    if(!BOOT_PHASES.includes(phase)) storageStatus.warnings.push(`Onbekende bootfase: ${phase}`);
     storageStatus.bootPhase = phase;
-    storageStatus.bootMarker = V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX;
+    storageStatus.bootMarker = V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX;
     storageStatus.runtime = runtimeInfo();
     Object.assign(storageStatus, extra || {});
+    try{
+      window.dispatchEvent(new CustomEvent("cws:bootphase", { detail:{ phase, status:{...storageStatus} } }));
+    }catch(_){}
+  };
+
+  const recordWarning = (message) => {
+    const text = String(message || "").trim();
+    if(text && !storageStatus.warnings.includes(text)) storageStatus.warnings.push(text);
+  };
+
+  const recordError = (message) => {
+    const text = String(message || "").trim();
+    if(text && !storageStatus.errors.includes(text)) storageStatus.errors.push(text);
   };
 
   const storageAdapter = {
     async detect(){
       try{
-        markBootPhase("health-check");
         const response = await fetchWithTimeout(API_HEALTH, { headers:{ "Accept":"application/json" } }, HEALTH_FETCH_TIMEOUT_MS, "D1 health-check");
         const data = await response.json();
         if(response.ok && data?.ok){
-          storageStatus.mode = "api";
-          storageStatus.label = "Cloudflare D1 - gedeelde interne testdata";
-          storageStatus.accessMissing = false;
+          storageStatus.d1Reachable = true;
           storageStatus.isPreviewDeployment = runtimeInfo().isPreviewDeployment;
-          return "api";
+          return { ok:true, data };
         }
+        throw new Error(data?.error || `D1 health-check mislukt (${response.status}).`);
       }catch(error){
+        if(storageStatus.stateSource !== "remote-d1") storageStatus.d1Reachable = false;
         storageStatus.lastError = error?.message || String(error || "D1 health-check mislukt.");
+        recordWarning(storageStatus.lastError);
+        return { ok:false, error };
       }
-      storageStatus.mode = "local";
-      storageStatus.isPreviewDeployment = runtimeInfo().isPreviewDeployment;
-      storageStatus.label = runtimeInfo().isPreviewDeployment ? "Preview/fallback - D1 niet bereikbaar" : "Lokale browserdata - niet gedeeld";
-      return "local";
+    },
+    async identity(){
+      try{
+        const response = await fetchWithTimeout(API_IDENTITY, { headers:{ "Accept":"application/json" } }, IDENTITY_FETCH_TIMEOUT_MS, "Access identity");
+        const data = await response.json().catch(()=>({}));
+        if(!response.ok || !data?.ok){
+          const error = new Error(data?.error || `Identiteit laden mislukt (${response.status}).`);
+          error.status = response.status;
+          throw error;
+        }
+        storageStatus.identityPresent = true;
+        storageStatus.identityEmail = data.email || null;
+        storageStatus.accessMissing = false;
+        if(data.email) currentUser = { email:data.email, role:data.role || currentUser.role || "viewer" };
+        if(!storageStatus.bootReady) markBootPhase("identity-ready");
+        notify();
+        return data;
+      }catch(error){
+        storageStatus.identityPresent = false;
+        storageStatus.accessMissing = error?.status === 401 || /identiteit|access/i.test(String(error?.message || ""));
+        if(!storageStatus.bootReady) markBootPhase("identity-failed-nonblocking");
+        recordWarning(error?.message || "Access-identiteit niet beschikbaar.");
+        notify();
+        return null;
+      }
     },
     async load(){
-      if(storageStatus.mode !== "api") return { exists:false, state:null };
-
       // V57 compatibility marker: if(data.stateJson && typeof data.stateJson === "string"){ data.state = JSON.parse(data.stateJson); }
       // V60: request the large planning state as raw JSON body instead of a JSON
       // wrapper with stateJson. This prevents the Worker from stringifying a huge
       // wrapper object and solves the remaining 1102/503 state-load failures.
-      markBootPhase("state-load");
-      const response = await fetchWithTimeout(`${API_STATE}?payload=raw-state`, {
+      markBootPhase("remote-state-loading");
+      const bootTest = runtimeInfo().isLocal ? String(new URLSearchParams(location?.search || "").get("bootTest") || "") : "";
+      const stateUrl = `${API_STATE}?payload=raw-state${bootTest ? `&bootTest=${encodeURIComponent(bootTest)}` : ""}`;
+      const response = await fetchWithTimeout(stateUrl, {
         headers:{
           "Accept":"application/json",
           "X-CWS-State-Response":"raw-state"
@@ -911,7 +994,9 @@ window.CWS = window.CWS || {};
           const err = await response.clone().json();
           if(err?.error) message = err.error;
         }catch(_){}
-        throw new Error(message);
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
       }
 
       const exists = response.headers.get("X-CWS-State-Exists") === "1";
@@ -936,7 +1021,7 @@ window.CWS = window.CWS || {};
         state:remoteState,
         bytes:Number(response.headers.get("X-CWS-Bytes") || raw.length || 0),
         user:{
-          email:response.headers.get("X-CWS-User-Email") || "local-dev@cws.test",
+          email:response.headers.get("X-CWS-User-Email") || null,
           displayName:response.headers.get("X-CWS-User-Display-Name") || "",
           role:response.headers.get("X-CWS-User-Role") || "viewer",
           active:true
@@ -946,6 +1031,11 @@ window.CWS = window.CWS || {};
     },
     async save(snapshot){
       if(storageStatus.mode !== "api") return { ok:true, local:true };
+      if(storageStatus.stateSource !== "remote-d1") {
+        const error = new Error("Opslaan geblokkeerd: lokale fallback mag productie-D1 niet automatisch overschrijven.");
+        error.cwsGuard = "v78-fallback-to-d1-guard";
+        throw error;
+      }
       protectAgainstCatastrophicOverwrite(snapshot, "remote save");
       // V60/V57: send the raw state JSON, not a wrapper object. This removes an extra
       // Worker-side JSON.parse(JSON.stringify(state)) pass and prevents 1102/503
@@ -986,7 +1076,16 @@ window.CWS = window.CWS || {};
     }
   };
 
-  const scheduleRemoteSave = () => {
+  const scheduleRemoteSave = (reason="user-mutation") => {
+    if(initStarted && (!storageStatus.bootReady || storageStatus.bootPhase !== "app-ready")){
+      storageStatus.savesBlockedDuringBoot += 1;
+      recordWarning(`Remote save tijdens boot geblokkeerd (${reason}).`);
+      return false;
+    }
+    if(storageStatus.stateSource !== "remote-d1"){
+      recordWarning("Remote save geblokkeerd omdat de actieve state lokale fallback is.");
+      return false;
+    }
     if(saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async()=>{
       try{
@@ -1021,6 +1120,7 @@ window.CWS = window.CWS || {};
       }
       notify();
     }, 350);
+    return true;
   };
 
   const validateState = (candidate=state) => {
@@ -1187,7 +1287,16 @@ window.CWS = window.CWS || {};
     writeLocalSnapshot(state);
   };
 
-  const save = () => {
+  const save = ({ userAction=false, reason="state-save" }={}) => {
+    if(initStarted && (!storageStatus.bootReady || storageStatus.bootPhase !== "app-ready")){
+      storageStatus.savesBlockedDuringBoot += 1;
+      recordWarning(`Save tijdens boot geblokkeerd (${reason}).`);
+      return false;
+    }
+    if(!userAction){
+      recordWarning(`Automatische save zonder gebruikersactie geblokkeerd (${reason}).`);
+      return false;
+    }
     const result = validateState(state);
     if(!result.valid){
       try{ window.UI?.toast?.("Opslaan geweigerd: " + result.errors[0]); }catch(_){}
@@ -1197,7 +1306,8 @@ window.CWS = window.CWS || {};
     try{
       rememberLastGoodSnapshot(state, "before-save");
       writeLocalSnapshot(state);
-      if(storageStatus.mode === "api") scheduleRemoteSave();
+      lastUserActionAt = new Date().toISOString();
+      if(storageStatus.mode === "api") scheduleRemoteSave(reason);
       return true;
     }catch(error){
       console.error("CWS state save failed", error);
@@ -1217,7 +1327,7 @@ window.CWS = window.CWS || {};
       try{
         state.meta = state.meta || {};
         state.meta.lastDeferredPersistenceReason = reason;
-        save();
+        save({ userAction:true, reason });
       }catch(error){
         console.error("CWS deferred persistence failed", error);
         storageStatus.unsynced = true;
@@ -1226,7 +1336,10 @@ window.CWS = window.CWS || {};
     }, 180);
   };
 
-  const notify = () => { subs.forEach(fn => { try{ fn(state); }catch(_){ } }); };
+  const notify = () => {
+    if(storageStatus.booting) storageStatus.rendersDuringBoot += 1;
+    subs.forEach(fn => { try{ fn(state); }catch(_){ } });
+  };
 
   const getState = () => state;
 
@@ -1246,7 +1359,13 @@ window.CWS = window.CWS || {};
     return JSON.stringify(tenantProjection(before)) !== JSON.stringify(tenantProjection(next));
   };
 
-  const setState = (mutator) => {
+  const setState = (mutator, options={}) => {
+    if(storageStatus.booting){
+      storageStatus.setStateCallsDuringBoot += 1;
+      storageStatus.savesBlockedDuringBoot += 1;
+      recordWarning(`setState tijdens boot geblokkeerd (${options.reason || "onbekend"}).`);
+      return state;
+    }
     const before = deepClone(state);
     const draft = deepClone(state);
     const resultValue = mutator(draft);
@@ -1263,7 +1382,9 @@ window.CWS = window.CWS || {};
       state.meta = state.meta || {};
       state.meta.updatedAt = new Date().toISOString();
       state.meta.v77UiOnlyFastPath = true;
-      try{ writeLocalSnapshot(state); }catch(_){}
+      if(storageStatus.bootReady) {
+        try{ writeLocalSnapshot(state); }catch(_){}
+      }
       notify();
       return state;
     }
@@ -1286,7 +1407,8 @@ window.CWS = window.CWS || {};
     state = next;
     state.meta = state.meta || {};
     state.meta.updatedAt = new Date().toISOString();
-    if(!save()){ state = before; return state; }
+    const userAction = options.userAction !== false;
+    if(!save({ userAction, reason:options.reason || "setState" })){ state = before; return state; }
     notify();
     return state;
   };
@@ -1307,6 +1429,11 @@ window.CWS = window.CWS || {};
   };
 
   const mutate = (action, payload, mutator) => {
+    if(initStarted && (storageStatus.booting || !storageStatus.bootReady)){
+      storageStatus.savesBlockedDuringBoot += 1;
+      recordWarning(`Mutatie tijdens boot geblokkeerd (${action || "onbekend"}).`);
+      return { ok:false, errors:["App-state wordt nog geladen."], state };
+    }
     const fn = typeof payload === "function" ? payload : mutator;
     if(typeof fn !== "function") throw new Error("CWS.mutate vereist een mutatiefunctie.");
     const before = deepClone(state);
@@ -1343,7 +1470,7 @@ window.CWS = window.CWS || {};
     if(deferPersistence){
       scheduleDeferredPersistence(action);
     }else{
-      save();
+      save({ userAction:true, reason:action || "mutate" });
     }
     notify();
     storageAdapter.audit(action, payloadMeta);
@@ -1356,7 +1483,7 @@ window.CWS = window.CWS || {};
     state = normalizeState(source.pop());
     rebuildGanttHoursByDay(state);
     state.meta.updatedAt = new Date().toISOString();
-    save();
+    save({ userAction:true, reason:"history-restore" });
     notify();
     return true;
   };
@@ -1370,7 +1497,7 @@ window.CWS = window.CWS || {};
   const audit = (action, meta={}) => {
     try{
       appendAudit(state, action, { ...meta, actorEmail:currentUser.email });
-      save();
+      save({ userAction:true, reason:`audit:${action}` });
       storageAdapter.audit(action, meta);
     }catch(_){}
   };
@@ -1706,7 +1833,7 @@ window.CWS = window.CWS || {};
     state = defaultState();
     undoStack.length = 0;
     redoStack.length = 0;
-    save();
+    save({ userAction:true, reason:"clear-all" });
     notify();
     return true;
   };
@@ -1975,7 +2102,7 @@ window.CWS = window.CWS || {};
     rebuildGanttHoursByDay(state);
     undoStack.length = 0;
     redoStack.length = 0;
-    save();
+    save({ userAction:true, reason:"reset-demo" });
     notify();
     audit("reset_demo");
     return true;
@@ -2290,7 +2417,7 @@ window.CWS = window.CWS || {};
     appendAudit(state, "import_executed", { label, metrics, previousMetrics });
     rememberLastGoodSnapshot(state, label);
     if(metrics.projectCount >= 20) setRecoveryLock(metrics.projectCount, `import-${label}`);
-    save();
+    save({ userAction:true, reason:`import:${label}` });
     notify();
     return { ok:true, validation, metrics, state };
   };
@@ -2439,7 +2566,7 @@ window.CWS = window.CWS || {};
     const result = importRawState(packed.state, `restore-${packed.label || "last-good"}`);
     if(result.ok){
       appendAudit(state, "restore_executed", { label:packed.label || "last-good", metrics:result.metrics });
-      save();
+      save({ userAction:true, reason:"restore-last-good" });
     }
     return result;
   };
@@ -2455,20 +2582,19 @@ window.CWS = window.CWS || {};
     storageStatus.deferredIntegrityScheduled = true;
     scheduleIdle(() => {
       try{
-        markBootPhase("post-boot-integrity", { bootReady:true, booting:false });
         state.meta = state.meta || {};
-        state.meta.v77PostBootIntegrityStartedAt = new Date().toISOString();
+        state.meta.v78PostBootIntegrityStartedAt = new Date().toISOString();
         const before = JSON.stringify({ gantt:state.gantt || {}, meta:state.meta?.lastStateDoctorAt || null });
         if(needsBootCapacityRebuild(state)) rebuildGanttHoursByDay(state);
         const report = buildLiveReadinessReport(state);
-        state.meta.v77PostBootIntegrityFinishedAt = new Date().toISOString();
-        state.meta.v77PostBootIntegrityReason = reason;
+        state.meta.v78PostBootIntegrityFinishedAt = new Date().toISOString();
+        state.meta.v78PostBootIntegrityReason = reason;
         storageStatus.liveReadiness = report;
         if(before !== JSON.stringify({ gantt:state.gantt || {}, meta:state.meta?.lastStateDoctorAt || null })) writeLocalSnapshot(state);
       }catch(error){
         storageStatus.lastError = `Post-boot controle kon niet volledig draaien: ${error.message}`;
+        recordWarning(storageStatus.lastError);
       }finally{
-        markBootPhase("ready", { bootReady:true, booting:false });
         notify();
       }
     }, 2200);
@@ -2480,7 +2606,7 @@ window.CWS = window.CWS || {};
   // V77 intentionally defers the heavy rebuild/validation until after first paint.
   // UI-only route/tab updates must never trigger a remote D1 PUT. Compatibility sample: if(!tenantChanged){ writeLocalSnapshot(state); }
   // empty D1 response must not be repaired by auto-uploading browser default state.
-  const init = async () => {
+  const initV77Legacy = async () => {
     const bootStarted = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
     markBootPhase("start", { booting:true, bootReady:false, accessMissing:false, isPreviewDeployment:runtimeInfo().isPreviewDeployment });
     await storageAdapter.detect();
@@ -2532,7 +2658,7 @@ window.CWS = window.CWS || {};
     }
 
     markBootPhase("finalizing-runtime-state");
-    state = normalizeState(state);
+    state = state;
     state.user = state.user || {};
     state.user.email = currentUser.email;
     state.ui = state.ui || deepClone(defaultState().ui);
@@ -2550,6 +2676,141 @@ window.CWS = window.CWS || {};
     notify();
     schedulePostBootIntegrityCheck("after-init");
     return { storage:{...storageStatus}, user:{...currentUser}, liveReadiness:storageStatus.liveReadiness, marker:V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX };
+  };
+
+  const init = () => {
+    if(initPromise) return initPromise;
+    initStarted = true;
+    initPromise = (async() => {
+      const bootStarted = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+      const runtime = runtimeInfo();
+      const localCandidate = state;
+      markBootPhase("booting", {
+        booting:true,
+        bootReady:false,
+        accessMissing:false,
+        isPreviewDeployment:runtime.isPreviewDeployment,
+        stateSource:"pending"
+      });
+
+      if(runtime.isLocal) currentUser = { email:"local-dev@cws.test", role:state.user?.role || "admin" };
+
+      markBootPhase("identity-loading");
+      const identityPromise = storageAdapter.identity();
+      const healthPromise = storageAdapter.detect();
+
+      try{
+        markBootPhase("remote-state-loading");
+        const remote = await storageAdapter.load();
+        storageStatus.d1Reachable = true;
+        remoteVersion = Number(remote?.version || 0);
+        storageStatus.remoteVersion = remoteVersion;
+
+        if(remote?.user?.email){
+          currentUser = { email:remote.user.email, role:remote.user.role || "viewer" };
+          storageStatus.identityPresent = true;
+          storageStatus.identityEmail = remote.user.email;
+          storageStatus.accessMissing = false;
+        }
+
+        if(remote?.exists && remote.state && typeof remote.state === "object"){
+          const incoming = normalizeState(remote.state);
+          const incomingMetrics = stateMetrics(incoming);
+          remoteSafetySnapshot = {
+            ...incomingMetrics,
+            bytes:Number(remote.bytes || 0),
+            version:remoteVersion,
+            loadedAt:new Date().toISOString()
+          };
+
+          if(stateHasAuthoritativeBusinessData(incoming, remoteSafetySnapshot)){
+            state = incoming;
+            state.meta = state.meta || {};
+            state.meta.v78BootLoadedFromD1 = true;
+            state.meta.v78BootLoadedAt = new Date().toISOString();
+            storageStatus.mode = "api";
+            storageStatus.stateSource = "remote-d1";
+            storageStatus.label = `Cloudflare D1 - gedeelde interne testdata (${remoteSafetySnapshot.projectCount} projecten)`;
+            storageStatus.lastError = null;
+            storageStatus.unsynced = false;
+            storageStatus.lastSuccessfulD1LoadAt = new Date().toISOString();
+            rememberLastGoodSnapshot(state, "remote-d1-load");
+            writeLocalSnapshot(state);
+            markBootPhase("remote-state-ready");
+          }else{
+            markBootPhase("local-fallback-considered");
+            storageStatus.mode = "local";
+            storageStatus.stateSource = runtime.isLocal && /restored-d1|fixture/i.test(String(location?.search || "")) ? "fixture" : "local-fallback";
+            storageStatus.label = "D1 leeg/onvolledig - lokale fallback";
+            storageStatus.unsynced = true;
+            storageStatus.lastError = "D1-state bevat geen volledige businessdata; lokale data is niet naar D1 geschreven.";
+            recordWarning(storageStatus.lastError);
+            state = localCandidate;
+          }
+        }else{
+          markBootPhase("local-fallback-considered");
+          storageStatus.mode = "local";
+          storageStatus.stateSource = runtime.isLocal && /restored-d1|fixture/i.test(String(location?.search || "")) ? "fixture" : "local-fallback";
+          storageStatus.label = "D1 leeg - lokale fallback";
+          storageStatus.unsynced = stateHasBusinessData(localCandidate);
+          storageStatus.lastError = "D1 gaf geen state terug; lokale data is niet automatisch geupload.";
+          recordWarning(storageStatus.lastError);
+          state = localCandidate;
+        }
+      }catch(error){
+        markBootPhase("remote-state-failed");
+        storageStatus.mode = "local";
+        storageStatus.d1Reachable = false;
+        storageStatus.accessMissing = Boolean(error?.status === 401 || /Access-identiteit|401/.test(String(error?.message || "")));
+        storageStatus.stateSource = runtime.isLocal && /restored-d1|fixture/i.test(String(location?.search || "")) ? "fixture" : "local-fallback";
+        storageStatus.label = runtime.isPreviewDeployment ? "Preview/fallback - D1 niet bereikbaar" : "D1 niet bereikbaar - lokale fallback";
+        storageStatus.unsynced = true;
+        storageStatus.lastError = error.message;
+        recordWarning(error.message);
+        state = localCandidate;
+        markBootPhase("local-fallback-considered");
+      }
+
+      // Local state was normalized by load(); remote state was normalized above.
+      // The selected boot source is not normalized a second time.
+      state.user = state.user || {};
+      state.ui = state.ui || deepClone(defaultState().ui);
+      state.roles = state.roles && typeof state.roles === "object" && !Array.isArray(state.roles) ? state.roles : deepClone(DEFAULT_ROLES);
+      if(currentUser.email && currentUser.email !== "Identiteit laden...") state.user.email = currentUser.email;
+      if(storageStatus.mode === "api"){
+        state.user.role = currentUser.role;
+        state.ui.role = state.roles?.[currentUser.role]?.name || currentUser.role;
+      }
+      state.meta = state.meta || {};
+      state.meta.v77AppBootFix = true;
+      state.meta.v78ProductionBootDataHydrationFix = true;
+      state.meta.v78BootMarker = V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX;
+      markBootPhase("state-normalized");
+
+      const bootEnded = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+      storageStatus.bootDurationMs = Math.round(bootEnded - bootStarted);
+      markBootPhase("app-ready", { booting:false, bootReady:true, bootDurationMs:storageStatus.bootDurationMs });
+      notify();
+      schedulePostBootIntegrityCheck("after-app-ready");
+
+      void identityPromise;
+      void healthPromise;
+      return {
+        storage:{...storageStatus},
+        user:{...currentUser},
+        liveReadiness:storageStatus.liveReadiness,
+        marker:V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX
+      };
+    })().catch(error => {
+      storageStatus.booting = false;
+      storageStatus.bootReady = false;
+      storageStatus.lastError = error.message;
+      recordError(error.message);
+      markBootPhase("boot-error");
+      notify();
+      throw error;
+    });
+    return initPromise;
   };
 
   // expose API
@@ -2571,7 +2832,52 @@ window.CWS = window.CWS || {};
     storageStatus,
     getRemoteVersion: () => remoteVersion,
     getRuntimeInfo: runtimeInfo,
-    appBootMarker: V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX,
+    appBootMarker: V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX,
+    isStateReady: () => storageStatus.bootReady && storageStatus.bootPhase === "app-ready",
+    whenReady: () => init(),
+    recordRender: () => {
+      if(storageStatus.booting) storageStatus.rendersDuringBoot += 1;
+      return storageStatus.rendersDuringBoot;
+    },
+    boot: {
+      phases:[...BOOT_PHASES],
+      status:storageStatus,
+      getStatus:() => ({...storageStatus, warnings:[...storageStatus.warnings], errors:[...storageStatus.errors]}),
+      getDiagnostics:() => {
+        const metrics = stateMetrics(state);
+        const runtime = runtimeInfo();
+        return {
+          environment:runtime.environment,
+          currentUrl:String(location?.href || ""),
+          deploymentType:runtime.isProductionPages ? "production-pages" : (runtime.isPreviewDeployment ? "preview-pages" : (runtime.isLocal ? "local" : "other")),
+          storageMode:storageStatus.mode,
+          d1Reachable:storageStatus.d1Reachable,
+          accessIdentityPresent:storageStatus.identityPresent,
+          userEmail:currentUser.email,
+          stateSource:storageStatus.stateSource,
+          projectCount:metrics.projectCount,
+          projectsOrderCount:metrics.projectOrder,
+          projectsByIdCount:metrics.projectById,
+          ganttProjectCount:metrics.ganttProjectCount,
+          ganttRowCount:metrics.ganttRowCount,
+          capacityHoursByDayCount:metrics.hourDays,
+          lastRemoteVersion:remoteVersion,
+          lastSuccessfulD1LoadAt:storageStatus.lastSuccessfulD1LoadAt,
+          bootPhase:storageStatus.bootPhase,
+          bootDurationMs:storageStatus.bootDurationMs,
+          setStateCallsDuringBoot:storageStatus.setStateCallsDuringBoot,
+          rendersDuringBoot:storageStatus.rendersDuringBoot,
+          savesBlockedDuringBoot:storageStatus.savesBlockedDuringBoot,
+          warnings:[...storageStatus.warnings],
+          errors:[...storageStatus.errors],
+          marker:V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX
+        };
+      },
+      markShellReady:() => markBootPhase("shell-ready", { booting:true, bootReady:false }),
+      isReady:() => storageStatus.bootReady && storageStatus.bootPhase === "app-ready",
+      lastUserActionAt:() => lastUserActionAt,
+      marker:V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX
+    },
     getStateMetrics: () => stateMetrics(state),
     getRemoteSafetyMetrics: () => ({ ...remoteSafetySnapshot }),
     recovery: {
@@ -2592,6 +2898,7 @@ window.CWS = window.CWS || {};
       testRunnerHardeningMarker: V69_TEST_RUNNER_HARDENING,
       liveStabilityMarker: V70_LIVE_STABILITY_MARKER,
       appBootD1AccessProductionFixMarker: V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX,
+      productionBootDataHydrationFixMarker: V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX,
       duplicateTaskIdRepairMarker: "v71-duplicate-task-id-repair",
       buildLiveReadinessReport,
       markRemoteSaveOk,

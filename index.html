@@ -19,7 +19,7 @@
     <div id="moduleTitle" style="font-size:24px">CWS Planning - Interne testversie</div>
     <div class="right">
       <span class="pill" id="storagePill">Opslag detecteren...</span>
-      <span class="pill">Gebruiker: <span id="userPill">local-dev@cws.test</span></span>
+      <span class="pill">Gebruiker: <span id="userPill">Identiteit laden...</span></span>
       <button class="btn" id="importExcel">Import Excel</button>
       <button class="btn" id="resetDemo">Demo data</button>
       <button class="btn" id="clearData">Data leegmaken</button>
@@ -61,6 +61,15 @@
   <script>
     (async()=>{
       try{
+        document.body.dataset.cwsBuild = "V78";
+        AppsMenu.render();
+        AppsMenu.bind();
+        CWS_ExcelImport.bind();
+        CWS_MobileAdapter.bind();
+        Router.boot();
+        CWS_Responsive.bind();
+        document.body.dataset.cwsShellReady = "true";
+
         await CWS.init();
 
         const refreshStatus = () => {
@@ -83,11 +92,7 @@
         refreshStatus();
         CWS.subscribe(refreshStatus);
         AppsMenu.render();
-        AppsMenu.bind();
-        CWS_ExcelImport.bind();
-        CWS_MobileAdapter.bind();
-        Router.boot();
-        CWS_Responsive.bind();
+        Router.markReady();
         document.body.dataset.cwsReady = "true";
 
         window.addEventListener("message", event => {
@@ -132,7 +137,11 @@
         });
       }catch(error){
         console.error("Boot failed", error);
-        document.querySelector(".app-shell").innerHTML = `<div class="panel" style="padding:20px"><h2>CWS Planning kon niet starten</h2><p>${String(error.message || error)}</p></div>`;
+        Router.showBootError?.(String(error.message || error));
+        const warning = document.getElementById("storageWarning");
+        warning.hidden = false;
+        warning.textContent = `CWS Planning kon niet volledig starten: ${String(error.message || error)}`;
+        document.body.dataset.cwsBootError = "true";
       }
     })();
   </script>

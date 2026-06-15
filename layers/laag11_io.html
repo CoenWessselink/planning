@@ -81,6 +81,7 @@
             <button class="btn" id="v67ExportBtn">Export huidige state</button>
             <button class="btn" id="v68DoctorBtn">Download diagnose</button>
             <button class="btn" id="v70ReadinessBtn">V73 Live readiness rapport</button>
+            <button class="btn" id="v78BootDiagnoseBtn">Boot &amp; Data Diagnose</button>
             <button class="btn" id="v68LockBtn">Recovery-lock aan</button>
             <button class="btn" id="v68UnlockBtn">Recovery-lock uit</button>
           </div>
@@ -88,6 +89,7 @@
         <div class="card">
           <h3>Herstelstatus</h3>
           <div class="sub" id="v67RecoveryStats">Nog niet geladen.</div>
+          <pre id="v78BootDiagnose" hidden style="margin-top:12px;max-height:360px;overflow:auto;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px;font-size:12px"></pre>
           <ul class="smallmuted" style="line-height:1.55">
             <li>D1 met veel projecten wordt beschermd tegen 0/1/5-project overschrijvingen én recovery-lock kan lokaal afdwingen dat grote states niet door kleine states worden vervangen.</li>
             <li>Fixturemodus gebruikt dezelfde legacy structuur: projects.order/byId, ganttV2.byProject, tasks.byProject, gantt.hoursByDay en lange PDF-achtige Gantt taken.</li>
@@ -417,6 +419,7 @@ var CWS = window.CWS;</script>
     const doctor=document.getElementById("v68DoctorBtn");
     const lock=document.getElementById("v68LockBtn");
     const unlock=document.getElementById("v68UnlockBtn");
+    const bootDiagnose=document.getElementById("v78BootDiagnoseBtn");
     const file=document.getElementById("v67ImportFile");
     if(snap) snap.onclick=()=>{ const r=CWS.recovery?.createRecoverySnapshot?.("ui-manual"); renderV67RecoveryStats(r?.ok?"Snapshot gemaakt.":"Snapshot mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"Snapshot gemaakt":"Snapshot mislukt"); };
     if(restore) restore.onclick=()=>{ if(!requireRole(["admin"],"restore")) return; if(!typedConfirm("HERSTELLEN","Herstel de laatste goede snapshot en vervang de actuele lokale state.")) return; const r=CWS.recovery?.restoreLastGoodSnapshot?.(); renderV67RecoveryStats(r?.ok?"Laatste goede snapshot hersteld.":"Herstel mislukt: "+(r?.errors||[]).join(", ")); UI.toast(r?.ok?"Snapshot hersteld":"Geen snapshot gevonden"); };
@@ -430,6 +433,13 @@ var CWS = window.CWS;</script>
     if(readiness) readiness.onclick=()=>{ const report=CWS.recovery?.buildLiveReadinessReport?.() || {}; const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cws-planning-v73-live-readiness-${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); const m=report.metrics||{}; renderV67RecoveryStats(`Live readiness: ${report.ok?"OK":"FOUT"} · ${m.projectCount||0} projecten · ${m.ganttRowCount||0} Gantt-rijen · ${m.hourDays||0} uurdagen`); };
     if(lock) lock.onclick=()=>{ const r=CWS.recovery?.setRecoveryLock?.(); renderV67RecoveryStats(r?.ok?`Recovery-lock actief: minimaal ${r.lock?.minProjects} projecten.`:"Recovery-lock mislukt"); UI.toast("Recovery-lock actief"); };
     if(unlock) unlock.onclick=()=>{ if(!requireRole(["admin"],"recovery-lock uitzetten")) return; const r=CWS.recovery?.clearRecoveryLock?.(); renderV67RecoveryStats(r?.ok?"Recovery-lock uitgezet.":"Recovery-lock mislukt"); UI.toast("Recovery-lock uitgezet"); };
+    if(bootDiagnose) bootDiagnose.onclick=()=>{
+      const output=document.getElementById("v78BootDiagnose");
+      const report=CWS.boot?.getDiagnostics?.() || { error:"V78 bootdiagnose niet beschikbaar." };
+      output.hidden=false;
+      output.textContent=JSON.stringify(report,null,2);
+      renderV67RecoveryStats(`Bootfase: ${report.bootPhase || "onbekend"} - bron: ${report.stateSource || "onbekend"} - ${report.projectCount || 0} projecten`);
+    };
   }
 
   bindV67Recovery();

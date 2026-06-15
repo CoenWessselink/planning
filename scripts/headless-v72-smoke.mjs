@@ -90,7 +90,7 @@ try {
   await waitFor(async() => {
     const response = await fetch(`http://127.0.0.1:${port}/api/health`);
     const data = await response.json();
-    return response.ok && data.ok && ["local-test-v73","local-test-v76"].includes(data.version);
+    return response.ok && data.ok && ["local-test-v73","local-test-v76","local-test-v77","local-test-v78"].includes(data.version);
   });
   check("lokale V73 health (V72 regressiesuite)", true);
 
@@ -137,6 +137,28 @@ try {
 
   await cdp("Page.enable");
   await cdp("Runtime.enable");
+
+  await cdp("Page.navigate", { url:`http://127.0.0.1:${port}/index.html?bootTest=remote-d1` });
+  await waitFor(async() => evaluate("document.body?.dataset?.cwsShellReady === 'true'"), 10_000);
+  check("V78 shell verschijnt voor remote state-ready", await evaluate("document.body.dataset.cwsReady !== 'true' && document.querySelector('#appFrame')?.hasAttribute('srcdoc')"));
+  await evaluate("CWS.setState(s=>{ s.projects.byId['BOOT-BLOCKED']={id:'BOOT-BLOCKED',name:'Boot blocked'}; s.projects.order.push('BOOT-BLOCKED'); return s; }, {reason:'v78-boot-save-test'})");
+  check("V78 save tijdens boot wordt geblokkeerd", await evaluate("CWS.storageStatus.savesBlockedDuringBoot >= 1 && !CWS.getState().projects.byId['BOOT-BLOCKED']"));
+  await waitFor(async() => evaluate("document.body?.dataset?.cwsReady === 'true'"), 15_000);
+  check("V78 vertraagde remote D1 wint", await evaluate("CWS.storageStatus.stateSource === 'remote-d1' && CWS.getState().projects.order.length === 76"));
+  check("V78 productie-indicator gebruikt remote identity", await evaluate("CWS.getCurrentUser().email === 'remote-test@cws.test' && !document.querySelector('#userPill').textContent.includes('local-dev@cws.test')"));
+  await waitFor(async() => evaluate("Number(document.querySelector('#appFrame')?.contentDocument?.querySelector('#rows')?.dataset?.renderedCount || 0) > 10"), 15_000);
+  check("V78 Projecten hydrateert na state-ready", true);
+  await evaluate("Router.loadApp('gantt')");
+  await waitFor(async() => evaluate("document.querySelector('#appFrame')?.contentDocument?.querySelectorAll('#projectSel option')?.length > 10"), 15_000);
+  check("V78 Gantt hydrateert na state-ready", true);
+  await evaluate("Router.loadApp('capaciteit')");
+  await waitFor(async() => evaluate("document.querySelector('#appFrame')?.contentDocument?.querySelector('#matrix') != null"), 15_000);
+  check("V78 Capaciteit opent na state-ready", true);
+
+  await cdp("Page.navigate", { url:`http://127.0.0.1:${port}/index.html?fixture=restored-d1&bootTest=fallback` });
+  await waitFor(async() => evaluate("document.body?.dataset?.cwsReady === 'true'"), 15_000);
+  check("V78 fallback wordt pas na state-fout gekozen", await evaluate("CWS.storageStatus.stateSource === 'fixture' && CWS.getState().projects.order.length === 76"));
+  check("V78 fallbackwaarschuwing zichtbaar", await evaluate("document.querySelector('#storageWarning')?.hidden === false && document.querySelector('#storageWarning')?.innerText.includes('V78 geforceerde state-fout')"));
 
   const desktopRoutes = [
     "index.html?fixture=restored-d1",
