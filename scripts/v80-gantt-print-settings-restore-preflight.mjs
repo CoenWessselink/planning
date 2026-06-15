@@ -1,0 +1,20 @@
+import fs from "node:fs";
+const read = p => fs.readFileSync(p, "utf8");
+const pkg = JSON.parse(read("package.json"));
+const gantt = read("layers/laag4_gantt.html");
+const checks = [];
+const add = (ok, label) => checks.push({ ok:Boolean(ok), label });
+add(pkg.scripts?.["preflight:v80"] === "node scripts/v80-gantt-print-settings-restore-preflight.mjs", "package.json bevat preflight:v80");
+add(gantt.includes("V80 — Gantt print settings restore from V56"), "V80 print restore marker aanwezig");
+add(gantt.includes("body.printing .board:not(.table-only):not(.diagram-only)") && gantt.includes("grid-template-columns:var(--v47-print-left-w"), "print override neutraliseert responsive board width");
+add(gantt.includes("body.printing .print-task-table") && gantt.includes("var(--v47-print-left-w"), "printtaak-tabel vaste V56 breedte hersteld");
+add(gantt.includes("body.printing .chart-pane") && gantt.includes("grid-column:2"), "diagramkolom print staat naast taak-tabel");
+add(gantt.includes("body.printing .print-calendar-top") && gantt.includes("body.printing .print-calendar-bottom"), "boven- en onderkalender blijven aanwezig");
+add(gantt.includes("body.printing .bar.bar-continuous-task") && gantt.includes("height:16px"), "continue balken hebben compacte print-hoogte");
+add(gantt.includes("body.printing .mobile-toolbar") && gantt.includes("display:none!important"), "mobiele toolbar is uitgeschakeld in print");
+add(gantt.includes("body.printing .day-grid-line") && gantt.includes("var(--v50-day-line-width-print"), "dunne print-daglijnen blijven actief");
+add(gantt.includes("_lastPrintSettingsRestore:\"v80\""), "runtime marker V80 aanwezig");
+let failed = false;
+for (const c of checks) { console.log(`${c.ok ? "OK" : "FAIL"} - ${c.label}`); if (!c.ok) failed = true; }
+if (failed) process.exit(1);
+console.log(`V80 Gantt print settings restore preflight geslaagd (${checks.length} controles).`);
