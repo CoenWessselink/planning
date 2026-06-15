@@ -60,7 +60,8 @@
     "preflight:v72": "node scripts/v72-complete-program-mobile-hardening-preflight.mjs",
     "preflight:v73": "node scripts/v73-tablet-mobile-responsive-hardening-preflight.mjs",
     "preflight:all": "node scripts/run-all-preflights.mjs",
-    "preflight:v74": "node scripts/v74-gantt-drag-resize-freeze-preflight.mjs"
+    "preflight:v74": "node scripts/v74-gantt-drag-resize-freeze-preflight.mjs",
+    "preflight:v75": "node scripts/v75-gantt-pointer-lifecycle-preflight.mjs"
   },
   "devDependencies": {}
 }

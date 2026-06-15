@@ -1110,7 +1110,7 @@ var CWS = window.CWS;</script>
       header.innerHTML=`<div><div class="print-title">${esc(printProjectHeaderText(p))}</div><div class="print-sub"><b>${esc(companyName(st)||"Bedrijf")}</b> · ${esc(status)} · Afdruk: ${new Date().toLocaleString("nl-NL")} · Bereik: ${esc(start)} t/m ${esc(end)}</div></div><div>${logoHtml(st)}</div>`;
     }
 
-    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null, dragFrame:null, dragPending:null };
+    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null, dragFrame:null, dragPending:null, _suppressSubscriberRender:false, _pendingSubscriberRender:false, _finishingPointerMutation:false, _lastPointerLifecycleFix:"v75" };
     const COL_KEY = "cws.gantt.visibleColumns.v20";
     const COL_ORDER_KEY = "cws.gantt.columnOrder.v28";
     const ALL_COLUMNS = [
@@ -2271,7 +2271,13 @@ var CWS = window.CWS;</script>
     function finishPointerMutation(event, cancelled=false){
       const drag=UI.drag;
       if(!drag || (event?.pointerId!=null && event.pointerId!==drag.pointerId)) return;
-      UI.drag=null;
+
+      // V75 pointer lifecycle fix:
+      // Houd UI.drag actief totdat saveModel klaar is. saveModel triggert via
+      // CWS.setState/CWS.gantt.saveProjectGantt synchronisch subscribers; die
+      // mogen tijdens pointerup geen volledige Gantt-DOM rebuild uitvoeren.
+      UI._finishingPointerMutation=true;
+      UI._pendingSubscriberRender=false;
       document.body.classList.remove("gantt-dragging");
       if(UI.dragFrame){ cancelAnimationFrame(UI.dragFrame); UI.dragFrame=null; }
       let saved=false;
@@ -2281,22 +2287,23 @@ var CWS = window.CWS;</script>
             drag.captureTarget.releasePointerCapture(drag.pointerId);
           }
         }catch(_e){}
-        if(cancelled || UI.revisionId || !drag.tempSchedule){ render(); return; }
+        if(cancelled || UI.revisionId || !drag.tempSchedule) return;
         const model=getModel(drag.projectId);
         const row=model.rows.find(item=>item.id===drag.rowId);
-        if(!row || row.locked || row.type==="summary"){ render(); return; }
+        if(!row || row.locked || row.type==="summary") return;
         const normalized=normalizeSchedule(
           state(),
           drag.tempSchedule.start,
           drag.tempSchedule.end,
           drag.handle==="move" ? drag.originalDuration : null
         );
-        if(!normalized.start || !normalized.end){ toast("Wijziging geweigerd: ongeldige taakdatum.","warn"); render(); return; }
+        if(!normalized.start || !normalized.end){ toast("Wijziging geweigerd: ongeldige taakdatum.","warn"); return; }
         model.sched[drag.rowId]={...(model.sched[drag.rowId]||{}),...normalized};
         row.duration=normalized.workdays;
         normalizeModelSchedulesForWorkdays(state(),model);
         const action=drag.handle==="move"?"gantt_task_moved":"gantt_task_resized";
         setSave("Balk bijwerken…","warn");
+        UI._suppressSubscriberRender=true;
         const result=saveModel(drag.projectId,model,"Balk bijgewerkt op werkbare dagen",{
           action,
           rowId:drag.rowId,
@@ -2306,23 +2313,30 @@ var CWS = window.CWS;</script>
           start:normalized.start,
           end:normalized.end,
           deferPersistence:true,
-          v74DragResizeFreezeFix:true
+          v74DragResizeFreezeFix:true,
+          v75PointerLifecycleFix:true
         });
+        UI._suppressSubscriberRender=false;
         if(result?.ok===false){
           toast(result.errors?.[0]||"Wijziging teruggedraaid","warn");
-          render();
           return;
         }
         saved=true;
         toast(drag.handle==="move"?"Taak verplaatst":"Taakduur aangepast");
       }finally{
-        if(!saved && !UI.drag) document.body.classList.remove("gantt-dragging");
+        UI._suppressSubscriberRender=false;
+        UI._finishingPointerMutation=false;
+        UI.drag=null;
+        UI._pendingSubscriberRender=false;
+        document.body.classList.remove("gantt-dragging");
+        render();
       }
     }
     window.addEventListener("pointerup",event=>finishPointerMutation(event,false));
     window.addEventListener("pointercancel",event=>finishPointerMutation(event,true));
     window.addEventListener("blur",()=>{ if(UI.drag) finishPointerMutation({ pointerId:UI.drag.pointerId }, true); });
-    // V66/V70 compatibility markers:
+    // V66/V70/V75 compatibility markers:
+    // v75PointerLifecycleFix subscriber suppression voorkomt DOM rebuild tijdens pointerup/saveModel
     // const geom=continuousBarGeometry(row,sc,{start:UI.originStart,days:9999},st)
     // bar.dataset.tmpStart; saveModel(pid,model,"Balk bijgewerkt op werkbare dagen")
     function drawDeps(model,rows,range){
@@ -2655,7 +2669,13 @@ var CWS = window.CWS;</script>
       window.addEventListener("afterprint",after);
       setTimeout(()=>{ if(UI.printMode) restore(); },15000);
     }
-    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); $("#boardWrap").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{render();}); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
+    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); $("#boardWrap").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
+        if(UI._suppressSubscriberRender || UI._finishingPointerMutation || UI.drag){
+          UI._pendingSubscriberRender=true;
+          return;
+        }
+        render();
+      }); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
     bind(); render();
   })();
   </script>
