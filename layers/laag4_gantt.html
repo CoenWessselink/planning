@@ -1046,14 +1046,17 @@
         max-height:calc(100vh - 180px);
         overscroll-behavior:contain;
       }
-      .gantt-table{font-size:9px!important}
-      .gantt-table thead th{height:var(--headH)!important;padding:6px 4px!important;font-size:8px}
+      .gantt-table{font-size:11px!important}
+      .gantt-table thead th{height:var(--headH)!important;padding:6px 4px!important;font-size:9px}
       .gantt-table tbody tr,.gantt-table td{height:var(--rowH)!important}
-      .gantt-table td{padding:0 4px!important;font-size:9px!important}
-      .taskname,.cellinput,.color-select,.resource-select,.dept-select{height:27px!important;font-size:9px!important}
+      .gantt-table td{padding:0 4px!important;font-size:11px!important}
+      .taskname,.cellinput,.color-select,.resource-select,.dept-select{height:27px!important;font-size:11px!important}
       .taskname{font-weight:600}
-      .rowno-cell,.pred-nos{font-size:8.5px}
-      .date-cell .weekno{font-size:7px}
+      .rowno-cell,.pred-nos{font-size:10px}
+      .date-cell .weekno{font-size:8px}
+      .hours-source-cell{gap:4px;min-width:180px}
+      .hours-source-select{height:27px;max-width:82px;padding:0 5px;font-size:9px!important}
+      .hours-source-cell .cellinput{height:27px!important;width:58px!important;min-width:58px!important;font-size:9px!important}
       .iconbtn{width:24px;height:24px;border-radius:7px;font-size:11px}
       .timeline{height:var(--headH)!important;grid-template-rows:26px 26px 26px!important}
       .tl-cell{font-size:9px}
@@ -1889,7 +1892,7 @@ var CWS = window.CWS;</script>
       const sorted=dates.slice().sort();
       const min=sorted[0];
       const max=sorted.at(-1);
-      const start=startOfWeek(addDays(min,-7));
+      const start=UI.printMode ? addDays(min,-7) : startOfWeek(addDays(min,-7));
       const required=Math.max(14,dayDiff(start,max)+14);
       if(UI.printMode) return {start,days:Math.min(MAX_SCREEN_TIMELINE_DAYS,required)};
       const base=UI.zoom==="month"?120:UI.zoom==="week"?70:42;
@@ -1908,7 +1911,7 @@ var CWS = window.CWS;</script>
     function extendRangeForViewport(range,leftW){ if(UI.printMode||UI.view==="table") return range; const wrap=$("#boardWrap"); const w=pxPerDay(); const visible=Math.max(0,(wrap?.clientWidth||0)-(UI.view==="both"?leftW:0)-2); const minDays=Math.ceil(visible/w); return minDays>range.days ? {...range, days:minDays} : range; }
     function buildTimeline(range){ const w=pxPerDay(); document.documentElement.style.setProperty("--dayW",w+"px"); const days=[]; for(let i=0;i<range.days;i++) days.push(addDays(range.start,i)); const totalW=days.length*w; const groups=(kind)=>{ const out=[]; days.forEach((iso,i)=>{ const d=parseDate(iso); const key=kind==="month"?`${d.getUTCFullYear()}-${d.getUTCMonth()}`:`${isoWeek(d).year}-W${isoWeek(d).week}`; const label=kind==="month"?d.toLocaleDateString("nl-NL",{month:"short",year:"numeric",timeZone:"UTC"}):`W${String(isoWeek(d).week).padStart(2,"0")}`; let g=out[out.length-1]; if(!g||g.key!==key) out.push({key,label,count:1}); else g.count++; }); return out; };
       const stForDays=state();
-      const months=groups("month").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const weeks=groups("week").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const today=toIso(new Date()); const dayHtml=days.map(iso=>{ const d=parseDate(iso), wknd=[0,6].includes(d.getUTCDay()), nonwork=isNonWorkingIso(stForDays,iso); const wd=d.toLocaleDateString("nl-NL",{weekday:"short",timeZone:"UTC"}); const dom=pad(d.getUTCDate()); return `<div class="tl-cell day ${wknd?"weekend":""} ${nonwork?"nonwork":""} ${iso===today?"today":""}">${UI.printMode?`<span>${wd}</span><span>${dom}</span>`:`${wd} ${dom}`}</div>`; }).join(""); const tl=$("#timeline"); tl.style.width=totalW+"px"; tl.innerHTML=`<div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${months}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${weeks}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${dayHtml}</div>`; return days; }
+      const months=groups("month").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const weeks=groups("week").map(g=>`<div class="tl-cell" style="grid-column:span ${g.count}">${esc(g.label)}</div>`).join(""); const today=toIso(new Date()); const dayHtml=days.map(iso=>{ const d=parseDate(iso), wknd=[0,6].includes(d.getUTCDay()), nonwork=isNonWorkingIso(stForDays,iso); const wd=d.toLocaleDateString("nl-NL",{weekday:"short",timeZone:"UTC"}); const dom=pad(d.getUTCDate()); return `<div class="tl-cell day ${wknd?"weekend":""} ${nonwork?"nonwork":""} ${iso===today?"today":""}" data-iso="${esc(iso)}">${UI.printMode?`<span>${wd}</span><span>${dom}</span>`:`${wd} ${dom}`}</div>`; }).join(""); const tl=$("#timeline"); tl.style.width=totalW+"px"; tl.innerHTML=`<div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${months}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${weeks}</div><div class="tl-row" style="grid-template-columns:repeat(${days.length},${w}px)">${dayHtml}</div>`; return days; }
     function v53TimelineCellSpan(el){
       const raw=el?.getAttribute?.("style")||"";
       const m=raw.match(/grid-column\s*:\s*span\s+(\d+)/i);
