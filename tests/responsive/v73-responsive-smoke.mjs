@@ -111,7 +111,8 @@ try {
   check("lokale V73 health", true);
 
   browser = spawn(chrome, [
-    "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+    "--headless=new",
+    "--no-sandbox", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
     "--disable-background-networking", `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${profile}`, "about:blank"
   ], { stdio:["ignore","ignore","ignore"], windowsHide:true });

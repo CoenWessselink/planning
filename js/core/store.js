@@ -6,6 +6,8 @@ window.CWS = window.CWS || {};
   const KEY_TENANT = "tenant:default:cws.state.snapshot.v12";
   const KEY_BACKUP = "tenant:default:cws.state.snapshot.v12.backup";
   const LEGACY_STATE_KEYS = ["cws.state.snapshot.v11", "cws.state.snapshot", "cwsPlanningState", "cws.state", "cws.planning.state"];
+  
+  const V74_GANTT_DRAG_RESIZE_FREEZE_FIX_MARKER = "v74-gantt-drag-resize-freeze-fix";
   const SCHEMA_VERSION = 12;
   const API_STATE = "/api/state";
   const API_HEALTH = "/api/health";
@@ -646,6 +648,8 @@ window.CWS = window.CWS || {};
     st = mergeDefaults(st, defaultState());
     st.schemaVersion = SCHEMA_VERSION;
     st.meta = st.meta || { dirty:false, updatedAt:null, lastAction:null };
+    st.meta.v74GanttDragResizeFreezeFix = true;
+    st.meta.v74Marker = V74_GANTT_DRAG_RESIZE_FREEZE_FIX_MARKER;
     st.globalState = st.globalState || { auditLog:[] };
     st.sessionState = st.sessionState || { filters:{}, selections:{}, scroll:{} };
     st.uiState = st.uiState || { modals:{}, focus:null };
@@ -792,6 +796,7 @@ window.CWS = window.CWS || {};
   const redoStack = [];
   let lastValidation = { valid:true, errors:[] };
   let saveTimer = null;
+  let deferredPersistenceTimer = null;
   let privilegedMutation = false;
   let currentUser = { email:"local-dev@cws.test", role:state.user?.role || "admin" };
   let remoteVersion = 0;
@@ -1136,6 +1141,27 @@ window.CWS = window.CWS || {};
     }
   };
 
+  const scheduleDeferredPersistence = (reason="deferred-gantt-interaction") => {
+    // V74: drag/resize must not block the pointerup thread with full JSON
+    // localStorage writes, last-good snapshot serialization and optional D1 save.
+    // Coalesce rapid Gantt interactions and persist immediately after the UI has
+    // repainted. This preserves the tenant state while preventing the perceived
+    // browser freeze during moving/resizing bars.
+    if(deferredPersistenceTimer) clearTimeout(deferredPersistenceTimer);
+    deferredPersistenceTimer = setTimeout(() => {
+      deferredPersistenceTimer = null;
+      try{
+        state.meta = state.meta || {};
+        state.meta.lastDeferredPersistenceReason = reason;
+        save();
+      }catch(error){
+        console.error("CWS deferred persistence failed", error);
+        storageStatus.unsynced = true;
+        storageStatus.lastError = error.message;
+      }
+    }, 180);
+  };
+
   const notify = () => { subs.forEach(fn => { try{ fn(state); }catch(_){ } }); };
 
   const getState = () => state;
@@ -1247,9 +1273,15 @@ window.CWS = window.CWS || {};
     if(undoStack.length > 100) undoStack.shift();
     redoStack.length = 0;
     state = next;
-    save();
+    const payloadMeta = typeof payload === "function" ? {} : (payload || {});
+    const deferPersistence = payloadMeta.deferPersistence === true || payloadMeta.deferHeavySave === true;
+    if(deferPersistence){
+      scheduleDeferredPersistence(action);
+    }else{
+      save();
+    }
     notify();
-    storageAdapter.audit(action, typeof payload === "function" ? {} : (payload || {}));
+    storageAdapter.audit(action, payloadMeta);
     return { ok:true, state };
   };
 

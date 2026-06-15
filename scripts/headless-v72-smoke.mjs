@@ -96,6 +96,7 @@ try {
 
   browser = spawn(chrome, [
     "--headless=new",
+    "--no-sandbox",
     "--disable-gpu",
     "--no-first-run",
     "--no-default-browser-check",

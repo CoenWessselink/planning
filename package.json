@@ -59,7 +59,8 @@
     "preflight:v71": "node scripts/v71-duplicate-task-id-repair-preflight.mjs",
     "preflight:v72": "node scripts/v72-complete-program-mobile-hardening-preflight.mjs",
     "preflight:v73": "node scripts/v73-tablet-mobile-responsive-hardening-preflight.mjs",
-    "preflight:all": "node scripts/run-all-preflights.mjs"
+    "preflight:all": "node scripts/run-all-preflights.mjs",
+    "preflight:v74": "node scripts/v74-gantt-drag-resize-freeze-preflight.mjs"
   },
   "devDependencies": {}
 }

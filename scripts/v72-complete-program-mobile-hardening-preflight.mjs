@@ -59,9 +59,13 @@ check("printkleurbehoud", [gantt, capacity, overview, patches].every(text => tex
 check("import-preview en typed confirmations", io.includes("lastImportPreview") && io.includes('typedConfirm("IMPORTEREN"') && io.includes('typedConfirm("DEMO OVERSCHRIJVEN"') && io.includes('typedConfirm("DATA LEEGMAKEN"'));
 
 try {
-  const tracked = execFileSync("git", ["ls-files"], { encoding:"utf8" }).split(/\r?\n/).filter(Boolean);
-  const forbidden = tracked.filter(file => /(^|\/)(node_modules|test-results|playwright\/artifacts|playwright\/reports|dist|build)(\/|$)/i.test(file));
-  check("geen node_modules/test/build-artifacts getrackt", forbidden.length === 0);
+  if (!fs.existsSync(".git")) {
+    check("git repositoryhygiëne controle overgeslagen in ZIP-workspace", true);
+  } else {
+    const tracked = execFileSync("git", ["ls-files"], { encoding:"utf8" }).split(/\r?\n/).filter(Boolean);
+    const forbidden = tracked.filter(file => /(^|\/)(node_modules|test-results|playwright\/artifacts|playwright\/reports|dist|build)(\/|$)/i.test(file));
+    check("geen node_modules/test/build-artifacts getrackt", forbidden.length === 0);
+  }
 } catch (error) {
   console.error(error.message);
   check("git repositoryhygiëne controle", false);

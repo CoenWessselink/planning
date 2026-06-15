@@ -1009,6 +1009,7 @@
       .printing .bar.bar-continuous-task .bar-label{font-size:6px!important;line-height:15px!important;font-weight:900!important;text-shadow:none!important;}
     }
 
+  .gantt-dragging{user-select:none!important;cursor:grabbing!important}.bar.drag-preview{box-shadow:0 0 0 2px rgba(37,99,235,.30),0 6px 16px rgba(37,99,235,.22)}
   </style>
 </head>
 <body>
@@ -1109,7 +1110,7 @@ var CWS = window.CWS;</script>
       header.innerHTML=`<div><div class="print-title">${esc(printProjectHeaderText(p))}</div><div class="print-sub"><b>${esc(companyName(st)||"Bedrijf")}</b> · ${esc(status)} · Afdruk: ${new Date().toLocaleString("nl-NL")} · Bereik: ${esc(start)} t/m ${esc(end)}</div></div><div>${logoHtml(st)}</div>`;
     }
 
-    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null };
+    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null, dragFrame:null, dragPending:null };
     const COL_KEY = "cws.gantt.visibleColumns.v20";
     const COL_ORDER_KEY = "cws.gantt.columnOrder.v28";
     const ALL_COLUMNS = [
@@ -1627,6 +1628,11 @@ var CWS = window.CWS;</script>
     function ensureModel(projectId){ let m=getModel(projectId); if(!m.rows.length && projectId){ m=generateModel(projectId); saveModel(projectId,m,"Fasen gegenereerd"); } return m; }
     function storedRowSchedule(model, row){ return (model?.sched && row?.id ? (model.sched[row.id]||{}) : {}) || {}; }
     function rowWorkdayDuration(row, sc){
+      // V74: during drag/resize preview the temporary schedule is the truth.
+      // Older code preferred row.duration, which made resize previews look frozen
+      // and caused users to keep dragging while the final save was still busy.
+      const scheduleDirect = Number(sc?.workdays || sc?.duration || sc?.days);
+      if(Number.isFinite(scheduleDirect) && scheduleDirect > 0) return Math.max(1, Math.round(scheduleDirect));
       const direct = Number(row?.duration || row?.days || row?.duur || row?.workdays);
       if(Number.isFinite(direct) && direct > 0) return Math.max(1, Math.round(direct));
       const derived = sc?.start && sc?.end ? workdaysBetween(state(), sc.start, sc.end).length : 0;
@@ -1682,6 +1688,16 @@ var CWS = window.CWS;</script>
       const left = xFor(start, range);
       const width = Math.max(pxPerDay(), calendarDuration(start, end) * pxPerDay());
       return { start, end, left, width, workdays: desiredWorkdays };
+    }
+
+    function dragPreviewGeometry(row, sc, range, st=state()){
+      // V74: extremely light geometry used while pointer is moving. It avoids
+      // deep-cloning the Gantt model on every pointermove and uses the temporary
+      // schedule workdays directly, so right/left resize visibly follows the cursor.
+      const start = nextWorkingIso(st, sc?.start || row?.start || row?.startDate || range.start);
+      const workdays = Math.max(1, Math.round(Number(sc?.workdays) || (sc?.start && sc?.end ? workdaysBetween(st, sc.start, sc.end).length : 0) || rowWorkdayDuration(row, sc || {}) || 1));
+      const end = sc?.end ? previousWorkingIso(st, sc.end) : addWorkingDays(st, start, workdays);
+      return { start, end, left:xFor(start, range), width:Math.max(pxPerDay(), calendarDuration(start, end) * pxPerDay()), workdays };
     }
 
     function summarySchedule(model, index){ const row=model.rows[index]; const map=effectiveScheduleMap(model,state()); return map[row.id] || {}; }
@@ -2190,23 +2206,30 @@ var CWS = window.CWS;</script>
           const baseSc={...(eff.start||eff.end?eff:(model.sched[id]||{}))};
           if(!baseSc.start && bar.dataset.start) baseSc.start=bar.dataset.start;
           if((!baseSc.end || calendarDuration(baseSc.start,baseSc.end)<=1) && bar.dataset.end) baseSc.end=bar.dataset.end;
+          const originalDuration=duration(baseSc.start,baseSc.end);
           const immutableRef=Object.freeze({
             projectId:pid,
             rowId:id,
             originalStart:baseSc.start,
             originalEnd:baseSc.end,
-            originalDuration:duration(baseSc.start,baseSc.end)
+            originalDuration
           });
           UI.drag={
             ...immutableRef,
             handle,
             startX:e.clientX,
             pointerId:e.pointerId,
-            originalSchedule:Object.freeze({...baseSc}),
+            originalSchedule:Object.freeze({...baseSc, workdays:originalDuration}),
             tempSchedule:null,
-            captureTarget:bar
+            lastDelta:null,
+            rowSnapshot:Object.freeze({...row}),
+            rangeSnapshot:Object.freeze({start:UI.originStart,days:9999}),
+            previewBar:bar,
+            captureTarget:bar,
+            startedAt:Date.now()
           };
-          bar.setPointerCapture(e.pointerId);
+          document.body.classList.add("gantt-dragging");
+          try{ bar.setPointerCapture(e.pointerId); }catch(_e){}
           e.preventDefault();
         });
       });
@@ -2215,6 +2238,8 @@ var CWS = window.CWS;</script>
       const drag=UI.drag;
       if(!drag || e.pointerId!==drag.pointerId) return;
       const delta=Math.round((e.clientX-drag.startX)/pxPerDay());
+      if(delta===drag.lastDelta){ e.preventDefault(); return; }
+      drag.lastDelta=delta;
       const st=state();
       let schedule={...drag.originalSchedule};
       if(drag.handle==="move"){
@@ -2225,39 +2250,53 @@ var CWS = window.CWS;</script>
         schedule=normalizeSchedule(st,drag.originalStart,addDays(drag.originalEnd,delta));
       }
       drag.tempSchedule=schedule;
-      const bars=$$(`.bar[data-id="${cssEsc(drag.rowId)}"]`);
-      bars.forEach((item,index)=>{ if(index>0) item.style.opacity=".35"; });
-      const bar=bars[0];
-      if(bar){
-        const row=getModel(drag.projectId).rows.find(item=>item.id===drag.rowId)||{};
-        const geom=continuousBarGeometry(row,schedule,{start:UI.originStart,days:9999},st);
-        bar.style.left=geom.left+"px";
-        bar.style.width=geom.width+"px";
-      }
+      drag.previewSchedule=schedule;
+      if(UI.dragFrame) cancelAnimationFrame(UI.dragFrame);
+      UI.dragFrame=requestAnimationFrame(()=>{
+        UI.dragFrame=null;
+        const active=UI.drag;
+        if(!active || active.pointerId!==drag.pointerId) return;
+        const bar=active.previewBar || document.querySelector(`.bar[data-id="${cssEsc(active.rowId)}"]`);
+        if(bar){
+          const geom=dragPreviewGeometry(active.rowSnapshot||{}, active.previewSchedule, active.rangeSnapshot||{start:UI.originStart,days:9999}, st);
+          bar.style.left=geom.left+"px";
+          bar.style.width=geom.width+"px";
+          bar.dataset.start=geom.start||"";
+          bar.dataset.end=geom.end||"";
+          bar.classList.add("drag-preview");
+        }
+      });
       e.preventDefault();
-    });
+    }, { passive:false });
     function finishPointerMutation(event, cancelled=false){
       const drag=UI.drag;
       if(!drag || (event?.pointerId!=null && event.pointerId!==drag.pointerId)) return;
       UI.drag=null;
+      document.body.classList.remove("gantt-dragging");
+      if(UI.dragFrame){ cancelAnimationFrame(UI.dragFrame); UI.dragFrame=null; }
+      let saved=false;
       try{
-        if(drag.captureTarget?.hasPointerCapture?.(drag.pointerId)){
-          drag.captureTarget.releasePointerCapture(drag.pointerId);
-        }
-        if(cancelled || UI.revisionId || !drag.tempSchedule) return;
+        try{
+          if(drag.captureTarget?.hasPointerCapture?.(drag.pointerId)){
+            drag.captureTarget.releasePointerCapture(drag.pointerId);
+          }
+        }catch(_e){}
+        if(cancelled || UI.revisionId || !drag.tempSchedule){ render(); return; }
         const model=getModel(drag.projectId);
         const row=model.rows.find(item=>item.id===drag.rowId);
-        if(!row || row.locked || row.type==="summary") return;
+        if(!row || row.locked || row.type==="summary"){ render(); return; }
         const normalized=normalizeSchedule(
           state(),
           drag.tempSchedule.start,
           drag.tempSchedule.end,
           drag.handle==="move" ? drag.originalDuration : null
         );
+        if(!normalized.start || !normalized.end){ toast("Wijziging geweigerd: ongeldige taakdatum.","warn"); render(); return; }
         model.sched[drag.rowId]={...(model.sched[drag.rowId]||{}),...normalized};
         row.duration=normalized.workdays;
         normalizeModelSchedulesForWorkdays(state(),model);
         const action=drag.handle==="move"?"gantt_task_moved":"gantt_task_resized";
+        setSave("Balk bijwerken…","warn");
         const result=saveModel(drag.projectId,model,"Balk bijgewerkt op werkbare dagen",{
           action,
           rowId:drag.rowId,
@@ -2265,15 +2304,24 @@ var CWS = window.CWS;</script>
           originalStart:drag.originalStart,
           originalEnd:drag.originalEnd,
           start:normalized.start,
-          end:normalized.end
+          end:normalized.end,
+          deferPersistence:true,
+          v74DragResizeFreezeFix:true
         });
-        if(result?.ok===false) toast(result.errors?.[0]||"Wijziging teruggedraaid","warn");
+        if(result?.ok===false){
+          toast(result.errors?.[0]||"Wijziging teruggedraaid","warn");
+          render();
+          return;
+        }
+        saved=true;
+        toast(drag.handle==="move"?"Taak verplaatst":"Taakduur aangepast");
       }finally{
-        render();
+        if(!saved && !UI.drag) document.body.classList.remove("gantt-dragging");
       }
     }
     window.addEventListener("pointerup",event=>finishPointerMutation(event,false));
     window.addEventListener("pointercancel",event=>finishPointerMutation(event,true));
+    window.addEventListener("blur",()=>{ if(UI.drag) finishPointerMutation({ pointerId:UI.drag.pointerId }, true); });
     // V66/V70 compatibility markers:
     // const geom=continuousBarGeometry(row,sc,{start:UI.originStart,days:9999},st)
     // bar.dataset.tmpStart; saveModel(pid,model,"Balk bijgewerkt op werkbare dagen")
