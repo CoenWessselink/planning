@@ -1110,7 +1110,7 @@ var CWS = window.CWS;</script>
       header.innerHTML=`<div><div class="print-title">${esc(printProjectHeaderText(p))}</div><div class="print-sub"><b>${esc(companyName(st)||"Bedrijf")}</b> · ${esc(status)} · Afdruk: ${new Date().toLocaleString("nl-NL")} · Bereik: ${esc(start)} t/m ${esc(end)}</div></div><div>${logoHtml(st)}</div>`;
     }
 
-    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null, dragFrame:null, dragPending:null, _suppressSubscriberRender:false, _pendingSubscriberRender:false, _finishingPointerMutation:false, _lastPointerLifecycleFix:"v75" };
+    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null, dragFrame:null, dragPending:null, _suppressSubscriberRender:false, _pendingSubscriberRender:false, _finishingPointerMutation:false, _lastPointerLifecycleFix:"v75", _renderScheduled:false, _lastBootRenderLoopFix:"v76" };
     const COL_KEY = "cws.gantt.visibleColumns.v20";
     const COL_ORDER_KEY = "cws.gantt.columnOrder.v28";
     const ALL_COLUMNS = [
@@ -1469,7 +1469,24 @@ var CWS = window.CWS;</script>
     function projects(st=state()){ return (st.projects?.order||[]).map(id=>st.projects.byId[id]).filter(Boolean); }
     function departments(st=state()){ const byId=st.departments?.byId||{}; const order=st.departments?.order||Object.keys(byId); const out=order.map(id=>byId[id]).filter(Boolean); if(out.length) return out; const names=[...new Set((st.resources?.order||[]).map(id=>st.resources.byId[id]?.dept).filter(Boolean))]; return names.map(n=>({id:n,name:n})); }
     function resources(st=state()){ return (st.resources?.order||[]).map(id=>st.resources.byId[id]).filter(Boolean); }
-    function currentProjectId(){ return UI.projectId || $("#projectSel")?.value || projects()[0]?.id || null; }
+    function selectableProjects(st=state()){
+      const all = projects(st);
+      const active = all.filter(p => String(p?.status || "").trim().toLowerCase() !== "gereed");
+      return active.length ? active : all;
+    }
+    function projectExists(projectId, st=state()){
+      if(!projectId) return false;
+      return selectableProjects(st).some(p => String(p?.id) === String(projectId));
+    }
+    function currentProjectId(st=state()){
+      const list = selectableProjects(st);
+      const ids = new Set(list.map(p => String(p?.id || "")).filter(Boolean));
+      const uiId = UI.projectId ? String(UI.projectId) : "";
+      const domId = $("#projectSel")?.value ? String($("#projectSel").value) : "";
+      if(uiId && ids.has(uiId)) return uiId;
+      if(domId && ids.has(domId)) return domId;
+      return list[0]?.id || null;
+    }
     function projectLabel(p){ return `${p.nr||p.code||p.id} - ${p.name||"Project"}`; }
     function getModel(projectId){ const m = CWS?.gantt?.getProjectGantt ? CWS.gantt.getProjectGantt(projectId) : (state().ganttV2?.byProject?.[projectId] || {rows:[],sched:{}}); m.rows = Array.isArray(m.rows)?m.rows:[]; m.sched = m.sched || {}; return m; }
     function saveModel(projectId, model, msg="Opgeslagen", mutationMeta={}){
@@ -1625,7 +1642,21 @@ var CWS = window.CWS;</script>
       });
       return model;
     }
-    function ensureModel(projectId){ let m=getModel(projectId); if(!m.rows.length && projectId){ m=generateModel(projectId); saveModel(projectId,m,"Fasen gegenereerd"); } return m; }
+    function ensureModel(projectId){
+      // V76 boot/performance fix: renderen mag nooit saveModel/CWS.setState aanroepen.
+      // De oude ensureModel genereerde én bewaarde taken tijdens render(), wat bij lege
+      // of legacy Gantt-modellen een render→save→notify→render-loop kon veroorzaken.
+      return getModel(projectId);
+    }
+    function modelForRender(projectId, st=state()){
+      const live = getModel(projectId);
+      if(live?.rows?.length) return live;
+      // Render-only preview: toon template/projectplanning zonder D1/localStorage te muteren.
+      // Pas de knop "Genereer fasen" mag dit model echt opslaan.
+      const generated = projectId ? generateModel(projectId) : { rows:[], sched:{} };
+      generated._previewOnly = true;
+      return generated;
+    }
     function storedRowSchedule(model, row){ return (model?.sched && row?.id ? (model.sched[row.id]||{}) : {}) || {}; }
     function rowWorkdayDuration(row, sc){
       // V74: during drag/resize preview the temporary schedule is the truth.
@@ -1799,7 +1830,28 @@ var CWS = window.CWS;</script>
     }
     function xFor(iso, range){ return Math.max(0,dayDiff(range.start,iso)*pxPerDay()); }
     function criticalIds(model){ const ids=new Set(); model.rows.forEach(r=>{ if(r.type==="task"&&parsePred(r.predecessor).length) ids.add(r.id); }); const maxEnd=Object.values(model.sched||{}).map(s=>s.end).filter(Boolean).sort().at(-1); model.rows.forEach(r=>{ if(model.sched[r.id]?.end===maxEnd) ids.add(r.id); }); return ids; }
-    function renderFilters(){ const st=state(); const pid=currentProjectId(); const projectSel=$("#projectSel"); projectSel.innerHTML=projects(st).filter(p=>p.status!=="Gereed").map(p=>`<option value="${esc(p.id)}">${esc(projectLabel(p))}</option>`).join(""); if(pid) projectSel.value=pid; $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+departments(st).map(d=>`<option value="${esc(d.id||d.name)}">${esc(d.name||d.id)}</option>`).join(""); $("#deptSel").value=UI.dept||""; $("#resourceSel").innerHTML='<option value="">Alle resources</option>'+resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)} (${esc(r.dept||"")})</option>`).join(""); $("#resourceSel").value=UI.resource||""; const dl=$("#resourceOptions"); if(dl) dl.innerHTML=resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)}</option>`).join(""); renderTemplateSelect(st,pid); const status=CWS?.storageStatus; $("#storageBadge").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale browserdata"; $("#storageBadge").className="badge "+(status?.mode==="api"?"ok":"warn"); }
+    function renderFilters(st=state()){
+      const projectSel=$("#projectSel");
+      const list=selectableProjects(st);
+      const pid=currentProjectId(st);
+      projectSel.innerHTML=list.map(p=>`<option value="${esc(p.id)}">${esc(projectLabel(p))}</option>`).join("");
+      if(pid){
+        projectSel.value=pid;
+        UI.projectId=pid;
+      }else{
+        UI.projectId=null;
+      }
+      $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+departments(st).map(d=>`<option value="${esc(d.id||d.name)}">${esc(d.name||d.id)}</option>`).join("");
+      $("#deptSel").value=UI.dept||"";
+      $("#resourceSel").innerHTML='<option value="">Alle resources</option>'+resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)} (${esc(r.dept||"")})</option>`).join("");
+      $("#resourceSel").value=UI.resource||"";
+      const dl=$("#resourceOptions");
+      if(dl) dl.innerHTML=resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)}</option>`).join("");
+      renderTemplateSelect(st,pid);
+      const status=CWS?.storageStatus;
+      $("#storageBadge").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale browserdata";
+      $("#storageBadge").className="badge "+(status?.mode==="api"?"ok":"warn");
+    }
     function renderTemplateSelect(st,pid){
       const sel=$("#templateSel"); if(!sel) return;
       const sets=(st.templates?.taskSets||[]).filter(t=>t&&Array.isArray(t.phases));
@@ -1810,11 +1862,12 @@ var CWS = window.CWS;</script>
     }
     function render(){
       if(!CWS?.getState){ setNotice("CWS Store is niet geladen.","bad"); return; }
-      renderFilters();
-      const st=state(), pid=currentProjectId();
+      const st=state();
+      renderFilters(st);
+      const pid=currentProjectId(st);
       UI.projectId=pid;
-      if(!pid){ $("#ganttHead").innerHTML=""; $("#tableRows").innerHTML=""; $("#lanes").innerHTML='<div class="empty">Geen projecten beschikbaar.</div>'; return; }
-      const liveModel=ensureModel(pid);
+      if(!pid){ $("#ganttHead").innerHTML=""; $("#tableRows").innerHTML=""; $("#timeline").innerHTML=""; $("#depSvg").innerHTML=""; $("#lanes").innerHTML='<div class="empty">Geen projecten beschikbaar.</div>'; return; }
+      const liveModel=modelForRender(pid, st);
       const model=activeModelForRender(liveModel);
       const scheduleMap=effectiveScheduleMap(model,st);
       const rows=filteredRows(model,scheduleMap);
@@ -2314,7 +2367,7 @@ var CWS = window.CWS;</script>
           end:normalized.end,
           deferPersistence:true,
           v74DragResizeFreezeFix:true,
-          v75PointerLifecycleFix:true
+          v75PointerLifecycleFix:true, v76BootRenderLoopFix:true
         });
         UI._suppressSubscriberRender=false;
         if(result?.ok===false){
@@ -2669,13 +2722,22 @@ var CWS = window.CWS;</script>
       window.addEventListener("afterprint",after);
       setTimeout(()=>{ if(UI.printMode) restore(); },15000);
     }
+    function scheduleRender(reason="state"){
+      if(UI._renderScheduled) return;
+      UI._renderScheduled=true;
+      requestAnimationFrame(()=>{
+        UI._renderScheduled=false;
+        if(UI.drag || UI._finishingPointerMutation){ UI._pendingSubscriberRender=true; return; }
+        render();
+      });
+    }
     function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); $("#boardWrap").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
         if(UI._suppressSubscriberRender || UI._finishingPointerMutation || UI.drag){
           UI._pendingSubscriberRender=true;
           return;
         }
-        render();
-      }); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>render(),120); }); }
+        scheduleRender("store-subscribe");
+      }); let resizeTimer=null; window.addEventListener("resize",()=>{ if(UI.printMode) return; clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>scheduleRender("resize"),120); }); }
     bind(); render();
   })();
   </script>

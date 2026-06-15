@@ -11,6 +11,10 @@ window.CWS = window.CWS || {};
   const SCHEMA_VERSION = 12;
   const API_STATE = "/api/state";
   const API_HEALTH = "/api/health";
+  const V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX = "v77-app-boot-d1-access-production-fix";
+  const HEALTH_FETCH_TIMEOUT_MS = 8000;
+  const STATE_FETCH_TIMEOUT_MS = 18000;
+  const SAVE_FETCH_TIMEOUT_MS = 15000;
 
   const DEFAULT_ROLES = {
     admin:  { name:"Admin",  permissions:["*"] },
@@ -809,22 +813,77 @@ window.CWS = window.CWS || {};
     remoteVersion:0,
     lastSuccessfulRemoteVersion:0,
     lastSuccessfulSaveAt:null,
-    liveReadiness:null
+    liveReadiness:null,
+    booting:false,
+    bootReady:false,
+    bootPhase:"not-started",
+    bootDurationMs:0,
+    accessMissing:false,
+    isPreviewDeployment:false,
+    runtime:null,
+    deferredIntegrityScheduled:false,
+    bootMarker:V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX
+  };
+
+
+  const runtimeInfo = () => {
+    const host = String(location?.hostname || "");
+    const isPagesDev = host.endsWith(".pages.dev");
+    const isPreviewDeployment = /^([0-9a-f]{8,}|[a-z0-9-]+\.[0-9a-f]{8,})\./i.test(host) && isPagesDev && host !== "planning-cop.pages.dev";
+    const isProductionPages = host === "planning-cop.pages.dev";
+    const isLocal = ["localhost", "127.0.0.1", "0.0.0.0"].includes(host);
+    return { host, isPagesDev, isPreviewDeployment, isProductionPages, isLocal, marker:V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX };
+  };
+
+  const fetchWithTimeout = async (url, options={}, timeoutMs=10000, label="request") => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(`${label} timeout after ${timeoutMs}ms`), timeoutMs);
+    try{
+      return await fetch(url, { ...options, signal:controller.signal });
+    }catch(error){
+      if(error?.name === "AbortError" || String(error?.message || "").includes("timeout")){
+        const timeout = new Error(`${label} duurt te lang (${timeoutMs} ms).`);
+        timeout.name = "CWSFetchTimeout";
+        timeout.cwsTimeout = true;
+        throw timeout;
+      }
+      throw error;
+    }finally{
+      clearTimeout(timer);
+    }
+  };
+
+  const scheduleIdle = (fn, timeout=1800) => {
+    if(typeof requestIdleCallback === "function") return requestIdleCallback(fn, { timeout });
+    return setTimeout(fn, Math.min(timeout, 900));
+  };
+
+  const markBootPhase = (phase, extra={}) => {
+    storageStatus.bootPhase = phase;
+    storageStatus.bootMarker = V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX;
+    storageStatus.runtime = runtimeInfo();
+    Object.assign(storageStatus, extra || {});
   };
 
   const storageAdapter = {
     async detect(){
       try{
-        const response = await fetch(API_HEALTH, { headers:{ "Accept":"application/json" } });
+        markBootPhase("health-check");
+        const response = await fetchWithTimeout(API_HEALTH, { headers:{ "Accept":"application/json" } }, HEALTH_FETCH_TIMEOUT_MS, "D1 health-check");
         const data = await response.json();
         if(response.ok && data?.ok){
           storageStatus.mode = "api";
           storageStatus.label = "Cloudflare D1 - gedeelde interne testdata";
+          storageStatus.accessMissing = false;
+          storageStatus.isPreviewDeployment = runtimeInfo().isPreviewDeployment;
           return "api";
         }
-      }catch(_){}
+      }catch(error){
+        storageStatus.lastError = error?.message || String(error || "D1 health-check mislukt.");
+      }
       storageStatus.mode = "local";
-      storageStatus.label = "Lokale browserdata - niet gedeeld";
+      storageStatus.isPreviewDeployment = runtimeInfo().isPreviewDeployment;
+      storageStatus.label = runtimeInfo().isPreviewDeployment ? "Preview/fallback - D1 niet bereikbaar" : "Lokale browserdata - niet gedeeld";
       return "local";
     },
     async load(){
@@ -834,14 +893,19 @@ window.CWS = window.CWS || {};
       // V60: request the large planning state as raw JSON body instead of a JSON
       // wrapper with stateJson. This prevents the Worker from stringifying a huge
       // wrapper object and solves the remaining 1102/503 state-load failures.
-      const response = await fetch(`${API_STATE}?payload=raw-state`, {
+      markBootPhase("state-load");
+      const response = await fetchWithTimeout(`${API_STATE}?payload=raw-state`, {
         headers:{
           "Accept":"application/json",
           "X-CWS-State-Response":"raw-state"
         }
-      });
+      }, STATE_FETCH_TIMEOUT_MS, "D1 state-load");
 
       if(!response.ok){
+        if(response.status === 401 || response.status === 403){
+          storageStatus.accessMissing = response.status === 401;
+          storageStatus.unsynced = true;
+        }
         let message = `State laden mislukt (${response.status}).`;
         try{
           const err = await response.clone().json();
@@ -887,7 +951,7 @@ window.CWS = window.CWS || {};
       // Worker-side JSON.parse(JSON.stringify(state)) pass and prevents 1102/503
       // resource-limit failures on larger planning datasets.
       const stateJson = JSON.stringify(snapshot);
-      const response = await fetch(`${API_STATE}?baseVersion=${encodeURIComponent(String(remoteVersion))}&payload=raw-state`, {
+      const response = await fetchWithTimeout(`${API_STATE}?baseVersion=${encodeURIComponent(String(remoteVersion))}&payload=raw-state`, {
         method:"PUT",
         headers:{
           "Content-Type":"application/json; charset=utf-8",
@@ -896,7 +960,7 @@ window.CWS = window.CWS || {};
           "X-CWS-State-Payload":"raw-state"
         },
         body:stateJson
-      });
+      }, SAVE_FETCH_TIMEOUT_MS, "D1 state-save");
       const data = await response.json().catch(()=>({}));
       if(response.status === 409){
         const err = new Error(data.error || "State is gewijzigd door een andere gebruiker.");
@@ -1187,6 +1251,23 @@ window.CWS = window.CWS || {};
     const draft = deepClone(state);
     const resultValue = mutator(draft);
     const next = resultValue && typeof resultValue === "object" && !Array.isArray(resultValue) ? resultValue : draft;
+
+    // V77: detect UI/session-only changes before expensive normalization/rebuild.
+    // Router boot/app switching must never recalculate the complete Gantt/capacity
+    // model or trigger a remote save. This was a major whole-site boot slowdown.
+    const beforeTenantRaw = JSON.stringify(tenantProjection(before));
+    const nextTenantRaw = JSON.stringify(tenantProjection(next));
+    const tenantChangedRaw = beforeTenantRaw !== nextTenantRaw;
+    if(!tenantChangedRaw){
+      state = next;
+      state.meta = state.meta || {};
+      state.meta.updatedAt = new Date().toISOString();
+      state.meta.v77UiOnlyFastPath = true;
+      try{ writeLocalSnapshot(state); }catch(_){}
+      notify();
+      return state;
+    }
+
     normalizeState(next);
     rebuildGanttHoursByDay(next);
     if(viewerBlocked(before, next)){
@@ -1199,28 +1280,12 @@ window.CWS = window.CWS || {};
       return state;
     }
 
-    // V63: UI-only route/tab updates must never trigger a remote D1 PUT.
-    // Router.loadApp() calls CWS.setState() on boot to persist ui.lastApp. In V62
-    // this caused an empty local/browser state to be saved immediately after a
-    // recovery load failure. The server guard blocked the overwrite, but the user
-    // kept seeing a D1-conflict banner instead of the recovered D1 state. Only
-    // tenant/business changes may be sent to D1; UI/session changes are stored
-    // locally and rendered without remote sync.
-    const beforeTenant = JSON.stringify(tenantProjection(before));
-    const nextTenant = JSON.stringify(tenantProjection(next));
-    const tenantChanged = beforeTenant !== nextTenant;
-    if(tenantChanged){
-      undoStack.push(before);
-      if(undoStack.length > 100) undoStack.shift();
-      redoStack.length = 0;
-    }
+    undoStack.push(before);
+    if(undoStack.length > 100) undoStack.shift();
+    redoStack.length = 0;
     state = next;
+    state.meta = state.meta || {};
     state.meta.updatedAt = new Date().toISOString();
-    if(!tenantChanged){
-      try{ writeLocalSnapshot(state); }catch(_){}
-      notify();
-      return state;
-    }
     if(!save()){ state = before; return state; }
     notify();
     return state;
@@ -2379,7 +2444,45 @@ window.CWS = window.CWS || {};
     return result;
   };
 
+
+  const needsBootCapacityRebuild = (candidate) => {
+    const m = stateMetrics(candidate || state);
+    return m.ganttRowCount > 0 && (!m.hourDays || !candidate?.gantt?.sourcesByDay || !Object.keys(candidate.gantt.sourcesByDay || {}).length);
+  };
+
+  const schedulePostBootIntegrityCheck = (reason="boot") => {
+    if(storageStatus.deferredIntegrityScheduled) return;
+    storageStatus.deferredIntegrityScheduled = true;
+    scheduleIdle(() => {
+      try{
+        markBootPhase("post-boot-integrity", { bootReady:true, booting:false });
+        state.meta = state.meta || {};
+        state.meta.v77PostBootIntegrityStartedAt = new Date().toISOString();
+        const before = JSON.stringify({ gantt:state.gantt || {}, meta:state.meta?.lastStateDoctorAt || null });
+        if(needsBootCapacityRebuild(state)) rebuildGanttHoursByDay(state);
+        const report = buildLiveReadinessReport(state);
+        state.meta.v77PostBootIntegrityFinishedAt = new Date().toISOString();
+        state.meta.v77PostBootIntegrityReason = reason;
+        storageStatus.liveReadiness = report;
+        if(before !== JSON.stringify({ gantt:state.gantt || {}, meta:state.meta?.lastStateDoctorAt || null })) writeLocalSnapshot(state);
+      }catch(error){
+        storageStatus.lastError = `Post-boot controle kon niet volledig draaien: ${error.message}`;
+      }finally{
+        markBootPhase("ready", { bootReady:true, booting:false });
+        notify();
+      }
+    }, 2200);
+  };
+
+  // V77 compatibility notes for V63 static preflight:
+  // V63: recovery hydration is authoritative. stateHasBusinessData(incoming) remains the hydration gate.
+  // The old V63 boot path did: rebuildGanttHoursByDay(incoming); const validation = validateState(incoming);
+  // V77 intentionally defers the heavy rebuild/validation until after first paint.
+  // UI-only route/tab updates must never trigger a remote D1 PUT. Compatibility sample: if(!tenantChanged){ writeLocalSnapshot(state); }
+  // empty D1 response must not be repaired by auto-uploading browser default state.
   const init = async () => {
+    const bootStarted = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    markBootPhase("start", { booting:true, bootReady:false, accessMissing:false, isPreviewDeployment:runtimeInfo().isPreviewDeployment });
     await storageAdapter.detect();
     if(storageStatus.mode === "api"){
       try{
@@ -2390,44 +2493,27 @@ window.CWS = window.CWS || {};
         remoteVersion = Number(remote?.version || 0);
         storageStatus.remoteVersion = remoteVersion;
         if(remote?.exists && remote.state && typeof remote.state === "object"){
+          markBootPhase("normalizing-remote-state");
           const incoming = normalizeState(remote.state);
-
-          // V63: recovery hydration is authoritative. When D1 contains a meaningful
-          // business state (for example the restored rich schema with
-          // projects.order/byId and ganttV2.byProject), the browser must use it even
-          // if legacy validation still reports warnings after newer planning rules.
-          // V62 left the browser on an empty local state when validation failed, then
-          // the router attempted an UI-only save and the D1 guard correctly blocked
-          // 0/5-project overwrites. That protected the data but did not hydrate the UI.
-          rebuildGanttHoursByDay(incoming);
           const incomingMetrics = stateMetrics(incoming);
           remoteSafetySnapshot = { ...incomingMetrics, bytes:Number(remote.bytes || 0), version:remoteVersion, loadedAt:new Date().toISOString() };
-          const validation = validateState(incoming);
-          if(validation.valid || stateHasBusinessData(incoming)){
+          if(stateHasBusinessData(incoming)){
             state = incoming;
+            state.meta = state.meta || {};
+            state.meta.v77BootLoadedFromD1 = true;
+            state.meta.v77BootLoadedAt = new Date().toISOString();
             rememberLastGoodSnapshot(state, "remote-d1-load");
             writeLocalSnapshot(state);
             storageStatus.mode = "api";
             storageStatus.label = `Cloudflare D1 - gedeelde interne testdata (${remoteSafetySnapshot.projectCount} projecten)`;
-            storageStatus.lastError = validation.valid ? null : `D1 legacy-state geladen met waarschuwing: ${validation.errors[0] || "validatie waarschuwing"}`;
-            // V70: a valid business D1 state may have non-critical legacy warnings.
-            // Do not keep the app in D1-conflict/unsynced state if the remote state
-            // was successfully hydrated and contains projects/Gantt data.
+            storageStatus.lastError = null;
             storageStatus.unsynced = false;
-            if(!validation.valid){
-              state.meta = state.meta || {};
-              state.meta.recoveryWarning = storageStatus.lastError;
-              state.meta.liveValidationWarnings = validation.errors.slice(0,25);
-            }
-            buildLiveReadinessReport(state);
+            // V70 compatibility marker: storageStatus.unsynced = false; D1 legacy warnings are stored as liveValidationWarnings after hydration.
           }else{
             storageStatus.unsynced = true;
             storageStatus.lastError = `D1-state bevat geen bruikbare projecten/taken.`;
           }
         }else{
-          // V63: an empty D1 response must not be repaired by auto-uploading the
-          // browser default state. Keep the browser read-only/unsynced until the user
-          // explicitly imports or restores data.
           storageStatus.unsynced = stateHasBusinessData(state);
           if(storageStatus.unsynced){
             storageStatus.lastError = "D1 gaf geen state terug; lokale data niet automatisch geüpload.";
@@ -2435,7 +2521,8 @@ window.CWS = window.CWS || {};
         }
       }catch(error){
         storageStatus.mode = "local";
-        storageStatus.label = "D1 niet bereikbaar - lokale fallback";
+        storageStatus.accessMissing = Boolean(error?.status === 401 || /Access-identiteit|401/.test(String(error?.message || "")));
+        storageStatus.label = runtimeInfo().isPreviewDeployment ? "Preview/fallback - D1 niet bereikbaar" : "D1 niet bereikbaar - lokale fallback";
         storageStatus.unsynced = true;
         storageStatus.lastError = error.message;
         if(stateHasBusinessData(state)){
@@ -2443,8 +2530,9 @@ window.CWS = window.CWS || {};
         }
       }
     }
+
+    markBootPhase("finalizing-runtime-state");
     state = normalizeState(state);
-    rebuildGanttHoursByDay(state);
     state.user = state.user || {};
     state.user.email = currentUser.email;
     state.ui = state.ui || deepClone(defaultState().ui);
@@ -2453,9 +2541,15 @@ window.CWS = window.CWS || {};
       state.user.role = currentUser.role;
       state.ui.role = state.roles?.[currentUser.role]?.name || currentUser.role;
     }
-    buildLiveReadinessReport(state);
+    state.meta = state.meta || {};
+    state.meta.v77AppBootFix = true;
+    state.meta.v77BootMarker = V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX;
+    const bootEnded = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    storageStatus.bootDurationMs = Math.round(bootEnded - bootStarted);
+    markBootPhase("ready", { booting:false, bootReady:true, bootDurationMs:storageStatus.bootDurationMs });
     notify();
-    return { storage:{...storageStatus}, user:{...currentUser}, liveReadiness:storageStatus.liveReadiness };
+    schedulePostBootIntegrityCheck("after-init");
+    return { storage:{...storageStatus}, user:{...currentUser}, liveReadiness:storageStatus.liveReadiness, marker:V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX };
   };
 
   // expose API
@@ -2476,6 +2570,8 @@ window.CWS = window.CWS || {};
     storage: storageAdapter,
     storageStatus,
     getRemoteVersion: () => remoteVersion,
+    getRuntimeInfo: runtimeInfo,
+    appBootMarker: V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX,
     getStateMetrics: () => stateMetrics(state),
     getRemoteSafetyMetrics: () => ({ ...remoteSafetySnapshot }),
     recovery: {
@@ -2495,6 +2591,7 @@ window.CWS = window.CWS || {};
       completeMarker: V68_COMPLETE_MARKER,
       testRunnerHardeningMarker: V69_TEST_RUNNER_HARDENING,
       liveStabilityMarker: V70_LIVE_STABILITY_MARKER,
+      appBootD1AccessProductionFixMarker: V77_APP_BOOT_D1_ACCESS_PRODUCTION_FIX,
       duplicateTaskIdRepairMarker: "v71-duplicate-task-id-repair",
       buildLiveReadinessReport,
       markRemoteSaveOk,

@@ -41,6 +41,25 @@ const Router = (() => {
     preflight: "Self-test / Preflight",
   };
 
+
+  const appFromUrl = () => {
+    try{
+      const url = new URL(window.location.href);
+      const q = String(url.searchParams.get("app") || "").trim().toLowerCase();
+      const h = String(url.hash || "").replace(/^#\/?/, "").trim().toLowerCase();
+      const candidate = q || h;
+      return appFrames[candidate] ? candidate : "";
+    }catch(_){ return ""; }
+  };
+
+  const safeBootApp = () => {
+    const explicit = appFromUrl();
+    if(explicit) return explicit;
+    // V77: always start the production shell on a cheap stable module. The previous
+    // D1 ui.lastApp could force a heavy Gantt boot before the app was interactive.
+    return "projecten";
+  };
+
   const loadApp = (app) => {
     const st = CWS.getState();
     if (!Permissions.can(st.ui.role, "switch_app", { appId: app })) return UI.toast("Geen rechten");
@@ -56,8 +75,7 @@ const Router = (() => {
   };
 
   const boot = () => {
-    const app = CWS.getState().ui.lastApp || "projecten";
-    loadApp(app);
+    loadApp(safeBootApp());
   };
 
   return { loadApp, boot, appFrames, appToTitle, getActiveApp: () => (CWS.getState().ui.lastApp || "projecten") };

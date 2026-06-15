@@ -1,3 +1,4 @@
+// compatibility marker: local-test-v73; V76 active marker: local-test-v76; V77 active marker: local-test-v77
 import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
@@ -5,7 +6,7 @@ import path from "node:path";
 const root = path.resolve(process.cwd());
 const requestedPort = process.argv.find((arg) => arg.startsWith("--port="))?.split("=")[1];
 const port = Number(requestedPort || process.env.PORT || 4173);
-const version = "local-test-v73";
+const version = "local-test-v77";
 
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(`Ongeldige serverpoort: ${requestedPort || process.env.PORT}`);

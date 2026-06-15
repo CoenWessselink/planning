@@ -67,11 +67,13 @@
           const state = CWS.getState();
           document.getElementById("rolePill").textContent = state.ui.role;
           document.getElementById("deptPill").textContent = state.user?.dept || "Alle";
-          document.getElementById("storagePill").textContent = "Opslag: " + CWS.storageStatus.label + (CWS.getRemoteVersion?.() ? ` v${CWS.getRemoteVersion()}` : "");
+          document.getElementById("storagePill").textContent = "Opslag: " + CWS.storageStatus.label + (CWS.getRemoteVersion?.() ? ` v${CWS.getRemoteVersion()}` : "") + (CWS.storageStatus.booting ? " - laden..." : "");
           document.getElementById("userPill").textContent = CWS.getCurrentUser().email;
           document.getElementById("storageWarning").hidden = CWS.storageStatus.mode === "api" && !CWS.storageStatus.unsynced;
           if(CWS.storageStatus.unsynced){
-            document.getElementById("storageWarning").textContent = "Let op: wijzigingen zijn nog niet gesynchroniseerd met D1. " + (CWS.storageStatus.lastError || "");
+            const runtime = CWS.getRuntimeInfo?.() || {};
+            const prefix = runtime.isPreviewDeployment ? "Previewdeployment: D1/Access kan ontbreken. " : "Let op: wijzigingen zijn nog niet gesynchroniseerd met D1. ";
+            document.getElementById("storageWarning").textContent = prefix + (CWS.storageStatus.lastError || "") + (CWS.storageStatus.accessMissing ? " Cloudflare Access-identiteit ontbreekt." : "");
           }else{
             document.getElementById("storageWarning").textContent = "Let op: je werkt nu met lokale browserdata. Collega\'s zien deze wijzigingen niet.";
           }
