@@ -262,8 +262,8 @@ try {
 
   await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
   const compact = await evaluate(`(()=>{const row=document.querySelector('.gantt-table tbody tr'),table=document.querySelector('.gantt-table'),bar=document.querySelector('.bar:not(.summary)');return {rowHeight:row?.getBoundingClientRect().height||0,tableFont:parseFloat(getComputedStyle(table).fontSize)||0,barHeight:bar?.getBoundingClientRect().height||0};})()`);
-  const fieldFont = await evaluate(`parseFloat(getComputedStyle(document.querySelector('.taskname')).fontSize)||0`);
-  check("Gantt desktopweergave is compact", compact.rowHeight <= 39 && compact.tableFont <= 9 && fieldFont <= 9 && compact.barHeight <= 35, JSON.stringify({...compact,fieldFont}));
+  const fonts = await evaluate(`(()=>({field:parseFloat(getComputedStyle(document.querySelector('.taskname')).fontSize)||0,hours:parseFloat(getComputedStyle(document.querySelector('.hours-source-cell .cellinput')).fontSize)||0,auto:parseFloat(getComputedStyle(document.querySelector('.hours-source-select')).fontSize)||0}))()`);
+  check("Gantt desktopweergave gebruikt leesbare tabel en compacte urenbron", compact.rowHeight <= 39 && compact.tableFont === 11 && fonts.field === 11 && fonts.hours <= 9 && fonts.auto <= 9 && compact.barHeight <= 35, JSON.stringify({...compact,...fonts}));
   const scrollTarget = await evaluate(`(()=>{const wrap=document.querySelector('#boardWrap');wrap.style.maxHeight='240px';wrap.scrollTop=0;const r=wrap.getBoundingClientRect();return {x:r.left+r.width*.75,y:r.top+r.height*.7};})()`);
   await wheel(scrollTarget.x, scrollTarget.y, 240);
   await delay(100);
@@ -276,8 +276,9 @@ try {
   await cdp("Emulation.setEmulatedMedia", { media:"print" });
   await evaluate("window.print=()=>{};document.querySelector('#printBtn').click()");
   await delay(450);
-  const printLayout = await evaluate(`(()=>{const left=document.querySelector('#printTaskTable').getBoundingClientRect().width,chart=document.querySelector('#chartPane').getBoundingClientRect().width,total=left+chart;return {printing:document.body.classList.contains('printing'),left,chart,total,dayW:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dayW'))||0};})()`);
+  const printLayout = await evaluate(`(()=>{const left=document.querySelector('#printTaskTable').getBoundingClientRect().width,chart=document.querySelector('#chartPane').getBoundingClientRect().width,total=left+chart,pid=document.querySelector('#projectSel').value,model=CWS.getState().ganttV2.byProject[pid],starts=Object.values(model.sched||{}).map(sc=>sc?.start).filter(Boolean).sort(),firstTask=starts[0],expected=new Date(firstTask+'T00:00:00Z');expected.setUTCDate(expected.getUTCDate()-7);return {printing:document.body.classList.contains('printing'),left,chart,total,dayW:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dayW'))||0,firstTask,expectedStart:expected.toISOString().slice(0,10),printStart:document.querySelector('#timeline .tl-cell.day')?.dataset.iso||''};})()`);
   check("Gantt A3-print past zonder browser-miniatuurschaal", printLayout.total <= 1510 && printLayout.total >= 1400 && printLayout.chart > 800, JSON.stringify(printLayout));
+  check("Gantt A3-print start exact één week voor eerste taak", printLayout.printStart === printLayout.expectedStart, JSON.stringify(printLayout));
   await cdp("Emulation.setEmulatedMedia", { media:"screen" });
   await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
 
