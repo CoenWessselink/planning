@@ -63,7 +63,7 @@ console.log(`${v43pass ? "OK" : "FAIL"} - V43 capaciteit A0 printstijl en PDF-na
 if(!v43pass) ok = false;
 
 
-const v44pass = gantt.includes('V44 — definitive Gantt print raster') && gantt.includes('dayGridLineHtml') && gantt.includes('--v44-print-row-h') && gantt.includes('--v44-print-head-h') && gantt.includes('UI.printMode ? 1760');
+const v44pass = gantt.includes('V44 — definitive Gantt print raster') && gantt.includes('dayGridLineHtml') && gantt.includes('--v44-print-row-h') && gantt.includes('--v44-print-head-h') && gantt.includes('1500-Math.max(0,Number(printLeftW)||0)');
 console.log(`${v44pass ? "OK" : "FAIL"} - V44 Gantt print daglijnen, uitlijning en kalenderbreedte`);
 if(!v44pass) ok = false;
 

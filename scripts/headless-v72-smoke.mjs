@@ -80,8 +80,8 @@ async function openRoute(route, width=1440, height=1000) {
 async function mouse(type, x, y, buttons=0) {
   await cdp("Input.dispatchMouseEvent", { type, x, y, button:"left", buttons, clickCount:1 });
 }
-async function wheel(x, y, deltaY) {
-  await cdp("Input.dispatchMouseEvent", { type:"mouseWheel", x, y, deltaX:0, deltaY });
+async function wheel(x, y, deltaY, deltaX=0, modifiers=0) {
+  await cdp("Input.dispatchMouseEvent", { type:"mouseWheel", x, y, deltaX, deltaY, modifiers });
 }
 async function dragPointer(targetExpression, deltaX, steps=5) {
   let target = await evaluate(targetExpression);
@@ -262,14 +262,28 @@ try {
 
   await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
   const compact = await evaluate(`(()=>{const row=document.querySelector('.gantt-table tbody tr'),table=document.querySelector('.gantt-table'),bar=document.querySelector('.bar:not(.summary)');return {rowHeight:row?.getBoundingClientRect().height||0,tableFont:parseFloat(getComputedStyle(table).fontSize)||0,barHeight:bar?.getBoundingClientRect().height||0};})()`);
-  check("Gantt desktopweergave is compact", compact.rowHeight <= 39 && compact.tableFont <= 11 && compact.barHeight <= 35, JSON.stringify(compact));
+  const fieldFont = await evaluate(`parseFloat(getComputedStyle(document.querySelector('.taskname')).fontSize)||0`);
+  check("Gantt desktopweergave is compact", compact.rowHeight <= 39 && compact.tableFont <= 9 && fieldFont <= 9 && compact.barHeight <= 35, JSON.stringify({...compact,fieldFont}));
   const scrollTarget = await evaluate(`(()=>{const wrap=document.querySelector('#boardWrap');wrap.style.maxHeight='240px';wrap.scrollTop=0;const r=wrap.getBoundingClientRect();return {x:r.left+r.width*.75,y:r.top+r.height*.7};})()`);
   await wheel(scrollTarget.x, scrollTarget.y, 240);
   await delay(100);
   check("Gantt wielscroll werkt zonder voorafgaande klik", await evaluate("document.querySelector('#boardWrap').scrollTop > 0"));
+  const horizontalTarget = await evaluate(`(()=>{const wrap=document.querySelector('#boardWrap');wrap.style.maxHeight='none';wrap.scrollTop=0;wrap.scrollLeft=0;const r=wrap.getBoundingClientRect();return {x:r.left+r.width*.75,y:r.top+Math.min(r.height*.5,300)};})()`);
+  await wheel(horizontalTarget.x, horizontalTarget.y, 0, 260);
+  await delay(100);
+  check("Gantt horizontale wielscroll werkt zonder voorafgaande klik", await evaluate("document.querySelector('#boardWrap').scrollLeft > 0"));
+
+  await cdp("Emulation.setEmulatedMedia", { media:"print" });
+  await evaluate("window.print=()=>{};document.querySelector('#printBtn').click()");
+  await delay(450);
+  const printLayout = await evaluate(`(()=>{const left=document.querySelector('#printTaskTable').getBoundingClientRect().width,chart=document.querySelector('#chartPane').getBoundingClientRect().width,total=left+chart;return {printing:document.body.classList.contains('printing'),left,chart,total,dayW:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dayW'))||0};})()`);
+  check("Gantt A3-print past zonder browser-miniatuurschaal", printLayout.total <= 1510 && printLayout.total >= 1400 && printLayout.chart > 800, JSON.stringify(printLayout));
+  await cdp("Emulation.setEmulatedMedia", { media:"screen" });
+  await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
 
   const corrupted = await evaluate(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!bar)return null;const id=bar.dataset.id,pid=document.querySelector('#projectSel')?.value;CWS.setState(st=>{const model=st.ganttV2.byProject[pid],row=model.rows.find(item=>item.id===id),sc=model.sched[id];row.duration=4;model.sched[id]={...sc,start:'2026-06-01',end:'2028-02-21',workdays:638,explicitRange:false};return st;});return {id,pid};})()`);
   await delay(300);
+  check("Gantt duurkolom toont betrouwbare taakduur", await evaluate(`document.querySelector('tr[data-id="${corrupted.id}"] .duration-input')?.value === '4'`));
   await evaluate("document.querySelector('#boardWrap').scrollTop=0;document.querySelector('#boardWrap').scrollLeft=0");
   const recoveredBefore = corrupted && await dragPointer(`(()=>{const bar=document.querySelector('.bar[data-id="${corrupted.id}"]');if(!bar)return null;const r=bar.getBoundingClientRect();return {x:r.left+Math.min(r.width/2,120),y:r.top+r.height/2,id:${JSON.stringify(corrupted.id)},pid:${JSON.stringify(corrupted.pid)}};})()`, 44);
   if(recoveredBefore) {
