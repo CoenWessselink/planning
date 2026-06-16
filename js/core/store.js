@@ -939,6 +939,9 @@ window.CWS = window.CWS || {};
   const redoStack = [];
   let lastValidation = { valid:true, errors:[] };
   let saveTimer = null;
+  let remoteSaveInFlight = false;
+  let remoteSaveQueued = false;
+  let remoteSaveQueuedReason = "";
   let deferredPersistenceTimer = null;
   let privilegedMutation = false;
   let currentUser = { email:"Identiteit laden...", role:state.user?.role || "admin" };
@@ -967,6 +970,8 @@ window.CWS = window.CWS || {};
     identityEmail:null,
     stateSource:"pending",
     lastSuccessfulD1LoadAt:null,
+    remoteSaveInFlight:false,
+    remoteSaveQueued:false,
     setStateCallsDuringBoot:0,
     rendersDuringBoot:0,
     savesBlockedDuringBoot:0,
@@ -1208,6 +1213,74 @@ window.CWS = window.CWS || {};
     }
   };
 
+  const handleRemoteSaveError = (error) => {
+    storageStatus.unsynced = true;
+    storageStatus.lastError = error.message;
+    if(error.cwsGuard === "v63-catastrophic-overwrite" || error.cwsGuard === "v72-validation-guard"){
+      storageStatus.label = "D1 beveiligd - demo/lege overwrite geblokkeerd";
+      storageAdapter.audit("save_guard_blocked", {
+        message:error.message,
+        remoteMetrics:error.remoteMetrics || remoteSafetySnapshot,
+        localMetrics:error.localMetrics || stateMetrics(state)
+      });
+      try{ window.UI?.toast?.(error.message); }catch(_){}
+    }else if(error.status === 409){
+      storageStatus.label = "D1 conflict - herladen nodig";
+      storageAdapter.audit("d1_conflict", { message:error.message, currentVersion:error.currentVersion || null });
+      try{ window.UI?.toast?.("Data is gewijzigd door een andere gebruiker. Herlaad om overschrijven te voorkomen."); }catch(_){}
+    }else{
+      try{ window.UI?.toast?.("Serveropslag niet bereikbaar - wijzigingen lokaal bewaard."); }catch(_){}
+    }
+  };
+
+  const runRemoteSaveOnce = async (reason="user-mutation") => {
+    const snapshot = createRemoteSaveSnapshot(state);
+    const validation = validateState(snapshot);
+    if(!validation.valid){
+      const error = new Error(`Opslaan geblokkeerd: ${validation.errors[0] || "state-validatie mislukt."}`);
+      error.cwsGuard = "v72-validation-guard";
+      throw error;
+    }
+    protectAgainstCatastrophicOverwrite(snapshot, "remote save");
+    await storageAdapter.save(snapshot);
+    markRemoteSaveOk(`remote-save-ok:${reason}`);
+  };
+
+  const flushRemoteSaveQueue = async (reason="user-mutation") => {
+    if(remoteSaveInFlight){
+      remoteSaveQueued = true;
+      remoteSaveQueuedReason = reason;
+      storageStatus.remoteSaveQueued = true;
+      storageStatus.label = "Opslaan ingepland";
+      notify();
+      return true;
+    }
+    remoteSaveInFlight = true;
+    storageStatus.remoteSaveInFlight = true;
+    storageStatus.remoteSaveQueued = false;
+    let currentReason = reason;
+    try{
+      do{
+        remoteSaveQueued = false;
+        remoteSaveQueuedReason = "";
+        storageStatus.remoteSaveQueued = false;
+        storageStatus.label = "Opslaan...";
+        await runRemoteSaveOnce(currentReason);
+        currentReason = remoteSaveQueuedReason || "queued-user-mutation";
+      }while(remoteSaveQueued);
+    }catch(error){
+      remoteSaveQueued = false;
+      remoteSaveQueuedReason = "";
+      storageStatus.remoteSaveQueued = false;
+      handleRemoteSaveError(error);
+    }finally{
+      remoteSaveInFlight = false;
+      storageStatus.remoteSaveInFlight = false;
+      notify();
+    }
+    return true;
+  };
+
   const scheduleRemoteSave = (reason="user-mutation") => {
     if(initStarted && (!storageStatus.bootReady || storageStatus.bootPhase !== "app-ready")){
       storageStatus.savesBlockedDuringBoot += 1;
@@ -1219,38 +1292,9 @@ window.CWS = window.CWS || {};
       return false;
     }
     if(saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(async()=>{
-      try{
-        const snapshot = createRemoteSaveSnapshot(state);
-        const validation = validateState(snapshot);
-        if(!validation.valid){
-          const error = new Error(`Opslaan geblokkeerd: ${validation.errors[0] || "state-validatie mislukt."}`);
-          error.cwsGuard = "v72-validation-guard";
-          throw error;
-        }
-        protectAgainstCatastrophicOverwrite(snapshot, "remote save");
-        await storageAdapter.save(snapshot);
-        markRemoteSaveOk("remote-save-ok");
-      }catch(error){
-        storageStatus.unsynced = true;
-        storageStatus.lastError = error.message;
-        if(error.cwsGuard === "v63-catastrophic-overwrite" || error.cwsGuard === "v72-validation-guard"){
-          storageStatus.label = "D1 beveiligd - demo/lege overwrite geblokkeerd";
-          storageAdapter.audit("save_guard_blocked", {
-            message:error.message,
-            remoteMetrics:error.remoteMetrics || remoteSafetySnapshot,
-            localMetrics:error.localMetrics || stateMetrics(state)
-          });
-          try{ window.UI?.toast?.(error.message); }catch(_){}
-        }else if(error.status === 409){
-          storageStatus.label = "D1 conflict - herladen nodig";
-          storageAdapter.audit("d1_conflict", { message:error.message, currentVersion:error.currentVersion || null });
-          try{ window.UI?.toast?.("Data is gewijzigd door een andere gebruiker. Herlaad om overschrijven te voorkomen."); }catch(_){}
-        }else{
-          try{ window.UI?.toast?.("Serveropslag niet bereikbaar - wijzigingen lokaal bewaard."); }catch(_){}
-        }
-      }
-      notify();
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      flushRemoteSaveQueue(reason);
     }, 350);
     return true;
   };
