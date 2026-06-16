@@ -2470,6 +2470,12 @@ window.CWS = window.CWS || {};
     return target.gantt;
   };
 
+  // V86: explicit capacity-from-Gantt contract names. These wrap the existing V58/V59
+  // SSOT implementation so Capaciteit stays derived from Gantt hoursByDay/sourcesByDay.
+  const buildHoursByDayFromGantt = (target=state) => rebuildGanttHoursByDay(target).hoursByDay;
+  const buildSourcesByDayFromGantt = (target=state) => rebuildGanttHoursByDay(target).sourcesByDay;
+  const recalculateCapacityFromGantt = (target=state) => rebuildGanttHoursByDay(target);
+
   const recalculateGanttHoursIfChanged = () => {
     const before = ganttHoursSignature(state.gantt || { hoursByDay:{}, sourcesByDay:{} });
     const next = deepClone(state);
@@ -3011,6 +3017,9 @@ window.CWS = window.CWS || {};
     validateState,
     getLastValidation: () => lastValidation,
     rebuildGanttHoursByDay: () => recalculateGanttHoursIfChanged().gantt,
+    buildHoursByDayFromGantt,
+    buildSourcesByDayFromGantt,
+    recalculateCapacityFromGantt,
     gantt: ganttApi,
     storage: storageAdapter,
     storageStatus,

@@ -1,0 +1,5 @@
+node_modules/
+test-results/
+screenshots-v86/
+v86-server-*.log
+*.zip
