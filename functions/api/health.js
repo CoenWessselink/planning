@@ -1,4 +1,4 @@
-// V85 compatibility retain: internal-test-v82 v82-lightweight-no-state-load
+// V86 active marker: internal-test-v86 v86-lightweight-no-state-load. V85 compatibility retain: internal-test-v82 v82-lightweight-no-state-load
 // V78 compatibility marker: internal-test-v78 v78-lightweight-no-state-load
 // V82 D1 chunked state save fix marker: internal-test-v85 v85-lightweight-no-state-load
 // V78 production boot/data hydration marker: internal-test-v85 v85-lightweight-no-state-load
@@ -26,8 +26,8 @@ export async function onRequestGet(context) {
       ok: true,
       service: "cws-planning",
       storage: "d1",
-      version: "internal-test-v85",
-      healthMode: "v85-lightweight-no-state-load", // compatibility: v77-lightweight-no-state-load v72-lightweight-no-state-load v70-lightweight-no-state-load
+      version: "internal-test-v86",
+      healthMode: "v86-lightweight-no-state-load", // compatibility: internal-test-v85 v85-lightweight-no-state-load v77-lightweight-no-state-load v72-lightweight-no-state-load v70-lightweight-no-state-load
       schemaOk: schema.ok,
       schemaErrors: schema.errors,
       schemaRepairRequired: !schema.ok
@@ -37,7 +37,7 @@ export async function onRequestGet(context) {
       ok: false,
       service: "cws-planning",
       storage: "d1",
-      healthMode: "v85-lightweight-no-state-load", // compatibility: v77-lightweight-no-state-load v72-lightweight-no-state-load v70-lightweight-no-state-load
+      healthMode: "v86-lightweight-no-state-load", // compatibility: internal-test-v85 v85-lightweight-no-state-load v77-lightweight-no-state-load v72-lightweight-no-state-load v70-lightweight-no-state-load
       error: error.message
     }, 500);
   }

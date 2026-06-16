@@ -70,7 +70,8 @@
     "preflight:v82": "node scripts/v82-d1-state-size-save-preflight.mjs",
     "preflight:v83": "node scripts/v83-gantt-edit-type-selector-preflight.mjs",
     "preflight:v84": "node scripts/v84-gantt-screen-bar-header-isolation-preflight.mjs",
-    "preflight:v85": "node scripts/v85-d1-chunked-state-streaming-load-preflight.mjs"
+    "preflight:v85": "node scripts/v85-d1-chunked-state-streaming-load-preflight.mjs",
+    "preflight:v86": "node scripts/v86-complete-gantt-capacity-mobile-visual-hardening-preflight.mjs"
   },
   "devDependencies": {}
 }

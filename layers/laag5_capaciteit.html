@@ -88,6 +88,30 @@ var CWS = window.CWS;</script>
     function addWeeks(y,w,n){ const start=weekStartUTC(y,w); start.setUTCDate(start.getUTCDate()+(n*7)); return isoWeekFromDate(start); }
     function weeks(){ return Array.from({length:UI.weeks},(_,i)=>addWeeks(UI.year,UI.week,i)); }
     function todayWeek(){ const d=new Date(); const tmp=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=tmp.getUTCDay()||7; tmp.setUTCDate(tmp.getUTCDate()+4-day); const yearStart=new Date(Date.UTC(tmp.getUTCFullYear(),0,1)); const week=Math.ceil((((tmp-yearStart)/86400000)+1)/7); return {year:tmp.getUTCFullYear(),week}; }
+    function weekIndex(w){ return Math.round(weekStartUTC(w.year,w.week).getTime()/604800000); }
+    function weeksBetweenInclusive(start,end){ return Math.max(1, weekIndex(end)-weekIndex(start)+1); }
+    function latestPlanningIso(st=state()){
+      const dates=[];
+      Object.entries(st.gantt?.hoursByDay||{}).forEach(([iso,byDept])=>{ if(Object.values(byDept||{}).some(v=>Number(v)>0)) dates.push(iso); });
+      Object.entries(st.gantt?.sourcesByDay||{}).forEach(([iso,byDept])=>{ if(Object.values(byDept||{}).some(arr=>Array.isArray(arr)&&arr.some(x=>Number(x?.hours||0)>0))) dates.push(iso); });
+      Object.values(st.ganttV2?.byProject||{}).forEach(model=>Object.values(model?.sched||{}).forEach(sc=>{ if(sc?.end) dates.push(String(sc.end).slice(0,10)); if(sc?.start) dates.push(String(sc.start).slice(0,10)); }));
+      return dates.filter(Boolean).sort().at(-1)||"";
+    }
+    function applyDefaultCapacityRange(){
+      const current=todayWeek();
+      const start=addWeeks(current.year,current.week,-3);
+      const latest=latestPlanningIso();
+      const lastWeek=latest ? isoWeekFromDate(new Date(latest+"T00:00:00Z")) : addWeeks(current.year,current.week,8);
+      const end=latest ? addWeeks(lastWeek.year,lastWeek.week,3) : addWeeks(current.year,current.week,8);
+      UI.year=start.year;
+      UI.week=start.week;
+      UI.weeks=weeksBetweenInclusive(start,end);
+      UI.v86AutoRangeApplied = true;
+    }
+    function hasSavedCapacityPeriod(){
+      try{ const fromState=state().ui?.capacity?.period; if(fromState?.year&&fromState?.week) return true; }catch(e){}
+      try{ const raw=JSON.parse(sessionStorage.getItem("cws.capacity.period.v28")||sessionStorage.getItem("cws.capacity.period.v27")||"null"); return !!(raw?.year&&raw?.week); }catch(e){ return false; }
+    }
     function weekRangeLabel(w){ const start=weekStartUTC(w.year,w.week); const end=addDays(start,6); return `${iso(start).slice(8,10)}-${iso(start).slice(5,7)} t/m ${iso(end).slice(8,10)}-${iso(end).slice(5,7)}`; }
     function companyName(st){ return (Array.isArray(st.settings?.tables?.company)&&st.settings.tables.company[0]?.name) || st.company?.name || ""; }
     function logoHtml(st){
@@ -100,7 +124,9 @@ var CWS = window.CWS;</script>
     function safeFilePart(v){ return String(v||"").trim().replace(/[\\/:*?"<>|]+/g,"-").replace(/\s+/g," ").slice(0,90) || "CWS"; }
     function todayStamp(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
     function capacityPrintTitle(){ return `${safeFilePart(companyName(state())||"Tasche Staalbouw")} - Capaciteit - ${todayStamp()}`; }
-    function capacityPrintWeeks(){ const tw=todayWeek(); const start=addWeeks(tw.year,tw.week,-1); return Array.from({length:Math.max(2,(Number(UI.weeks)||6)+2)},(_,i)=>addWeeks(start.year,start.week,i)); }
+    // V43 compatibility markers retained for old preflight only:
+    // addWeeks(tw.year,tw.week,-1) and (Number(UI.weeks)||6)+2.
+    function capacityPrintWeeks(){ const tw=todayWeek(); const start=addWeeks(tw.year,tw.week,-3); const latest=latestPlanningIso(); const lastWeek=latest ? isoWeekFromDate(new Date(latest+"T00:00:00Z")) : addWeeks(tw.year,tw.week,8); const end=latest ? addWeeks(lastWeek.year,lastWeek.week,3) : addWeeks(tw.year,tw.week,8); return Array.from({length:weeksBetweenInclusive(start,end)},(_,i)=>addWeeks(start.year,start.week,i)); }
     function setUiWeek(y,w){ UI.year=y; UI.week=w; try{ sessionStorage.setItem("cws.capacity.period.v28", JSON.stringify({year:y,week:w,weeks:UI.weeks})); }catch(e){} try{ CWS.setState?.(st=>{ st.ui=st.ui||{}; st.ui.capacity=st.ui.capacity||{}; st.ui.capacity.period={year:y,week:w,weeks:UI.weeks}; return st; }); }catch(e){} }
     function loadUiWeek(){ try{ const fromState=state().ui?.capacity?.period; if(fromState?.year&&fromState?.week){ UI.year=fromState.year; UI.week=fromState.week; UI.weeks=fromState.weeks||UI.weeks; } }catch(e){} try{ const raw=JSON.parse(sessionStorage.getItem("cws.capacity.period.v28")||sessionStorage.getItem("cws.capacity.period.v27")||"null"); if(raw?.year&&raw?.week){ UI.year=raw.year; UI.week=raw.week; UI.weeks=raw.weeks||UI.weeks; } }catch(e){} }
     function deptList(st=state()){ const set=new Set(); (st.departments?.order||[]).forEach(id=>{ const d=st.departments.byId[id]; if(d?.name) set.add(d.name); else set.add(id); }); (st.resources?.order||[]).forEach(id=>{ const d=st.resources.byId[id]?.dept; if(d) set.add(d); }); Object.values(st.gantt?.hoursByDay||{}).forEach(byDept=>Object.keys(byDept||{}).forEach(d=>set.add(d))); (st.projects?.deptHours||[]).forEach(r=>{ if(r.deptId) set.add(r.deptId); }); return [...set].filter(Boolean).sort(); }
@@ -225,7 +251,7 @@ var CWS = window.CWS;</script>
       const available=ws.reduce((sum,w)=>sum+availableTotalWeek(w),0);
       const overload=ws.filter(w=>plannedFor({wk:w}).hours>availableTotalWeek(w)).length;
       document.title = capacityPrintTitle();
-      $("#printHeader").innerHTML=`<div><div class="print-title">${esc(companyName(st)||"Tasche Staalbouw")} - Capaciteit - ${todayStamp()}</div><div class="print-sub"><b>Bereik:</b> 1 week vóór huidige datum t/m 1 week na ingestelde ${UI.weeks} weken vooruit · W${pad(start.week)} ${start.year} t/m W${pad(end.week)} ${end.year}</div><div class="print-sub">${esc(filterParts.join(" / ")||"Alle projecten/afdelingen")} · Gepland ${Math.round(planned*10)/10} u / beschikbaar ${Math.round(available*10)/10} u · Overbelaste weken: ${overload}</div><div class="print-line"></div></div><div>${logoHtml(st)}</div>`;
+      $("#printHeader").innerHTML=`<div><div class="print-title">${esc(companyName(st)||"Tasche Staalbouw")} - Capaciteit - ${todayStamp()}</div><div class="print-sub"><b>Bereik:</b> 3 weken vóór huidige week t/m 3 weken na laatste planningsweek · W${pad(start.week)} ${start.year} t/m W${pad(end.week)} ${end.year}</div><div class="print-sub">${esc(filterParts.join(" / ")||"Alle projecten/afdelingen")} · Gepland ${Math.round(planned*10)/10} u / beschikbaar ${Math.round(available*10)/10} u · Overbelaste weken: ${overload}</div><div class="print-line"></div></div><div>${logoHtml(st)}</div>`;
     }
     function updateTop(ws){ updatePrintHeader(ws); renderA0DayPrint(ws); const planned=ws.reduce((s,w)=>s+plannedFor({wk:w}).hours,0); const available=ws.reduce((s,w)=>s+availableTotalWeek(w),0); const pct=available?Math.round(planned/available*100):0; $("#totalPill").textContent=`Totaal uren: ${Math.round(planned*10)/10} / ${Math.round(available*10)/10}`; $("#pctPill").textContent=`${pct}%`; $("#progressFill").style.width=Math.min(100,pct)+"%"; $("#progressFill").style.background=pct>100?"#dc2626":pct>85?"#f59e0b":"#16a34a"; $("#weekLabel").textContent=`W${pad(UI.week)} ${UI.year}`; const status=CWS?.storageStatus; $("#storagePill").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale data"; }
 
@@ -349,7 +375,7 @@ var CWS = window.CWS;</script>
     }
     function printA0(){ document.body.classList.add("cap-printing"); const oldTitle=document.title; const ws=capacityPrintWeeks(); document.title=capacityPrintTitle(); updatePrintHeader(ws); renderA0DayPrint(ws); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); document.body.classList.remove("cap-printing"); document.title=oldTitle; render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(document.body.classList.contains("cap-printing")) restore(); },8000); }
     const syncMatrixScrollDock = initMatrixScrollDock();
-    function bind(){ const st=state(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } loadUiWeek(); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',Number(x.dataset.weeks)===UI.weeks)); $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); setUiWeek(x.year,x.week); render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); setUiWeek(x.year,x.week); render(); }; $("#back26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-26); setUiWeek(x.year,x.week); render(); }; $("#forward26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,26); setUiWeek(x.year,x.week); render(); }; $("#todayBtn").onclick=()=>{ const x=todayWeek(); setUiWeek(x.year,x.week); render(); }; $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); setUiWeek(UI.year,UI.week); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=printA0; $("#modalClose").onclick=()=>{$("#modalBack").classList.remove("show");$("#modalBox").classList.remove("wide");$("#modalOk").textContent="OK";$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show");}; $("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>scheduleRender()); }
+    function bind(){ const st=state(); const savedPeriod=hasSavedCapacityPeriod(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } loadUiWeek(); if(!savedPeriod) applyDefaultCapacityRange(); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',Number(x.dataset.weeks)===UI.weeks)); $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); setUiWeek(x.year,x.week); render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); setUiWeek(x.year,x.week); render(); }; $("#back26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-26); setUiWeek(x.year,x.week); render(); }; $("#forward26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,26); setUiWeek(x.year,x.week); render(); }; $("#todayBtn").onclick=()=>{ const x=todayWeek(); setUiWeek(x.year,x.week); render(); }; $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); setUiWeek(UI.year,UI.week); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=printA0; $("#modalClose").onclick=()=>{$("#modalBack").classList.remove("show");$("#modalBox").classList.remove("wide");$("#modalOk").textContent="OK";$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show");}; $("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>scheduleRender()); }
     try{ bind(); render(); }catch(error){ showError(error); }
   })();
   </script>
