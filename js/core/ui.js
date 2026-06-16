@@ -334,6 +334,8 @@ const UI = (() => {
     onAction = null,
     // Optional callback invoked after any add/edit/delete write
     onChange = null,
+    // Optional custom delete handler. Return false to keep the table unchanged.
+    onDelete = null,
   } = {}) => {
     const getAtPath = (obj, path) => {
       const parts = (path||'').split('.').filter(Boolean);
@@ -518,6 +520,11 @@ const UI = (() => {
         tdA.style.textAlign = 'right';
         tdA.innerHTML = `<button class="btn" data-act="del">Verwijder</button>`;
         tdA.querySelector('[data-act=del]').addEventListener('click', () => {
+          if(typeof onDelete === 'function'){
+            const handled = onDelete({ row:r, index:idx, rows:readRows(), render, writeRows });
+            if(handled !== false) render();
+            return;
+          }
           if(!confirm('Rij verwijderen?')) return;
           writeRows(arr => { arr.splice(idx,1); return arr; });
           render();

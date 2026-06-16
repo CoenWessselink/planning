@@ -238,15 +238,37 @@ window.CWS = window.CWS || {};
     st.settings.tables = st.settings.tables && typeof st.settings.tables === "object" ? st.settings.tables : {};
     st.settings.tables.departments = Array.isArray(st.settings.tables.departments) ? st.settings.tables.departments : [];
     st.settings.tables.afdelingen = Array.isArray(st.settings.tables.afdelingen) ? st.settings.tables.afdelingen : [];
+    st.settings.deletedDepartments = Array.isArray(st.settings.deletedDepartments) ? st.settings.deletedDepartments : [];
     st.departments = st.departments || { order:[], byId:{} };
     st.departments.order = Array.isArray(st.departments.order) ? st.departments.order : [];
     st.departments.byId = st.departments.byId && typeof st.departments.byId === "object" ? st.departments.byId : {};
 
-    const add = (raw, preferredId=null) => {
+    const deletedMatches = (raw, preferredId=null) => {
+      const candidates = [preferredId, raw?.id, raw?.name, raw?.code, raw?.dept, raw?.department, deptRowName(raw), deptRowCode(raw)]
+        .map(deptNorm).filter(Boolean);
+      if(!candidates.length) return false;
+      return st.settings.deletedDepartments.some(d => {
+        const markers = [d?.id, d?.name, d?.code, d?.deletedName].map(deptNorm).filter(Boolean);
+        return markers.some(m => candidates.includes(m));
+      });
+    };
+    const removeDeletedMarker = (raw, preferredId=null) => {
+      const candidates = [preferredId, raw?.id, raw?.name, raw?.code, raw?.dept, raw?.department, deptRowName(raw), deptRowCode(raw)]
+        .map(deptNorm).filter(Boolean);
+      if(!candidates.length) return;
+      st.settings.deletedDepartments = st.settings.deletedDepartments.filter(d => {
+        const markers = [d?.id, d?.name, d?.code, d?.deletedName].map(deptNorm).filter(Boolean);
+        return !markers.some(m => candidates.includes(m));
+      });
+    };
+
+    const add = (raw, preferredId=null, options={}) => {
       const name = deptRowName(raw);
       const code = deptRowCode(raw);
       if(!name && !code) return null;
       if(!deptActive(raw?.active ?? raw?.actief ?? raw?.Actief ?? raw?.enabled)) return null;
+      if(!options.explicit && deletedMatches(raw, preferredId)) return null;
+      if(options.explicit) removeDeletedMarker(raw, preferredId);
       const displayName = name || code;
       const norm = deptNorm(displayName);
       let id = null;
@@ -272,8 +294,18 @@ window.CWS = window.CWS || {};
     };
 
     // New canonical settings table + legacy Dutch alias.
-    st.settings.tables.departments.forEach(r => add(r));
-    st.settings.tables.afdelingen.forEach(r => add(r));
+    st.settings.tables.departments.forEach(r => add(r, null, { explicit:true }));
+    st.settings.tables.afdelingen.forEach(r => add(r, null, { explicit:true }));
+
+    if(st.settings.deletedDepartments.length){
+      st.departments.order.slice().forEach(id => {
+        const d = st.departments.byId?.[id];
+        if(d && deletedMatches({ id, ...d }, id)){
+          delete st.departments.byId[id];
+        }
+      });
+      st.departments.order = st.departments.order.filter(id => st.departments.byId[id]);
+    }
 
     // Legacy departments registry.
     [...new Set(st.departments.order.slice())].forEach(id => add({ id, ...(st.departments.byId[id] || {}), name:(st.departments.byId[id]?.name || id) }, id));
@@ -3014,6 +3046,7 @@ window.CWS = window.CWS || {};
     redo,
     canUndo,
     canRedo,
+    normalizeState,
     validateState,
     getLastValidation: () => lastValidation,
     rebuildGanttHoursByDay: () => recalculateGanttHoursIfChanged().gantt,

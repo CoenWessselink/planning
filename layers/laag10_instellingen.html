@@ -501,6 +501,163 @@ function openTplModal(open){
 
   function tplEsc(v){ return String(v ?? "").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
   function tplDepartments(){ const st=CWS.getState(); const byId=st.departments?.byId||{}; const order=st.departments?.order||Object.keys(byId); const out=order.map(id=>byId[id]).filter(Boolean); if(out.length) return out; const rows=Array.isArray(st.settings?.tables?.departments)?st.settings.tables.departments:[]; return rows.map((r,i)=>({id:r.id||r.name||`dept_${i+1}`, name:r.name||r.id||`Afdeling ${i+1}`})); }
+
+  function departmentTokens(rowOrName){
+    const r = (rowOrName && typeof rowOrName === "object") ? rowOrName : { name:rowOrName };
+    return [r.id, r.name, r.code, r.dept, r.department, r.afdeling, r.departmentId, r.afdelingId]
+      .map(v=>String(v ?? "").trim())
+      .filter(Boolean);
+  }
+  function normDepartment(value){ return String(value ?? "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function matchesDepartment(value, tokens){
+    const n = normDepartment(value);
+    if(!n) return false;
+    return (tokens || []).some(t => normDepartment(t) === n);
+  }
+  function findDepartmentUsage(st, departmentIdOrName){
+    const tokens = departmentTokens(departmentIdOrName);
+    const usage = { projects:[], ganttTasks:[], templates:[], resources:[], capacitySources:[], total:0 };
+    const add = (key, item) => { usage[key].push(item); usage.total += 1; };
+
+    (st.projects?.order || Object.keys(st.projects?.byId || {})).forEach(pid=>{
+      const p = st.projects?.byId?.[pid];
+      if(!p) return;
+      if(["dept","department","afdeling","departmentId","afdelingId"].some(k=>matchesDepartment(p[k], tokens))){
+        add("projects", { projectId:pid, name:p.name || p.nr || pid, field:"project" });
+      }
+      Object.entries(p.deptHours || {}).forEach(([dept, hours])=>{
+        if(matchesDepartment(dept, tokens) && Number(hours || 0) !== 0){
+          add("projects", { projectId:pid, name:p.name || p.nr || pid, field:"deptHours", hours:Number(hours || 0) });
+        }
+      });
+    });
+    (Array.isArray(st.projects?.deptHours) ? st.projects.deptHours : []).forEach(r=>{
+      const hours = Number(r?.hours || r?.value || 0);
+      if((matchesDepartment(r?.deptId, tokens) || matchesDepartment(r?.dept, tokens) || matchesDepartment(r?.department, tokens)) && hours !== 0){
+        add("projects", { projectId:r.projectId || "", name:r.projectId || "", field:"projects.deptHours", hours });
+      }
+    });
+
+    Object.entries(st.ganttV2?.byProject || {}).forEach(([projectId, model])=>{
+      (model?.rows || []).forEach(row=>{
+        if(["department","departmentId","afdeling","afdelingId","dept"].some(k=>matchesDepartment(row?.[k], tokens))){
+          add("ganttTasks", { projectId, taskId:row.id || "", name:row.name || row.id || "", type:row.type || "task" });
+        }
+      });
+    });
+    Object.entries(st.tasks?.byProject || {}).forEach(([projectId, model])=>{
+      (model?.phases || []).forEach(phase=>{
+        if(matchesDepartment(phase?.name, tokens) || matchesDepartment(phase?.department, tokens) || matchesDepartment(phase?.dept, tokens)){
+          add("templates", { projectId, name:phase.name || phase.id || "", type:"phase" });
+        }
+        (phase?.tasks || []).forEach(task=>{
+          if(["department","departmentId","afdeling","afdelingId","dept"].some(k=>matchesDepartment(task?.[k], tokens))){
+            add("templates", { projectId, name:task.name || task.id || "", type:"task" });
+          }
+        });
+      });
+    });
+    (st.templates?.taskSets || []).forEach(ts=>{
+      (ts.phases || []).forEach(phase=>{
+        if(matchesDepartment(phase?.name, tokens) || matchesDepartment(phase?.department, tokens) || matchesDepartment(phase?.dept, tokens)){
+          add("templates", { templateId:ts.id || "", name:phase.name || "", type:"template-phase" });
+        }
+        (phase.tasks || []).forEach(task=>{
+          if(["department","departmentId","afdeling","afdelingId","dept"].some(k=>matchesDepartment(task?.[k], tokens))){
+            add("templates", { templateId:ts.id || "", name:task.name || "", type:"template-task" });
+          }
+        });
+      });
+    });
+
+    (st.resources?.order || Object.keys(st.resources?.byId || {})).forEach(id=>{
+      const r = st.resources?.byId?.[id];
+      if(r && ["dept","department","afdeling","departmentId","afdelingId"].some(k=>matchesDepartment(r?.[k], tokens))){
+        add("resources", { id, name:r.name || id, type:"resource" });
+      }
+    });
+    (Array.isArray(st.settings?.tables?.employees) ? st.settings.tables.employees : []).forEach((e,index)=>{
+      if(["dept","department","afdeling","departmentId","afdelingId"].some(k=>matchesDepartment(e?.[k], tokens))){
+        add("resources", { id:e.id || index, name:e.name || e.email || `Werknemer ${index+1}`, type:"employee" });
+      }
+    });
+
+    Object.entries(st.gantt?.sourcesByDay || {}).forEach(([date, byDept])=>{
+      Object.entries(byDept || {}).forEach(([dept, sources])=>{
+        const list = Array.isArray(sources) ? sources : [];
+        const usedHours = list.reduce((sum, src)=>sum + Number(src?.hours || 0), 0);
+        if(matchesDepartment(dept, tokens) && usedHours !== 0){
+          add("capacitySources", { date, dept, hours:usedHours, count:list.length });
+        }
+      });
+    });
+    return usage;
+  }
+  window.CWS_Settings = window.CWS_Settings || {};
+  window.CWS_Settings.findDepartmentUsage = findDepartmentUsage;
+
+  function departmentUsageMessage(usage){
+    const parts = [
+      `${usage.projects.length} projecten`,
+      `${usage.ganttTasks.length} Gantt-taken`,
+      `${usage.templates.length} templates/fasen`,
+      `${usage.resources.length} werknemers/resources`,
+      `${usage.capacitySources.length} capaciteitsbronnen`
+    ];
+    const detail = []
+      .concat(usage.projects.slice(0,5).map(x=>`Project: ${x.name || x.projectId}`))
+      .concat(usage.ganttTasks.slice(0,5).map(x=>`Gantt: ${x.name || x.taskId}`))
+      .concat(usage.templates.slice(0,5).map(x=>`Template/fase: ${x.name || x.templateId || x.projectId}`))
+      .concat(usage.resources.slice(0,5).map(x=>`Resource: ${x.name || x.id}`));
+    return `Afdeling kan niet worden verwijderd omdat deze nog gebruikt wordt in ${parts.join(", ")}.\n\n${detail.join("\n")}${usage.total > detail.length ? "\n..." : ""}\n\nPas eerst projecten/taken/resources/templates aan of hernoem de afdeling.`;
+  }
+  function removeUnusedDepartment(row, index){
+    const st = CWS.getState();
+    const usage = findDepartmentUsage(st, row);
+    if(usage.total > 0){
+      const message = departmentUsageMessage(usage);
+      alert(message);
+      UI.toast("Afdeling kan niet verwijderd worden: nog in gebruik.");
+      CWS.audit?.("department_delete_blocked", { name:row?.name || "", code:row?.code || "", usage });
+      return false;
+    }
+    const name = String(row?.name || row?.id || row?.code || "").trim();
+    if(!confirm(`Afdeling "${name || "zonder naam"}" verwijderen?`)) return false;
+    const result = CWS.mutate ? CWS.mutate("department_delete", { name, code:row?.code || "", index }, draft=>{
+      draft.settings = draft.settings || {};
+      draft.settings.tables = draft.settings.tables || {};
+      draft.settings.tables.departments = Array.isArray(draft.settings.tables.departments) ? draft.settings.tables.departments : [];
+      draft.settings.tables.afdelingen = Array.isArray(draft.settings.tables.afdelingen) ? draft.settings.tables.afdelingen : [];
+      draft.settings.deletedDepartments = Array.isArray(draft.settings.deletedDepartments) ? draft.settings.deletedDepartments : [];
+      draft.settings.deletedDepartments.push({ id:row?.id || name, name, code:row?.code || "", deletedAt:new Date().toISOString() });
+      const tokens = departmentTokens(row);
+      draft.settings.tables.departments = draft.settings.tables.departments.filter((r,i)=>i!==index && !departmentTokens(r).some(t=>matchesDepartment(t, tokens)));
+      draft.settings.tables.afdelingen = draft.settings.tables.afdelingen.filter(r=>!departmentTokens(r).some(t=>matchesDepartment(t, tokens)));
+      if(draft.departments?.byId){
+        Object.keys(draft.departments.byId).forEach(id=>{
+          const d = draft.departments.byId[id];
+          if(matchesDepartment(id, tokens) || departmentTokens(d).some(t=>matchesDepartment(t, tokens))){
+            delete draft.departments.byId[id];
+          }
+        });
+        draft.departments.order = (draft.departments.order || []).filter(id=>draft.departments.byId[id]);
+      }
+      (draft.projects?.order || []).forEach(pid=>{
+        const p = draft.projects?.byId?.[pid];
+        if(!p?.deptHours || typeof p.deptHours !== "object" || Array.isArray(p.deptHours)) return;
+        Object.keys(p.deptHours).forEach(k=>{ if(matchesDepartment(k, tokens)) delete p.deptHours[k]; });
+      });
+      draft.projects.deptHours = (Array.isArray(draft.projects?.deptHours) ? draft.projects.deptHours : []).filter(r=>!(matchesDepartment(r?.deptId, tokens) || matchesDepartment(r?.dept, tokens) || matchesDepartment(r?.department, tokens)));
+      return draft;
+    }) : { ok:false, errors:["CWS.mutate ontbreekt"] };
+    if(!result?.ok){
+      UI.toast("Afdeling verwijderen mislukt.");
+      alert(`Afdeling verwijderen mislukt: ${(result?.errors || ["onbekende fout"]).join(", ")}`);
+      return false;
+    }
+    UI.toast("Afdeling verwijderd.");
+    return true;
+  }
   function tplDeptSelect(pi,ti,selected){ const opts=tplDepartments().map(d=>`<option value="${tplEsc(d.id||d.name)}" ${String(selected)===String(d.id||d.name)||String(selected)===String(d.name)?"selected":""}>${tplEsc(d.name||d.id)}</option>`).join(""); const extra=selected && !tplDepartments().some(d=>String(selected)===String(d.id||d.name)||String(selected)===String(d.name)) ? `<option value="${tplEsc(selected)}" selected>${tplEsc(selected)}</option>` : ""; return `<select class="tpl-dept-select" data-k="dept" data-pi="${pi}" data-ti="${ti}">${opts}${extra}</select>`; }
   function tplFlatRows(tpl){
     const out=[]; let nr=1;
@@ -1076,7 +1233,8 @@ let editCtx = { mode:"new", sec:"", id:"" };
       s.company = s.company || {};
       s.company.name = s.company.name || s.settings.tables.company[0]?.name || "";
       s.company.logo = s.company.logo && typeof s.company.logo === "object" ? s.company.logo : null;
-      if(s.settings.tables.departments.length===0){
+      s.settings.deletedDepartments = Array.isArray(s.settings.deletedDepartments) ? s.settings.deletedDepartments : [];
+      if(s.settings.tables.departments.length===0 && s.settings.deletedDepartments.length===0){
         s.settings.tables.departments.push(
           { name:"Werkvoorbereiding", code:"WP", color:"#2563EB", capacityPerDay:8, active:true },
           { name:"Engineering", code:"ENG", color:"#7C3AED", capacityPerDay:8, active:true },
@@ -1387,6 +1545,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
           if(act==="openWorkweek"){ try{ openWorkweekCalendarModal(); }catch(e){ console.error(e); } }
           if(act==="openLogo"){ try{ openLogoModal(); }catch(e){ console.error(e); } }
         },
+        onDelete: moduleId==="afdelingen" ? ({ row, index }) => removeUnusedDepartment(row, index) : null,
         onChange: () => { try{ CWS?.capacity?.recalcDerivedCapacityFields?.(); }catch(e){} }
       });
       return;
