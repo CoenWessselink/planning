@@ -29,7 +29,7 @@
       body{padding:10px}.head{padding:12px}.toolbar{padding:10px 12px}.matrix-wrap,.heatmap-wrap{margin-left:10px;margin-right:10px}.matrix{min-width:980px;width:max(100%,980px)}.modal.wide{width:calc(100vw - 16px)}.detail-table{min-width:760px}.btn,.select{min-height:42px}.right,.left{gap:6px}
     }
     @media(max-width:760px){
-      body{padding:8px}.mobile-toolbar{display:flex;position:sticky;top:0;z-index:30;gap:6px;padding:6px;background:rgba(245,247,251,.96);backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0}.mobile-toolbar button{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;font-weight:900;color:#1f2a44}.head{display:block;padding:10px 12px}.head h1{font-size:16px}.head .right{margin-top:8px;overflow:auto;flex-wrap:nowrap}.toolbar{position:sticky;top:51px;z-index:20;display:block;padding:8px}.toolbar .left,.toolbar .right{display:flex;overflow-x:auto;flex-wrap:nowrap;padding-bottom:5px;scrollbar-width:none}.toolbar .left::-webkit-scrollbar,.toolbar .right::-webkit-scrollbar{display:none}.btn,.select{min-height:44px;font-size:14px;flex:0 0 auto}.weekLabel,.pill{white-space:nowrap}.heatmap-wrap{margin:8px 6px;border-radius:12px}.heatmap{min-width:680px}.matrix-wrap{margin:0 6px 10px;border-radius:12px;max-height:62dvh}.matrix{min-width:920px;font-size:11px}.matrix th{height:42px;padding:6px}.matrix td{height:38px;padding:5px 6px}.sticky{min-width:180px}.legend{padding:8px 8px 12px;gap:8px}.modalback{align-items:flex-end}.modal,.modal.wide{width:100vw;max-height:92dvh;border-radius:18px 18px 0 0}.modal-head,.modal-foot{padding:12px}.modal-body{padding:12px;overflow:auto}.detail-table{min-width:720px}.cap-input{height:36px;width:82px}.cap-note{height:36px}.cws-compact-mode .matrix-wrap{max-height:68dvh}.cws-compact-mode .heatmap-wrap{max-height:180px}.cws-compact-mode .legend{display:none}
+      body{padding:8px}.mobile-toolbar{display:flex;position:sticky;top:0;z-index:30;gap:6px;padding:6px;background:rgba(245,247,251,.96);backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0}.mobile-toolbar button{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;font-weight:900;color:#1f2a44}.head{display:block;padding:10px 12px}.head h1{font-size:16px}.head .right{margin-top:8px;overflow:auto;flex-wrap:nowrap}.toolbar{position:sticky;top:51px;z-index:20;display:block;padding:8px}.toolbar .left,.toolbar .right{display:flex;overflow-x:auto;flex-wrap:nowrap;padding-bottom:8px;scrollbar-width:thin;scrollbar-color:#94a3b8 #f8fafc}.toolbar .left::-webkit-scrollbar,.toolbar .right::-webkit-scrollbar{display:block;height:10px}.toolbar .left::-webkit-scrollbar-thumb,.toolbar .right::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:2px solid #f8fafc}.toolbar .left::-webkit-scrollbar-track,.toolbar .right::-webkit-scrollbar-track{background:#f8fafc}.btn,.select{min-height:44px;font-size:14px;flex:0 0 auto}.weekLabel,.pill{white-space:nowrap}.heatmap-wrap{margin:8px 6px;border-radius:12px}.heatmap{min-width:680px}.matrix-wrap{margin:0 6px 10px;border-radius:12px;max-height:62dvh}.matrix{min-width:920px;font-size:11px}.matrix th{height:42px;padding:6px}.matrix td{height:38px;padding:5px 6px}.sticky{min-width:180px}.legend{padding:8px 8px 12px;gap:8px}.modalback{align-items:flex-end}.modal,.modal.wide{width:100vw;max-height:92dvh;border-radius:18px 18px 0 0}.modal-head,.modal-foot{padding:12px}.modal-body{padding:12px;overflow:auto}.detail-table{min-width:720px}.cap-input{height:36px;width:82px}.cap-note{height:36px}.cws-compact-mode .matrix-wrap{max-height:68dvh}.cws-compact-mode .heatmap-wrap{max-height:180px}.cws-compact-mode .legend{display:none}
     }
 
   </style>
@@ -97,20 +97,34 @@ var CWS = window.CWS;</script>
       Object.values(st.ganttV2?.byProject||{}).forEach(model=>Object.values(model?.sched||{}).forEach(sc=>{ if(sc?.end) dates.push(String(sc.end).slice(0,10)); if(sc?.start) dates.push(String(sc.start).slice(0,10)); }));
       return dates.filter(Boolean).sort().at(-1)||"";
     }
-    function applyDefaultCapacityRange(){
+    function defaultCapacityRange(){
       const current=todayWeek();
       const start=addWeeks(current.year,current.week,-3);
       const latest=latestPlanningIso();
       const lastWeek=latest ? isoWeekFromDate(new Date(latest+"T00:00:00Z")) : addWeeks(current.year,current.week,8);
       const end=latest ? addWeeks(lastWeek.year,lastWeek.week,3) : addWeeks(current.year,current.week,8);
+      return { start, end, weeks:weeksBetweenInclusive(start,end), latest };
+    }
+    function applyDefaultCapacityRange(){
+      const range=defaultCapacityRange();
+      const start=range.start;
       UI.year=start.year;
       UI.week=start.week;
-      UI.weeks=weeksBetweenInclusive(start,end);
+      UI.weeks=range.weeks;
       UI.v86AutoRangeApplied = true;
     }
-    function hasSavedCapacityPeriod(){
-      try{ const fromState=state().ui?.capacity?.period; if(fromState?.year&&fromState?.week) return true; }catch(e){}
-      try{ const raw=JSON.parse(sessionStorage.getItem("cws.capacity.period.v28")||sessionStorage.getItem("cws.capacity.period.v27")||"null"); return !!(raw?.year&&raw?.week); }catch(e){ return false; }
+    function readSavedCapacityPeriod(){
+      try{ const fromState=state().ui?.capacity?.period; if(fromState?.year&&fromState?.week) return {year:Number(fromState.year),week:Number(fromState.week),weeks:Number(fromState.weeks)||UI.weeks, source:"state"}; }catch(e){}
+      try{ const raw=JSON.parse(sessionStorage.getItem("cws.capacity.period.v28")||sessionStorage.getItem("cws.capacity.period.v27")||"null"); if(raw?.year&&raw?.week) return {year:Number(raw.year),week:Number(raw.week),weeks:Number(raw.weeks)||UI.weeks, source:"session"}; }catch(e){}
+      return null;
+    }
+    function savedCapacityPeriodIsRelevant(period, range=defaultCapacityRange()){
+      if(!period?.year || !period?.week) return false;
+      const startIdx=weekIndex({year:Number(period.year),week:Number(period.week)});
+      const endIdx=startIdx+Math.max(1,Number(period.weeks)||UI.weeks)-1;
+      const defaultStart=weekIndex(range.start);
+      const defaultEnd=weekIndex(range.end);
+      return endIdx >= defaultStart && startIdx <= defaultEnd;
     }
     function weekRangeLabel(w){ const start=weekStartUTC(w.year,w.week); const end=addDays(start,6); return `${iso(start).slice(8,10)}-${iso(start).slice(5,7)} t/m ${iso(end).slice(8,10)}-${iso(end).slice(5,7)}`; }
     function companyName(st){ return (Array.isArray(st.settings?.tables?.company)&&st.settings.tables.company[0]?.name) || st.company?.name || ""; }
@@ -375,7 +389,7 @@ var CWS = window.CWS;</script>
     }
     function printA0(){ document.body.classList.add("cap-printing"); const oldTitle=document.title; const ws=capacityPrintWeeks(); document.title=capacityPrintTitle(); updatePrintHeader(ws); renderA0DayPrint(ws); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); document.body.classList.remove("cap-printing"); document.title=oldTitle; render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(document.body.classList.contains("cap-printing")) restore(); },8000); }
     const syncMatrixScrollDock = initMatrixScrollDock();
-    function bind(){ const st=state(); const savedPeriod=hasSavedCapacityPeriod(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } loadUiWeek(); if(!savedPeriod) applyDefaultCapacityRange(); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',Number(x.dataset.weeks)===UI.weeks)); $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); setUiWeek(x.year,x.week); render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); setUiWeek(x.year,x.week); render(); }; $("#back26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-26); setUiWeek(x.year,x.week); render(); }; $("#forward26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,26); setUiWeek(x.year,x.week); render(); }; $("#todayBtn").onclick=()=>{ const x=todayWeek(); setUiWeek(x.year,x.week); render(); }; $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); setUiWeek(UI.year,UI.week); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=printA0; $("#modalClose").onclick=()=>{$("#modalBack").classList.remove("show");$("#modalBox").classList.remove("wide");$("#modalOk").textContent="OK";$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show");}; $("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>scheduleRender()); }
+    function bind(){ const st=state(); const savedPeriod=readSavedCapacityPeriod(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } loadUiWeek(); const activePeriod={year:UI.year,week:UI.week,weeks:UI.weeks}; if(!savedPeriod || !savedCapacityPeriodIsRelevant(activePeriod)) applyDefaultCapacityRange(); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',Number(x.dataset.weeks)===UI.weeks)); $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); setUiWeek(x.year,x.week); render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); setUiWeek(x.year,x.week); render(); }; $("#back26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-26); setUiWeek(x.year,x.week); render(); }; $("#forward26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,26); setUiWeek(x.year,x.week); render(); }; $("#todayBtn").onclick=()=>{ const x=todayWeek(); setUiWeek(x.year,x.week); render(); }; $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); setUiWeek(UI.year,UI.week); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=printA0; $("#modalClose").onclick=()=>{$("#modalBack").classList.remove("show");$("#modalBox").classList.remove("wide");$("#modalOk").textContent="OK";$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show");}; $("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>scheduleRender()); }
     try{ bind(); render(); }catch(error){ showError(error); }
   })();
   </script>
