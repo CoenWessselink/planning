@@ -42,6 +42,43 @@ window.CWS = window.CWS || {};
   };
 
   const deepClone = (x) => JSON.parse(JSON.stringify(x));
+
+  const V82_D1_STATE_SIZE_AND_SAVE_FIX = "v82-d1-state-size-and-save-fix";
+  const V82_REMOTE_WARN_BYTES = 900_000;
+
+  const createRemoteSaveSnapshot = (candidate=state) => {
+    const snapshot = deepClone(candidate || {});
+    snapshot.meta = snapshot.meta || {};
+    snapshot.meta.v82D1StateSizeAndSaveFix = true;
+    snapshot.meta.v82RemoteProjectionAt = new Date().toISOString();
+    // Keep persistent planning data, but remove transient diagnostics that can make
+    // the single tenant-state grow until D1 refuses it with SQLITE_TOOBIG.
+    delete snapshot.meta.liveReadiness;
+    delete snapshot.meta.bootReport;
+    delete snapshot.meta.lastStateDoctorReport;
+    delete snapshot.meta.lastImportPreview;
+    delete snapshot.meta.lastExportPreview;
+    delete snapshot.meta.dragPreview;
+    if(snapshot.ui){
+      delete snapshot.ui.scroll;
+      delete snapshot.ui.modal;
+      delete snapshot.ui.contextMenu;
+      delete snapshot.ui.printPreview;
+      delete snapshot.ui.temp;
+      delete snapshot.ui.drag;
+      delete snapshot.ui.selectionBox;
+    }
+    if(Array.isArray(snapshot.auditLog) && snapshot.auditLog.length > 150){
+      snapshot.auditLog = snapshot.auditLog.slice(-150);
+      snapshot.meta.v82AuditLogTrimmed = true;
+    }
+    return snapshot;
+  };
+
+  const remoteSnapshotBytes = (snapshot) => {
+    try { return new TextEncoder().encode(JSON.stringify(snapshot || {})).byteLength; }
+    catch(_) { return 0; }
+  };
   const baseNum = (v) => {
     const n = (typeof v === 'number') ? v : parseFloat(String(v ?? '').replace(',', '.'));
     return Number.isFinite(n) ? n : 0;
@@ -1038,11 +1075,15 @@ window.CWS = window.CWS || {};
         error.cwsGuard = "v78-fallback-to-d1-guard";
         throw error;
       }
-      protectAgainstCatastrophicOverwrite(snapshot, "remote save");
-      // V60/V57: send the raw state JSON, not a wrapper object. This removes an extra
-      // Worker-side JSON.parse(JSON.stringify(state)) pass and prevents 1102/503
-      // resource-limit failures on larger planning datasets.
-      const stateJson = JSON.stringify(snapshot);
+      const remoteSnapshot = createRemoteSaveSnapshot(snapshot);
+      protectAgainstCatastrophicOverwrite(remoteSnapshot, "remote save");
+      // V82: send a pruned remote projection. The Worker stores large states in
+      // D1 chunks, while transient UI/diagnostic data stays local only.
+      const stateJson = JSON.stringify(remoteSnapshot);
+      const projectedBytes = new TextEncoder().encode(stateJson).byteLength;
+      if(projectedBytes > V82_REMOTE_WARN_BYTES){
+        storageStatus.lastWarning = `Grote D1-state (${projectedBytes} bytes); server gebruikt chunked save indien nodig.`;
+      }
       const response = await fetchWithTimeout(`${API_STATE}?baseVersion=${encodeURIComponent(String(remoteVersion))}&payload=raw-state`, {
         method:"PUT",
         headers:{
@@ -1063,7 +1104,10 @@ window.CWS = window.CWS || {};
       if(!response.ok || !data.ok) throw new Error(data.error || `State opslaan mislukt (${response.status}).`);
       remoteVersion = Number(data.version || remoteVersion);
       storageStatus.remoteVersion = remoteVersion;
-      storageStatus.label = "Cloudflare D1 - gedeelde interne testdata";
+      storageStatus.label = data?.v82?.chunked ? "Cloudflare D1 - chunked gedeelde testdata" : "Cloudflare D1 - gedeelde interne testdata";
+      storageStatus.lastRemoteBytes = data?.bytes || remoteSnapshotBytes(snapshot);
+      storageStatus.lastRemoteChunked = Boolean(data?.v82?.chunked);
+      storageStatus.lastRemoteChunkCount = Number(data?.v82?.chunkCount || 0);
       return data;
     },
     async audit(action, metadata){
@@ -1091,7 +1135,7 @@ window.CWS = window.CWS || {};
     if(saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(async()=>{
       try{
-        const snapshot = deepClone(state);
+        const snapshot = createRemoteSaveSnapshot(state);
         const validation = validateState(snapshot);
         if(!validation.valid){
           const error = new Error(`Opslaan geblokkeerd: ${validation.errors[0] || "state-validatie mislukt."}`);

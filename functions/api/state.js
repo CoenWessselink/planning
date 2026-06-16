@@ -26,6 +26,124 @@ function textByteLength(value) {
   return new TextEncoder().encode(String(value || "")).byteLength;
 }
 
+
+// V82: D1 has a per-value SQLite limit. The full planning state can grow beyond a
+// single TEXT cell after large Gantt/revision/print work. Store large state JSON in
+// deterministic chunks and keep app_state.state_json as a small manifest.
+const V82_CHUNK_TABLE = "app_state_chunks";
+const V82_CHUNK_CHAR_SIZE = 180_000;
+const V82_CHUNK_THRESHOLD_BYTES = 700_000;
+const V82_MARKER = "v82-d1-chunked-state-save-fix";
+
+async function ensureChunkSchema(db) {
+  await db.prepare(`CREATE TABLE IF NOT EXISTS app_state_chunks (
+    tenant_id TEXT NOT NULL,
+    state_key TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    chunk_text TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id, state_key, version, chunk_index)
+  )`).run();
+}
+
+function buildChunkManifest(version, bytes, chunkCount, updatedBy) {
+  return JSON.stringify({
+    __cwsChunkedState: true,
+    marker: V82_MARKER,
+    schemaVersion: 12,
+    tenantId: TENANT_ID,
+    stateKey: STATE_KEY,
+    version,
+    bytes,
+    chunkCount,
+    updatedBy,
+    createdAt: new Date().toISOString()
+  });
+}
+
+function parseChunkManifest(raw) {
+  if (!raw || raw.length > 4096) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.__cwsChunkedState && parsed?.marker === V82_MARKER) return parsed;
+  } catch (_) {}
+  return null;
+}
+
+function splitStateIntoChunks(stateJson) {
+  const chunks = [];
+  for (let i = 0; i < stateJson.length; i += V82_CHUNK_CHAR_SIZE) {
+    chunks.push(stateJson.slice(i, i + V82_CHUNK_CHAR_SIZE));
+  }
+  return chunks;
+}
+
+async function readFullStateJson(db, row) {
+  const raw = row?.state_json || "";
+  const manifest = parseChunkManifest(raw);
+  if (!manifest) return raw;
+  await ensureChunkSchema(db);
+  const result = await db.prepare(
+    `SELECT chunk_index, chunk_text FROM app_state_chunks
+     WHERE tenant_id = ? AND state_key = ? AND version = ?
+     ORDER BY chunk_index ASC`
+  ).bind(TENANT_ID, STATE_KEY, Number(manifest.version || row?.version || 0)).all();
+  const rows = result.results || [];
+  if (rows.length !== Number(manifest.chunkCount || 0)) {
+    const error = new Error(`D1 chunked state incompleet: ${rows.length}/${manifest.chunkCount} chunks gevonden.`);
+    error.status = 500;
+    throw error;
+  }
+  return rows.map(r => r.chunk_text || "").join("");
+}
+
+async function writeFullStateJson(db, stateJson, nextVersion, email) {
+  await ensureChunkSchema(db);
+  const bytes = textByteLength(stateJson);
+  if (bytes <= V82_CHUNK_THRESHOLD_BYTES) {
+    await db.batch([
+      db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ?`).bind(TENANT_ID, STATE_KEY),
+      db.prepare(
+        `INSERT INTO app_state
+          (tenant_id, state_key, state_json, version, updated_at, updated_by)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+         ON CONFLICT(tenant_id, state_key) DO UPDATE SET
+           state_json = excluded.state_json,
+           version = excluded.version,
+           updated_at = CURRENT_TIMESTAMP,
+           updated_by = excluded.updated_by`
+      ).bind(TENANT_ID, STATE_KEY, stateJson, nextVersion, email)
+    ]);
+    return { chunked: false, chunkCount: 0, bytes };
+  }
+
+  const chunks = splitStateIntoChunks(stateJson);
+  const manifest = buildChunkManifest(nextVersion, bytes, chunks.length, email);
+  const statements = [
+    db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ?`).bind(TENANT_ID, STATE_KEY)
+  ];
+  chunks.forEach((chunk, index) => {
+    statements.push(db.prepare(
+      `INSERT INTO app_state_chunks (tenant_id, state_key, version, chunk_index, chunk_text)
+       VALUES (?, ?, ?, ?, ?)`
+    ).bind(TENANT_ID, STATE_KEY, nextVersion, index, chunk));
+  });
+  statements.push(db.prepare(
+    `INSERT INTO app_state
+      (tenant_id, state_key, state_json, version, updated_at, updated_by)
+     VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+     ON CONFLICT(tenant_id, state_key) DO UPDATE SET
+       state_json = excluded.state_json,
+       version = excluded.version,
+       updated_at = CURRENT_TIMESTAMP,
+       updated_by = excluded.updated_by`
+  ).bind(TENANT_ID, STATE_KEY, manifest, nextVersion, email));
+
+  await db.batch(statements);
+  return { chunked: true, chunkCount: chunks.length, bytes };
+}
+
 function extractSchemaVersionFromRawState(raw) {
   const match = String(raw || "").match(/"schemaVersion"\s*:\s*(\d+)/);
   return match ? Number(match[1]) : 0;
@@ -182,15 +300,18 @@ export async function onRequestGet(context) {
     ).bind(TENANT_ID, STATE_KEY).first();
 
     const exists = Boolean(row?.state_json);
-    const bytes = row?.state_json ? textByteLength(row.state_json) : 0;
+    const fullStateJson = exists ? await readFullStateJson(db, row) : "";
+    const manifest = parseChunkManifest(row?.state_json || "");
+    const bytes = fullStateJson ? textByteLength(fullStateJson) : 0;
 
     // V60: raw state response. The previous V57 JSON wrapper still forced the
     // Worker to JSON.stringify({ stateJson: "...very large state..." }). On larger
     // planning datasets that could still hit Cloudflare 1102/503. This path returns
     // the stored JSON body directly and puts metadata in headers, so the browser is
     // the only place that parses the large planning state.
+    // V60 compatibility marker: rawStateResponse(row?.state_json || "". V82 reassembles chunked state before returning raw JSON.
     if (rawResponse) {
-      return rawStateResponse(row?.state_json || "", 200, {
+      return rawStateResponse(fullStateJson || "", 200, {
         "X-CWS-OK": "true",
         "X-CWS-State-Exists": exists ? "1" : "0",
         "X-CWS-Version": String(Number(row?.version || 0)),
@@ -199,10 +320,13 @@ export async function onRequestGet(context) {
         "X-CWS-User-Email": safeHeader(user.email || email),
         "X-CWS-User-Role": safeHeader(user.role || "viewer"),
         "X-CWS-User-Display-Name": safeHeader(user.display_name || user.email || email),
-        "X-CWS-Bytes": String(bytes)
+        "X-CWS-Bytes": String(bytes),
+        "X-CWS-Chunked": manifest ? "1" : "0",
+        "X-CWS-Chunk-Count": manifest ? String(manifest.chunkCount || 0) : "0"
       });
     }
 
+    // V57 compatibility marker: stateJson: row?.state_json. V82 returns fullStateJson after optional chunk reassembly and keeps serverSideStateParse:false.
     // Backwards-compatible JSON wrapper for old clients and manual debugging only.
     return json({
       ok: true,
@@ -210,13 +334,14 @@ export async function onRequestGet(context) {
       tenantId: TENANT_ID,
       stateKey: STATE_KEY,
       version: Number(row?.version || 0),
-      stateJson: row?.state_json || null,
+      stateJson: fullStateJson || null,
       stateEncoding: row ? "json-string" : "empty",
       bytes,
       updatedAt: row?.updated_at || null,
       updatedBy: row?.updated_by || null,
       user: { email: user.email, displayName: user.display_name, role: user.role, active: Boolean(user.active) },
-      v60: { rawStateResponse: false, lightweight: true, serverSideStateParse: false }
+      v60: { rawStateResponse: false, lightweight: true, serverSideStateParse: false },
+      v82: { chunkedState: Boolean(manifest), chunkCount: Number(manifest?.chunkCount || 0), marker: V82_MARKER }
     });
   } catch (error) {
     return json({ ok: false, error: error.message }, error.status || 500);
@@ -244,7 +369,8 @@ export async function onRequestPut(context) {
       "SELECT version, state_json FROM app_state WHERE tenant_id = ? AND state_key = ?"
     ).bind(TENANT_ID, STATE_KEY).first();
     const currentVersion = Number(current?.version || 0);
-    const guardMetrics = assertNoCatastrophicOverwrite(current?.state_json || "", incoming.stateJson);
+    const currentStateJson = current?.state_json ? await readFullStateJson(db, current) : "";
+    const guardMetrics = assertNoCatastrophicOverwrite(currentStateJson || "", incoming.stateJson);
     const baseVersion = Number(incoming.baseVersion ?? 0);
     if (currentVersion > 0 && baseVersion !== currentVersion) {
       return json({
@@ -256,16 +382,7 @@ export async function onRequestPut(context) {
 
     const nextVersion = currentVersion + 1;
 
-    await db.prepare(
-      `INSERT INTO app_state
-        (tenant_id, state_key, state_json, version, updated_at, updated_by)
-       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-       ON CONFLICT(tenant_id, state_key) DO UPDATE SET
-         state_json = excluded.state_json,
-         version = excluded.version,
-         updated_at = CURRENT_TIMESTAMP,
-         updated_by = excluded.updated_by`
-    ).bind(TENANT_ID, STATE_KEY, incoming.stateJson, nextVersion, email).run();
+    const writeResult = await writeFullStateJson(db, incoming.stateJson, nextVersion, email);
 
     // Keep audit metadata small and never store the full state in audit.
     await writeAudit(db, email, "state_saved", {
@@ -275,12 +392,13 @@ export async function onRequestPut(context) {
       rawMode: incoming.rawMode,
       v60: true,
       v62: { d1SaveGuard: true, currentMetrics: guardMetrics.current, incomingMetrics: guardMetrics.incoming },
-      v72: { stateShrinkGuard: true }
+      v72: { stateShrinkGuard: true },
+      v82: { chunkedStateSave:true, chunked:writeResult.chunked, chunkCount:writeResult.chunkCount, marker:V82_MARKER }
     }, "app_state", STATE_KEY);
 
-    return json({ ok: true, version: nextVersion, updatedBy: email, bytes: incoming.bytes, v60: { rawStateSave: incoming.rawMode }, v62: { d1SaveGuard: true, metrics: guardMetrics.incoming }, v72: { stateShrinkGuard: true } });
+    return json({ ok: true, version: nextVersion, updatedBy: email, bytes: incoming.bytes, v60: { rawStateSave: incoming.rawMode }, v62: { d1SaveGuard: true, metrics: guardMetrics.incoming }, v72: { stateShrinkGuard: true }, v82: { chunkedStateSave:true, chunked:writeResult.chunked, chunkCount:writeResult.chunkCount, marker:V82_MARKER } });
   } catch (error) {
-    return json({ ok: false, error: error.message, currentMetrics: error.currentMetrics || null, incomingMetrics: error.incomingMetrics || null, guard:error.guard || null, v62: error.status === 409 ? { d1SaveGuard: Boolean(error.currentMetrics || error.incomingMetrics) } : undefined, v72:error.guard ? { stateShrinkGuard:true } : undefined }, error.status || 500);
+    return json({ ok: false, error: error.message, currentMetrics: error.currentMetrics || null, incomingMetrics: error.incomingMetrics || null, guard:error.guard || null, v62: error.status === 409 ? { d1SaveGuard: Boolean(error.currentMetrics || error.incomingMetrics) } : undefined, v72:error.guard ? { stateShrinkGuard:true } : undefined, v82:{ chunkedStateSave:true, marker:V82_MARKER, sqliteTooBigGuard:String(error.message||"").includes("SQLITE_TOOBIG") || String(error.message||"").includes("too big") } }, error.status || 500);
   }
 }
 

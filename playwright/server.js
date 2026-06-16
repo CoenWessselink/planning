@@ -1,4 +1,5 @@
-// compatibility marker: local-test-v73; V76 active marker: local-test-v76; V77 active marker: local-test-v77 local-test-server-v77; V78 active marker: local-test-v78
+// V82 local marker: local-test-v82 local-test-server-v82
+// compatibility marker: local-test-v73; V76 active marker: local-test-v76; V77 active marker: local-test-v77 local-test-server-v77; V78 active marker: local-test-v82
 import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
@@ -9,7 +10,7 @@ import path from "node:path";
 // V72 compatibility: const version = "local-test-v72"; local-test-server-v72
 const root = path.resolve(process.cwd());
 const port = Number(process.env.PORT || 5173);
-const version = "local-test-v78";
+const version = "local-test-v82";
 const contentTypes = new Map([
   [".css", "text/css; charset=utf-8"],
   [".html", "text/html; charset=utf-8"],
@@ -91,7 +92,7 @@ const server = http.createServer(async (req, res) => {
         service: "cws-planning",
         storage: "local",
         version,
-        healthMode: "local-test-server-v78",
+        healthMode: "local-test-server-v82",
         schemaOk: true,
         schemaErrors: [],
         schemaRepairRequired: false,

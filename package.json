@@ -65,7 +65,10 @@
     "preflight:v76": "node scripts/v76-gantt-boot-render-loop-preflight.mjs",
     "preflight:v77": "node scripts/v77-app-boot-d1-access-production-preflight.mjs",
     "preflight:v78": "node scripts/v78-production-boot-data-hydration-preflight.mjs",
-    "preflight:v80": "node scripts/v80-gantt-print-settings-restore-preflight.mjs"
+    "preflight:v80": "node scripts/v80-gantt-print-settings-restore-preflight.mjs",
+    "preflight:v81": "node scripts/v81-gantt-print-label-calendar-isolation-preflight.mjs",
+    "preflight:v82": "node scripts/v82-d1-state-size-save-preflight.mjs",
+    "preflight:v83": "node scripts/v83-gantt-edit-type-selector-preflight.mjs"
   },
   "devDependencies": {}
 }

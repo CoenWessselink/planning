@@ -1201,6 +1201,60 @@
       body.printing .legend-diamond{width:6px!important;height:6px!important;margin-left:5px;margin-right:5px;}
     }
 
+
+    /* V81 — print label/calendar isolation fix
+       Taaklabels vóór/achter balken mogen in print nooit door de boven- of
+       onderkalender heen lopen. Houd labels binnen de taakrij, geef printkalenders
+       een eigen stacking-context boven de chart labels, en knip rij-overflow verticaal af. */
+    @media print{
+      body.printing .print-calendar,
+      body.printing .print-calendar-top,
+      body.printing .print-calendar-bottom{
+        position:relative!important;
+        z-index:50!important;
+        isolation:isolate!important;
+        overflow:hidden!important;
+        background:#fff!important;
+      }
+      body.printing .board,
+      body.printing .chart-pane,
+      body.printing #lanes{
+        position:relative!important;
+        z-index:10!important;
+        isolation:isolate!important;
+      }
+      body.printing .lane{
+        position:relative!important;
+        overflow:hidden!important;
+        contain:paint!important;
+      }
+      body.printing .bar-text-before,
+      body.printing .bar-text-after{
+        top:3px!important;
+        height:15px!important;
+        max-height:15px!important;
+        line-height:15px!important;
+        font-size:5.4px!important;
+        color:#000!important;
+        background:rgba(255,255,255,.82)!important;
+        text-shadow:none!important;
+        z-index:6!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        white-space:nowrap!important;
+        pointer-events:none!important;
+        box-sizing:border-box!important;
+      }
+      body.printing .bar,
+      body.printing .bar.bar-continuous-task{z-index:8!important;}
+      body.printing .bar .bar-label,
+      body.printing .bar.bar-continuous-task .bar-label{z-index:9!important;}
+      body.printing .dep-svg{z-index:14!important;}
+      body.printing .today-line{z-index:20!important;}
+      body.printing .print-calendar .bar-text-before,
+      body.printing .print-calendar .bar-text-after{display:none!important;}
+    }
+
   </style>
 </head>
 <body>
@@ -2767,7 +2821,13 @@ var CWS = window.CWS;</script>
       const editDuration=taskDurationForInteraction(row,sc);
       $("#modalBody").innerHTML=`<div class="form-grid">
         <label class="field">Naam<input id="mName" value="${esc(row.name)}"></label>
-        <label class="field">Type<input value="${row.type==="summary"?"Fase / samenvatting":"Taak"}" disabled></label>
+        <label class="field">Type
+          <select id="mType">
+            <option value="summary" ${row.type==="summary"?"selected":""}>Fase / samenvatting</option>
+            <option value="task" ${row.type!=="summary"?"selected":""}>Taak</option>
+          </select>
+          <small class="type-mode-note">Fase/samenvatting toont een fasebalk. Taak is planbaar en kan voorgangers, duur en uren krijgen.</small>
+        </label>
         <label class="field">Afdeling<select id="mDept">${deptOptions}</select></label>
         <label class="field">Resource<input id="mResource" list="modalResourceOptions" value="${esc(row.resourceId||"")}" placeholder="Resource"><datalist id="modalResourceOptions">${resOptions}</datalist></label>
         <label class="field">Start<input id="mStart" type="date" value="${esc(toIso(sc.start))}" ${row.type==="summary"?"disabled":""}><small class="weekno">${esc(sc.start?isoWeekLabel(sc.start):"W--")}</small></label>
@@ -2797,17 +2857,31 @@ var CWS = window.CWS;</script>
       if(colorSel){ setColorPickerPreview(colorSel); colorSel.addEventListener("input",()=>setColorPickerPreview(colorSel)); }
       const hoursModeSel=$("#mHoursMode");
       if(hoursModeSel){ hoursModeSel.addEventListener("input",()=>{ const inp=$("#mHours"); if(inp) inp.disabled=hoursModeSel.value!=="manual"; }); }
+      function syncTypeControls(){
+        const selectedType=$("#mType")?.value||row.type||"task";
+        const isSummary=selectedType==="summary";
+        ["mStart","mEnd","mDur"].forEach(id=>{ const el=$("#"+id); if(el) el.disabled=isSummary; });
+        const pred=$("#mPredSel"); if(pred) pred.disabled=isSummary;
+        if(hoursModeSel) hoursModeSel.disabled=isSummary;
+        const hoursInp=$("#mHours"); if(hoursInp) hoursInp.disabled=isSummary || (hoursModeSel?.value!=="manual");
+      }
+      const typeSel=$("#mType");
+      if(typeSel){ typeSel.addEventListener("input",syncTypeControls); syncTypeControls(); }
       $("#modalSave").textContent=readOnly?"Sluiten":"Opslaan";
       $("#modalSave").onclick=()=>{
         if(readOnly){ $("#modalBack").classList.remove("show"); return; }
         row.name=$("#mName").value.trim()||row.name;
+        const nextType=$("#mType")?.value==="summary" ? "summary" : "task";
+        const wasSummary=row.type==="summary";
+        row.type=nextType;
+        row.milestone = nextType==="summary" ? false : !!row.milestone;
         row.department=$("#mDept").value.trim()||row.department;
         row.resourceId=$("#mResource").value.trim();
         row.progress=Math.max(0,Math.min(100,Number($("#mProg").value)||0));
         row.status=$("#mStatus").value;
-        row.predecessor=encodePred(Array.from($("#mPredSel")?.selectedOptions||[]).map(o=>o.value));
+        row.predecessor=nextType==="summary" ? "" : encodePred(Array.from($("#mPredSel")?.selectedOptions||[]).map(o=>o.value));
         row.colorKey=normalizeColorKey(colorSel?.value||row.colorKey);
-        const hMode=$("#mHoursMode")?.value==="manual" ? "manual" : "auto";
+        const hMode=nextType==="summary" ? "auto" : ($("#mHoursMode")?.value==="manual" ? "manual" : "auto");
         row.hoursMode=hMode;
         row.hoursSource=hMode==="manual" ? "manual" : "project-dept-hours";
         if(hMode==="manual"){
@@ -2823,7 +2897,7 @@ var CWS = window.CWS;</script>
         row.why=row.feedback || row.why || "";
         row.progressUpdatedAt=new Date().toISOString();
         row.feedbackUpdatedAt=row.feedback ? new Date().toISOString() : (row.feedbackUpdatedAt || "");
-        if(row.type!=="summary"){
+        if(nextType!=="summary"){
           const start=toIso($("#mStart").value)||sc.start;
           let end=toIso($("#mEnd").value)||sc.end;
           const dur=Number($("#mDur")?.value||0);
