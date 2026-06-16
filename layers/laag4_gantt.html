@@ -1255,6 +1255,71 @@
       body.printing .print-calendar .bar-text-after{display:none!important;}
     }
 
+
+    /* V84 — screen Gantt header/calendar isolation fix
+       Balken en losse taaklabels mogen bij verticaal scrollen nooit door de
+       sticky kalender/header lopen. De kalender krijgt de hoogste chart-laag;
+       lanes blijven eronder en worden verticaal geknipt. Printregels uit V80/V81
+       blijven ongewijzigd via body.printing/@media print overrides. */
+    body:not(.printing) .chart-pane{
+      position:relative!important;
+      isolation:isolate!important;
+      overflow:hidden!important;
+      background:#fff!important;
+    }
+    body:not(.printing) #timeline,
+    body:not(.printing) .timeline{
+      position:sticky!important;
+      top:0!important;
+      z-index:80!important;
+      isolation:isolate!important;
+      overflow:hidden!important;
+      background:linear-gradient(#fff,#f8fafc)!important;
+      box-shadow:0 1px 0 var(--line),0 2px 7px rgba(15,23,42,.06)!important;
+      transform:translateZ(0);
+    }
+    body:not(.printing) #timeline::after,
+    body:not(.printing) .timeline::after{
+      content:"";
+      position:absolute;
+      left:0;right:0;bottom:0;height:1px;
+      background:var(--line);
+      pointer-events:none;
+      z-index:82;
+    }
+    body:not(.printing) #lanes{
+      position:relative!important;
+      z-index:1!important;
+      isolation:isolate!important;
+      overflow:visible!important;
+      background:#fff!important;
+    }
+    body:not(.printing) .lane{
+      position:relative!important;
+      z-index:1!important;
+      overflow:hidden!important;
+      contain:paint!important;
+    }
+    body:not(.printing) .day-grid-line,
+    body:not(.printing) .nonwork-shade{z-index:0!important;}
+    body:not(.printing) .baseline{z-index:2!important;}
+    body:not(.printing) .bar,
+    body:not(.printing) .bar.bar-continuous-task{z-index:6!important;}
+    body:not(.printing) .bar.summary{z-index:5!important;}
+    body:not(.printing) .bar-text-before,
+    body:not(.printing) .bar-text-after{
+      z-index:7!important;
+      max-height:20px!important;
+      overflow:hidden!important;
+      contain:paint!important;
+    }
+    body:not(.printing) .dep-svg{z-index:8!important;}
+    body:not(.printing) .today-line{
+      z-index:85!important;
+      pointer-events:none!important;
+    }
+    body:not(.printing) .today-line::before{z-index:86!important;}
+
   </style>
 </head>
 <body>

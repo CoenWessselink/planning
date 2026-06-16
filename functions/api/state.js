@@ -34,6 +34,7 @@ const V82_CHUNK_TABLE = "app_state_chunks";
 const V82_CHUNK_CHAR_SIZE = 180_000;
 const V82_CHUNK_THRESHOLD_BYTES = 700_000;
 const V82_MARKER = "v82-d1-chunked-state-save-fix";
+const V85_MARKER = "v85-d1-chunked-state-streaming-load-fix";
 
 async function ensureChunkSchema(db) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS app_state_chunks (
@@ -70,6 +71,105 @@ function parseChunkManifest(raw) {
   } catch (_) {}
   return null;
 }
+function wantsChunkManifestResponse(context, url) {
+  return url.searchParams.get("chunks") === "auto" ||
+    url.searchParams.get("chunks") === "manifest" ||
+    context.request.headers.get("X-CWS-State-Response") === "chunk-manifest";
+}
+
+function wantsSingleChunkResponse(url) {
+  return url.searchParams.has("chunkIndex") || url.searchParams.has("chunk");
+}
+
+function chunkIndexFromUrl(url) {
+  const raw = url.searchParams.get("chunkIndex") ?? url.searchParams.get("chunk") ?? "";
+  const index = Number(raw);
+  return Number.isInteger(index) && index >= 0 ? index : -1;
+}
+
+function chunkManifestResponse(manifest, row) {
+  const body = JSON.stringify({
+    __cwsStateChunkManifest: true,
+    __cwsChunkedState: true,
+    marker: V85_MARKER,
+    legacyMarker: V82_MARKER,
+    tenantId: TENANT_ID,
+    stateKey: STATE_KEY,
+    version: Number(manifest?.version || row?.version || 0),
+    bytes: Number(manifest?.bytes || 0),
+    chunkCount: Number(manifest?.chunkCount || 0),
+    createdAt: manifest?.createdAt || null,
+    updatedAt: row?.updated_at || null,
+    updatedBy: row?.updated_by || null
+  });
+  return rawStateResponse(body, 200, {
+    "X-CWS-OK": "true",
+    "X-CWS-State-Exists": "1",
+    "X-CWS-Version": String(Number(row?.version || manifest?.version || 0)),
+    "X-CWS-Updated-At": safeHeader(row?.updated_at || ""),
+    "X-CWS-Updated-By": safeHeader(row?.updated_by || ""),
+    "X-CWS-Bytes": String(Number(manifest?.bytes || 0)),
+    "X-CWS-Chunked": "1",
+    "X-CWS-Chunked-Manifest": "1",
+    "X-CWS-Chunk-Count": String(Number(manifest?.chunkCount || 0)),
+    "X-CWS-V85": V85_MARKER
+  });
+}
+
+async function readStateChunkResponse(db, manifest, row, url) {
+  const index = chunkIndexFromUrl(url);
+  if (index < 0 || index >= Number(manifest?.chunkCount || 0)) {
+    return json({ ok:false, error:"Ongeldige chunk-index." }, 400);
+  }
+  const requestedVersion = Number(url.searchParams.get("version") || manifest?.version || row?.version || 0);
+  const manifestVersion = Number(manifest?.version || row?.version || 0);
+  if (requestedVersion !== manifestVersion) {
+    return json({ ok:false, error:`Chunkversie komt niet overeen (${requestedVersion} != ${manifestVersion}).` }, 409);
+  }
+  await ensureChunkSchema(db);
+  const chunk = await db.prepare(
+    `SELECT chunk_text FROM app_state_chunks
+     WHERE tenant_id = ? AND state_key = ? AND version = ? AND chunk_index = ?`
+  ).bind(TENANT_ID, STATE_KEY, manifestVersion, index).first();
+  if (!chunk?.chunk_text) return json({ ok:false, error:`State chunk ${index} ontbreekt.` }, 500);
+  return rawStateResponse(chunk.chunk_text || "", 200, {
+    "X-CWS-OK": "true",
+    "X-CWS-State-Exists": "1",
+    "X-CWS-Version": String(manifestVersion),
+    "X-CWS-Bytes": String(textByteLength(chunk.chunk_text || "")),
+    "X-CWS-Chunked": "1",
+    "X-CWS-Chunked-Manifest": "0",
+    "X-CWS-Chunk-Index": String(index),
+    "X-CWS-Chunk-Count": String(Number(manifest?.chunkCount || 0)),
+    "X-CWS-V85": V85_MARKER
+  });
+}
+
+async function migrateOversizedInlineStateToChunks(db, row, email) {
+  const raw = row?.state_json || "";
+  if (!raw || parseChunkManifest(raw) || textByteLength(raw) <= V82_CHUNK_THRESHOLD_BYTES) return { row, manifest: parseChunkManifest(raw), migrated:false };
+  const version = Number(row?.version || 1);
+  await ensureChunkSchema(db);
+  const chunks = splitStateIntoChunks(raw);
+  const manifestText = buildChunkManifest(version, textByteLength(raw), chunks.length, row?.updated_by || email || "v85-inline-migration");
+  const statements = [
+    db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ?`).bind(TENANT_ID, STATE_KEY)
+  ];
+  chunks.forEach((chunk, index) => {
+    statements.push(db.prepare(
+      `INSERT INTO app_state_chunks (tenant_id, state_key, version, chunk_index, chunk_text)
+       VALUES (?, ?, ?, ?, ?)`
+    ).bind(TENANT_ID, STATE_KEY, version, index, chunk));
+  });
+  statements.push(db.prepare(
+    `UPDATE app_state SET state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = COALESCE(updated_by, ?)
+     WHERE tenant_id = ? AND state_key = ?`
+  ).bind(manifestText, email || "v85-inline-migration", TENANT_ID, STATE_KEY));
+  await db.batch(statements);
+  const migratedRow = { ...row, state_json: manifestText };
+  return { row: migratedRow, manifest: parseChunkManifest(manifestText), migrated:true };
+}
+
 
 function splitStateIntoChunks(stateJson) {
   const chunks = [];
@@ -294,15 +394,33 @@ export async function onRequestGet(context) {
     const user = await getOrCreateUser(db, email);
     if (!user.active) return json({ ok: false, error: "Gebruiker is inactief." }, 403);
 
-    const row = await db.prepare(
+    let row = await db.prepare(
       `SELECT state_json, version, updated_at, updated_by
        FROM app_state WHERE tenant_id = ? AND state_key = ?`
     ).bind(TENANT_ID, STATE_KEY).first();
 
+    if (row?.state_json && !parseChunkManifest(row.state_json)) {
+      const migrated = await migrateOversizedInlineStateToChunks(db, row, email);
+      row = migrated.row;
+    }
+
     const exists = Boolean(row?.state_json);
-    const fullStateJson = exists ? await readFullStateJson(db, row) : "";
     const manifest = parseChunkManifest(row?.state_json || "");
-    const bytes = fullStateJson ? textByteLength(fullStateJson) : 0;
+
+    if (exists && manifest && wantsSingleChunkResponse(url)) {
+      return readStateChunkResponse(db, manifest, row, url);
+    }
+
+    if (rawResponse && exists && manifest && wantsChunkManifestResponse(context, url)) {
+      const response = chunkManifestResponse(manifest, row);
+      response.headers.set("X-CWS-User-Email", safeHeader(user.email || email));
+      response.headers.set("X-CWS-User-Role", safeHeader(user.role || "viewer"));
+      response.headers.set("X-CWS-User-Display-Name", safeHeader(user.display_name || user.email || email));
+      return response;
+    }
+
+    const fullStateJson = exists ? await readFullStateJson(db, row) : "";
+    const bytes = fullStateJson ? textByteLength(fullStateJson) : Number(manifest?.bytes || 0);
 
     // V60: raw state response. The previous V57 JSON wrapper still forced the
     // Worker to JSON.stringify({ stateJson: "...very large state..." }). On larger
@@ -322,7 +440,8 @@ export async function onRequestGet(context) {
         "X-CWS-User-Display-Name": safeHeader(user.display_name || user.email || email),
         "X-CWS-Bytes": String(bytes),
         "X-CWS-Chunked": manifest ? "1" : "0",
-        "X-CWS-Chunk-Count": manifest ? String(manifest.chunkCount || 0) : "0"
+        "X-CWS-Chunk-Count": manifest ? String(manifest.chunkCount || 0) : "0",
+        "X-CWS-V85": V85_MARKER
       });
     }
 
@@ -341,7 +460,8 @@ export async function onRequestGet(context) {
       updatedBy: row?.updated_by || null,
       user: { email: user.email, displayName: user.display_name, role: user.role, active: Boolean(user.active) },
       v60: { rawStateResponse: false, lightweight: true, serverSideStateParse: false },
-      v82: { chunkedState: Boolean(manifest), chunkCount: Number(manifest?.chunkCount || 0), marker: V82_MARKER }
+      v82: { chunkedState: Boolean(manifest), chunkCount: Number(manifest?.chunkCount || 0), marker: V82_MARKER },
+      v85: { chunkedStateStreamingLoad: Boolean(manifest), marker: V85_MARKER }
     });
   } catch (error) {
     return json({ ok: false, error: error.message }, error.status || 500);

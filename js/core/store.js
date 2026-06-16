@@ -44,6 +44,7 @@ window.CWS = window.CWS || {};
   const deepClone = (x) => JSON.parse(JSON.stringify(x));
 
   const V82_D1_STATE_SIZE_AND_SAVE_FIX = "v82-d1-state-size-and-save-fix";
+  const V85_D1_CHUNKED_STATE_STREAMING_LOAD_FIX = "v85-d1-chunked-state-streaming-load-fix";
   const V82_REMOTE_WARN_BYTES = 900_000;
 
   const createRemoteSaveSnapshot = (candidate=state) => {
@@ -78,6 +79,47 @@ window.CWS = window.CWS || {};
   const remoteSnapshotBytes = (snapshot) => {
     try { return new TextEncoder().encode(JSON.stringify(snapshot || {})).byteLength; }
     catch(_) { return 0; }
+  };
+
+  const loadChunkedRemoteStateBody = async (manifest, version) => {
+    const count = Number(manifest?.chunkCount || 0);
+    if(!count || count < 1) throw new Error("D1 chunked state manifest bevat geen chunks.");
+    const chunks = new Array(count);
+    const maxParallel = 4;
+    let next = 0;
+    const fetchOne = async (index) => {
+      const url = `${API_STATE}?payload=raw-state&chunkIndex=${encodeURIComponent(String(index))}&version=${encodeURIComponent(String(version || manifest.version || 0))}`;
+      const response = await fetchWithTimeout(url, {
+        headers:{
+          "Accept":"application/json",
+          "X-CWS-State-Response":"raw-state"
+        }
+      }, STATE_FETCH_TIMEOUT_MS, `D1 state chunk ${index + 1}/${count}`);
+      if(!response.ok){
+        let message = `State chunk ${index + 1}/${count} laden mislukt (${response.status}).`;
+        try{
+          const err = await response.clone().json();
+          if(err?.error) message = err.error;
+        }catch(_){}
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
+      }
+      chunks[index] = await response.text();
+    };
+    const workers = Array.from({ length: Math.min(maxParallel, count) }, async () => {
+      while(next < count){
+        const index = next++;
+        await fetchOne(index);
+      }
+    });
+    await Promise.all(workers);
+    const body = chunks.join("");
+    storageStatus.lastRemoteChunked = true;
+    storageStatus.lastRemoteChunkCount = count;
+    storageStatus.v85ChunkedStateStreamingLoad = true;
+    storageStatus.v85Marker = V85_D1_CHUNKED_STATE_STREAMING_LOAD_FIX;
+    return body;
   };
   const baseNum = (v) => {
     const n = (typeof v === 'number') ? v : parseFloat(String(v ?? '').replace(',', '.'));
@@ -1015,7 +1057,7 @@ window.CWS = window.CWS || {};
       // wrapper object and solves the remaining 1102/503 state-load failures.
       markBootPhase("remote-state-loading");
       const bootTest = runtimeInfo().isLocal ? String(new URLSearchParams(location?.search || "").get("bootTest") || "") : "";
-      const stateUrl = `${API_STATE}?payload=raw-state${bootTest ? `&bootTest=${encodeURIComponent(bootTest)}` : ""}`;
+      const stateUrl = `${API_STATE}?payload=raw-state&chunks=auto${bootTest ? `&bootTest=${encodeURIComponent(bootTest)}` : ""}`;
       const response = await fetchWithTimeout(stateUrl, {
         headers:{
           "Accept":"application/json",
@@ -1043,7 +1085,18 @@ window.CWS = window.CWS || {};
       remoteVersion = Number.isFinite(version) ? version : 0;
       storageStatus.remoteVersion = remoteVersion;
 
-      const raw = exists ? await response.text() : "";
+      let raw = exists ? await response.text() : "";
+      const chunkedManifest = response.headers.get("X-CWS-Chunked-Manifest") === "1";
+      if(exists && chunkedManifest && raw){
+        let manifest = null;
+        try{
+          manifest = JSON.parse(raw);
+        }catch(error){
+          throw new Error(`D1 chunk-manifest is ongeldige JSON (${error.message}).`);
+        }
+        raw = await loadChunkedRemoteStateBody(manifest, version);
+      }
+
       let remoteState = null;
       if(exists && raw){
         try{
@@ -1065,7 +1118,8 @@ window.CWS = window.CWS || {};
           role:response.headers.get("X-CWS-User-Role") || "viewer",
           active:true
         },
-        v60:{ rawStateResponse:true }
+        v60:{ rawStateResponse:true },
+        v85:{ chunkedStateStreamingLoad: storageStatus.v85ChunkedStateStreamingLoad || false, marker: V85_D1_CHUNKED_STATE_STREAMING_LOAD_FIX }
       };
     },
     async save(snapshot){
