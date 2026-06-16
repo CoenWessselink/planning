@@ -155,3 +155,8 @@ check("V86 Gantt labels compact en raster zichtbaar", read("layers/laag4_gantt.h
 check("V86 Capaciteit range en recalc-contract", read("layers/laag5_capaciteit.html").includes("applyDefaultCapacityRange") && read("layers/laag5_capaciteit.html").includes("addWeeks(current.year,current.week,-3") && read("layers/laag5_capaciteit.html").includes("addWeeks(lastWeek.year,lastWeek.week,3") && read("js/core/store.js").includes("recalculateCapacityFromGantt"));
 check("V86 health/server/preflight geregistreerd", read("functions/api/health.js").includes("internal-test-v86") && read("playwright/server.js").includes("local-test-v86") && fs.readFileSync("package.json", "utf8").includes('"preflight:v86"'));
 if(process.exitCode) process.exit(process.exitCode);
+
+check("V87 instellingen afdeling verwijderen veilig", read("layers/laag10_instellingen.html").includes("function findDepartmentUsage") && read("layers/laag10_instellingen.html").includes("removeUnusedDepartment") && read("layers/laag10_instellingen.html").includes("department_delete_blocked") && read("layers/laag10_instellingen.html").includes('CWS.mutate ? CWS.mutate("department_delete"') && read("js/core/ui.js").includes("onDelete = null") && fs.readFileSync("package.json", "utf8").includes('"preflight:v87"'));
+check("V87 normalizer respecteert verwijderde afdelingen", read("js/core/store.js").includes("settings.deletedDepartments") && read("js/core/store.js").includes("deletedMatches") && read("js/core/store.js").includes("!options.explicit && deletedMatches"));
+check("V87 health/server markers geregistreerd", read("functions/api/health.js").includes("internal-test-v87") && read("playwright/server.js").includes("local-test-v87"));
+if(process.exitCode) process.exit(process.exitCode);
