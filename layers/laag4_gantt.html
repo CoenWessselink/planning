@@ -1333,9 +1333,37 @@
     body:not(.printing) .bar-text-before,
     body:not(.printing) .bar-text-after{
       z-index:7!important;
-      max-height:20px!important;
+      top:13px!important;
+      height:18px!important;
+      line-height:18px!important;
+      max-width:132px!important;
+      max-height:18px!important;
+      padding:0 3px!important;
+      border-radius:3px!important;
+      background:rgba(255,255,255,.50)!important;
+      box-shadow:none!important;
       overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      pointer-events:none!important;
       contain:paint!important;
+    }
+    body:not(.printing) .bar,
+    body:not(.printing) .bar.bar-continuous-task{overflow:hidden!important;contain:paint!important;}
+    body:not(.printing) .bar .bar-label,
+    body:not(.printing) .bar-label{
+      display:block!important;
+      max-width:calc(100% - 18px)!important;
+      min-width:0!important;
+      overflow:hidden!important;
+      text-overflow:ellipsis!important;
+      white-space:nowrap!important;
+      pointer-events:none!important;
+    }
+    body:not(.printing) .bar.summary .bar-label{
+      max-width:min(136px,calc(100% - 4px))!important;
+      background:rgba(255,255,255,.54)!important;
+      border-color:rgba(15,23,42,.12)!important;
     }
     body:not(.printing) .dep-svg{z-index:8!important;}
     body:not(.printing) .today-line{
@@ -2331,12 +2359,12 @@ var CWS = window.CWS;</script>
         const beforeText=labelText(labels.before,row,sc);
         const insideText=labelText(labels.inside,row,sc);
         const afterText=labelText(labels.after,row,sc);
-        const beforeGap=6, afterGap=6;
-        const beforeW=Math.max(0,Math.min(180,firstLeft-beforeGap));
+        const beforeGap=5, afterGap=5;
+        const beforeW=Math.max(0,Math.min(132,firstLeft-beforeGap));
         const afterLeft=lastRight+afterGap;
-        const afterW=Math.max(0,Math.min(220,chartW-afterLeft));
-        const beforeHtml=beforeText&&beforeW>=24?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,firstLeft-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
-        const afterHtml=afterText&&afterW>=24?`<span class="bar-text-after" title="${esc(afterText)}" style="left:${afterLeft}px;width:${afterW}px">${esc(afterText)}</span>`:"";
+        const afterW=Math.max(0,Math.min(132,chartW-afterLeft));
+        const beforeHtml=beforeText&&beforeW>=36?`<span class="bar-text-before" title="${esc(beforeText)}" style="left:${Math.max(0,firstLeft-beforeGap-beforeW)}px;width:${beforeW}px">${esc(beforeText)}</span>`:"";
+        const afterHtml=afterText&&afterW>=36?`<span class="bar-text-after" title="${esc(afterText)}" style="left:${afterLeft}px;width:${afterW}px">${esc(afterText)}</span>`:"";
         const title=[beforeText,insideText,afterText].filter(Boolean).join(" | ") || row.name;
         let barHtml="";
         if(row.type==="summary"){
