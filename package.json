@@ -72,7 +72,9 @@
     "preflight:v84": "node scripts/v84-gantt-screen-bar-header-isolation-preflight.mjs",
     "preflight:v85": "node scripts/v85-d1-chunked-state-streaming-load-preflight.mjs",
     "preflight:v86": "node scripts/v86-complete-gantt-capacity-mobile-visual-hardening-preflight.mjs",
-    "preflight:v87": "node scripts/v87-settings-department-delete-preflight.mjs"
+    "preflight:v87": "node scripts/v87-settings-department-delete-preflight.mjs",
+    "preflight:v88": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs",
+    "preflight:live-regression": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs"
   },
   "devDependencies": {}
 }
