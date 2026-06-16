@@ -293,6 +293,8 @@ var CWS = window.CWS;</script>
   
   // Phase 14: Template Manager
   let tplCtx = { activeId: null };
+  let auditReturnFocus = null;
+  let auditEscapeHandler = null;
 
   const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
   const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
@@ -406,9 +408,31 @@ var CWS = window.CWS;</script>
   function openAuditModal(open){
     const bd=document.getElementById("auditBackdrop");
     if(!bd) return;
-    bd.classList.toggle("show", !!open);
-    bd.setAttribute("aria-hidden", open ? "false" : "true");
-    if(open) renderAudit();
+    const shouldOpen = !!open;
+    bd.classList.toggle("show", shouldOpen);
+    bd.setAttribute("aria-hidden", shouldOpen ? "false" : "true");
+    if(shouldOpen){
+      auditReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      renderAudit();
+      if(!auditEscapeHandler){
+        auditEscapeHandler = (e) => {
+          if(e.key === "Escape"){
+            e.preventDefault();
+            openAuditModal(false);
+          }
+        };
+        document.addEventListener("keydown", auditEscapeHandler, true);
+      }
+      setTimeout(()=>document.getElementById("auditClose")?.focus?.(), 0);
+      return;
+    }
+    if(auditEscapeHandler){
+      document.removeEventListener("keydown", auditEscapeHandler, true);
+      auditEscapeHandler = null;
+    }
+    const target = auditReturnFocus && document.contains(auditReturnFocus) ? auditReturnFocus : document.getElementById("auditBtn");
+    auditReturnFocus = null;
+    setTimeout(()=>target?.focus?.(), 0);
   }
 
   function renderAudit(){
@@ -2174,7 +2198,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
 
   // Audit modal bindings (fixed)
   const __auditClose=document.getElementById('auditClose');
-  if(__auditClose) __auditClose.addEventListener('click', ()=> openAuditModal(false));
+  if(__auditClose) __auditClose.addEventListener('click', (e)=>{ e.preventDefault(); openAuditModal(false); });
   const __auditBackdrop=document.getElementById('auditBackdrop');
   if(__auditBackdrop) __auditBackdrop.addEventListener('click',(e)=>{ if(e.target.id==='auditBackdrop') openAuditModal(false); });
   const __auditQ=document.getElementById('auditQ');
