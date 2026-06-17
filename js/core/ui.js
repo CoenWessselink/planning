@@ -459,7 +459,7 @@ const UI = (() => {
       const map = colorMap();
       const names = colorNames();
       const key = normalizeColor(value);
-      return Object.keys(map).map(k => `<option value="${escapeHtml(k)}" ${k===key?'selected':''}>${escapeHtml(names[k] || k)}</option>`).join('');
+      return Object.keys(map).map(k => `<option value="${escapeHtml(k)}" ${k===key?'selected':''} style="background:linear-gradient(90deg, ${escapeHtml(map[k])} 0 22px, #fff 22px);color:#0f172a;padding-left:26px">${escapeHtml(names[k] || k)}</option>`).join('');
     };
     const departmentOptionsHtml = (value) => {
       const st = (typeof CWS !== 'undefined' && CWS.getState) ? CWS.getState() : {};

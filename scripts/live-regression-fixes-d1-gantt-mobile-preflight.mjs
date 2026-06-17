@@ -7,6 +7,7 @@ const store = read("js/core/store.js");
 const gantt = read("layers/laag4_gantt.html");
 const capacity = read("layers/laag5_capaciteit.html");
 const theme = read("css/theme.css");
+const ui = read("js/core/ui.js");
 const stateApi = read("functions/api/state.js");
 const index = read("index.html");
 
@@ -154,6 +155,17 @@ check(
   gantt.includes("color.onclick=bulkColorDropdown") &&
   !gantt.includes("Afdeling voor selectie\", \"\"") &&
   !gantt.includes("Kleur voor selectie (Blauw/Groen")
+);
+
+check(
+  "Gantt kleurkeuze toont echte kleurvlakken en compacte dropdowntekst",
+  gantt.includes("function openColorChoice") &&
+  gantt.includes("color-choice-grid") &&
+  gantt.includes("color-choice-swatch") &&
+  gantt.includes("data-color-key") &&
+  gantt.includes(".gantt-shell select,.gantt-shell option{font-size:10px!important") &&
+  settings.includes("#tplBackdrop select,#tplBackdrop option{font-size:10px!important") &&
+  ui.includes("linear-gradient(90deg")
 );
 
 check(
