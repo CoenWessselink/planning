@@ -7,10 +7,14 @@
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/responsive-v73.css">
 </head>
-<body data-cws-build="COMPLETE_GANTT_CAPACITY_MOBILE_STABILITY_BUILD" data-cws-previous-build="V87_SETTINGS_DEPARTMENT_DELETE_FIX" data-cws-legacy-builds="V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+<body data-cws-build="PREMIUM_UI_MENU_MOBILE_GANTT_CAPACITY" data-cws-previous-build="COMPLETE_GANTT_CAPACITY_MOBILE_STABILITY_BUILD" data-cws-legacy-builds="V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
   <div class="headerbar">
     <div class="left">
-      <button class="btn" id="openApps">Apps Menu</button>
+      <div class="cws-brand" aria-label="CWS Planning">
+        <span class="cws-brand-mark">CWS</span>
+        <span class="cws-brand-text">CWS Planning</span>
+      </div>
+      <button class="btn apps-menu-btn" id="openApps" aria-label="Apps menu openen">Apps Menu</button>
       <span class="pill">Rol: <span id="rolePill">Admin</span></span>
       <span class="pill">Afdeling: <span id="deptPill">Alle</span></span>
       <button class="btn" id="deptToggle">Wissel afdeling</button>
@@ -18,6 +22,9 @@
     </div>
     <div id="moduleTitle" style="font-size:24px">CWS Planning - Interne testversie</div>
     <div class="right">
+      <button class="shell-icon-btn" type="button" aria-label="Zoeken" title="Zoeken">⌕</button>
+      <button class="shell-icon-btn" type="button" aria-label="Meldingen" title="Meldingen">!</button>
+      <button class="shell-icon-btn" type="button" aria-label="Help" title="Help">?</button>
       <span class="pill" id="storagePill">Opslag detecteren...</span>
       <span class="pill">Gebruiker: <span id="userPill">Identiteit laden...</span></span>
       <button class="btn" id="importExcel">Import Excel</button>
@@ -36,13 +43,25 @@
   </div>
 
   <div class="modal-backdrop" id="appsBackdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal apps-modal" role="dialog" aria-modal="true" aria-labelledby="appsMenuTitle">
       <div class="modal-head">
-        APPS MENU
+        <div class="apps-modal-titlebar">
+          <span class="cws-brand-mark">CWS</span>
+          <span id="appsMenuTitle">Apps menu</span>
+        </div>
         <button class="close" id="closeApps" aria-label="Sluiten">X</button>
       </div>
-      <div class="modal-body"><div class="apps-grid" id="appsGrid"></div></div>
-      <div class="footerbar" id="appsFooter">0 projecten | Pagina 1 van 1</div>
+      <div class="modal-body apps-modal-body">
+        <section class="apps-hero" aria-label="Welkom">
+          <div class="apps-hero-icon" aria-hidden="true">▦</div>
+          <h1>Welkom bij CWS Planning</h1>
+          <p>Kies een applicatie om aan de slag te gaan</p>
+        </section>
+        <div class="apps-card-shell">
+          <div class="apps-grid" id="appsGrid"></div>
+        </div>
+      </div>
+      <div class="footerbar apps-footer" id="appsFooter">Veilig. Betrouwbaar. Gebouwd voor planning.</div>
     </div>
   </div>
 
@@ -61,7 +80,7 @@
   <script>
     (async()=>{
       try{
-        document.body.dataset.cwsBuild = "COMPLETE_GANTT_CAPACITY_MOBILE_STABILITY_BUILD";
+        document.body.dataset.cwsBuild = "PREMIUM_UI_MENU_MOBILE_GANTT_CAPACITY";
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
