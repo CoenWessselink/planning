@@ -12,19 +12,19 @@ const AppsMenu = (() => {
   let lastFocus = null;
 
   const items = [
-    { id:"projecten", label:"Projecten", icon:"PR" },
-    { id:"gantt", label:"Gantt", icon:"GA" },
-    { id:"capaciteit", label:"Capaciteit", icon:"CA" },
-    { id:"projectoverzicht", label:"Projectoverzicht", icon:"PO" },
-    { id:"projectplanning", label:"Projectplanning", icon:"PP" },
-    { id:"planbord", label:"Planbord", icon:"PL" },
-    { id:"transport", label:"Transportplanning", icon:"TR" },
-    { id:"rapporten", label:"Rapporten", icon:"RA" },
-    { id:"dashboard", label:"Dashboard", icon:"DA" },
-    { id:"instellingen", label:"Instellingen", icon:"IN" },
-    { id:"importexport", label:"Import / Export", icon:"IO" },
-    { id:"audit", label:"Audit", icon:"AU" },
-    { id:"preflight", label:"Self-test / Preflight", icon:"PF" },
+    { id:"dashboard", label:"Dashboard", icon:"DA", desc:"Direct overzicht van planning, aandachtspunten en status." },
+    { id:"projecten", label:"Projecten", icon:"PR", desc:"Projectgegevens, afdelingsuren en projectstatus beheren." },
+    { id:"gantt", label:"Gantt", icon:"GA", desc:"Planning, fasen, taken, afhankelijkheden en voortgang." },
+    { id:"capaciteit", label:"Capaciteit", icon:"CA", desc:"Bezetting en heatmap vanuit Gantt-uren per dag." },
+    { id:"projectoverzicht", label:"Projectoverzicht", icon:"PO", desc:"Portfolio-overzicht, risico's en Project 360." },
+    { id:"planbord", label:"Planbord", icon:"PL", desc:"Operationele planning en resource-indeling." },
+    { id:"rapporten", label:"Rapporten", icon:"RA", desc:"Rapportages, signaleringen en exports." },
+    { id:"importexport", label:"Import / Export", icon:"IO", desc:"Excel, CSV en state-uitwisseling." },
+    { id:"instellingen", label:"Instellingen", icon:"IN", desc:"Bedrijf, afdelingen, medewerkers en kalender." },
+    { id:"audit", label:"Auditlog", icon:"AU", desc:"Controleer wijzigingen, saves en systeemacties." },
+    { id:"preflight", label:"Self-test / Preflight", icon:"PF", desc:"Technische controles voor release en beheer." },
+    { id:"projectplanning", label:"Projectplanning", icon:"PP", desc:"Projectplanning en detailafstemming." },
+    { id:"transport", label:"Transportplanning", icon:"TR", desc:"Transportplanning en logistieke voorbereiding." },
   ];
 
   const show = () => {
@@ -58,7 +58,7 @@ const AppsMenu = (() => {
   const renderFooter = () => {
     const st = CWS.getState();
     const n = st.projects.order.length;
-    footer().textContent = `${n} projecten • Alles op 1 pagina • Infinite scroll`;
+    footer().textContent = `Veilig. Betrouwbaar. Gebouwd voor planning. | ${n} projecten | D1-state blijft leidend.`;
   };
 
   const render = () => {
@@ -66,9 +66,11 @@ const AppsMenu = (() => {
     g.innerHTML = "";
     const st = CWS.getState();
     items.filter(it => Permissions.can(st.ui.role, "switch_app", { appId:it.id })).forEach(it => {
-      const card = document.createElement("div");
+      const card = document.createElement("button");
       card.className = "app-card";
-      card.tabIndex = 0;
+      card.type = "button";
+      card.setAttribute("aria-label", `${it.label} openen`);
+      card.dataset.appId = it.id;
 
       const icon = document.createElement("div");
       icon.className = "app-icon";
@@ -80,13 +82,18 @@ const AppsMenu = (() => {
 
       const sub = document.createElement("div");
       sub.className = "smallmuted";
-      sub.textContent = "Open module";
+      sub.textContent = it.desc || "Open module";
 
-      card.append(icon,label,sub);
+      const arrow = document.createElement("span");
+      arrow.className = "app-arrow";
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = "→";
+
+      card.append(icon,label,sub,arrow);
 
       const open = () => { Router.loadApp(it.id); hide(); };
       card.addEventListener("click", open);
-      card.addEventListener("keydown", (e)=>{ if(e.key==="Enter") open(); });
+      card.addEventListener("keydown", (e)=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); open(); } });
 
       g.appendChild(card);
     });

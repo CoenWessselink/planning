@@ -8,7 +8,7 @@
     "build": "npm run lint && npm run preflight:all",
     "test": "npm run preflight:all && npm run test:e2e",
     "lint": "npm run lint:syntax",
-    "test:e2e": "node scripts/e2e-fallback.mjs && node scripts/headless-v72-smoke.mjs && node tests/responsive/v73-responsive-smoke.mjs && node tests/e2e/complete-stability.mjs",
+    "test:e2e": "node scripts/e2e-fallback.mjs && node scripts/headless-v72-smoke.mjs && node tests/responsive/v73-responsive-smoke.mjs && node tests/e2e/complete-stability.mjs && node tests/e2e/premium-responsive-ui.mjs",
     "test:headless": "node scripts/headless-v72-smoke.mjs",
     "test:e2e:headed": "node scripts/e2e-fallback.mjs --headed",
     "test:e2e:report": "node scripts/e2e-fallback.mjs && node scripts/open_report_hint.js",
@@ -75,6 +75,7 @@
     "preflight:v87": "node scripts/v87-settings-department-delete-preflight.mjs",
     "preflight:v88": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs",
     "preflight:v89": "node scripts/v89-complete-stability-build-preflight.mjs",
+    "preflight:v90": "node scripts/v90-premium-responsive-ui-preflight.mjs",
     "preflight:live-regression": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs"
   },
   "devDependencies": {}
