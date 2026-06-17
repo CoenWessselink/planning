@@ -921,6 +921,17 @@ window.CWS = window.CWS || {};
         phase.tasks.forEach((task, taskIndex) => {
           task.id = task.id || `T-${taskIndex+1}`;
           task.name = task.name || "Taak";
+          const taskDept = String(task.dept || task.department || task.afdeling || "").trim();
+          if(taskDept){
+            task.dept = taskDept;
+            task.department = taskDept;
+            task.afdeling = taskDept;
+          }
+          const taskResource = String(task.resourceId || task.resource || "").trim();
+          if(taskResource){
+            task.resourceId = taskResource;
+            task.resource = taskResource;
+          }
           task.days = Math.max(1, Number(task.days || task.duration || 5) || 5);
           task.hours = Math.max(0, Number(task.hours || 0) || 0);
           task.colorKey = normalizeColorKey(task.colorKey || task.color || phase.colorKey || "c1");
@@ -2657,12 +2668,15 @@ window.CWS = window.CWS || {};
         const model = { rows:[], sched:{} };
         let day = 0;
         phases.forEach(phase => {
-          model.rows.push({ id:`${projectId}-${phase.id}`, name:phase.name, type:"summary", level:0, department:phase.name, progress:0, predecessor:"", locked:false });
+          const firstTaskDept = (phase.tasks || []).map(task => String(task.dept || task.department || task.afdeling || "").trim()).find(Boolean);
+          const phaseDept = String(phase.dept || phase.department || phase.afdeling || firstTaskDept || "").trim();
+          model.rows.push({ id:`${projectId}-${phase.id}`, name:phase.name, type:"summary", level:0, department:phaseDept, progress:0, predecessor:"", locked:false });
           (phase.tasks || []).forEach((task, index) => {
             const id = `${projectId}-${task.id}`;
             const start = cursorIso;
             const end = addGanttWorkdays(draft, start, 5);
-            model.rows.push({ id, name:task.name, type:"task", level:1, department:phase.name, progress:0, predecessor:index ? `${projectId}-${phase.tasks[index-1].id}FS` : "", locked:false, hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 });
+            const taskDept = String(task.dept || task.department || task.afdeling || phaseDept || "").trim();
+            model.rows.push({ id, name:task.name, type:"task", level:1, department:taskDept, progress:0, predecessor:index ? `${projectId}-${phase.tasks[index-1].id}FS` : "", locked:false, hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 });
             model.sched[id] = { start, end };
             cursorIso = nextGanttWorkIso(draft, isoDateUTC(addDaysUTC(new Date(end + "T00:00:00Z"), 1)));
             day += 5;

@@ -2067,8 +2067,9 @@ var CWS = window.CWS;</script>
         const phaseIdPart = sanitizeIdPart(phIdRaw, `PH-${pi+1}`);
         const summaryId=`${projectId}-${phaseIdPart}`;
         const phaseName=String(ph.name || ph.title || `Fase ${pi+1}`).trim() || `Fase ${pi+1}`;
-        const phaseDept=ph.dept || ph.department || ph.afdeling || phaseName;
         const tasks=(ph.tasks&&ph.tasks.length?ph.tasks:[{id:`T-${pi+1}`,name:phaseName,days:Number(ph.days||5)||5,colorKey:ph.colorKey||ph.color}]);
+        const firstTaskDept=tasks.map(t=>String(t.dept||t.department||t.afdeling||"").trim()).find(Boolean);
+        const phaseDept=String(ph.dept || ph.department || ph.afdeling || firstTaskDept || departments(st)[0]?.id || departments(st)[0]?.name || "").trim();
         const phaseColor=normalizeColorKey(ph.colorKey||ph.color||tasks[0]?.colorKey||tasks[0]?.color||`c${(pi%8)+1}`);
         model.rows.push({id:summaryId,name:phaseName,type:"summary",level:0,department:phaseDept,progress:0,predecessor:"",locked:false,colorKey:phaseColor,templateId:template?.id||""});
         const idMap=new Map();
@@ -2104,7 +2105,7 @@ var CWS = window.CWS;</script>
             if(prev) pred=`${prev}FS`;
           }
           const taskColor=normalizeColorKey(t.colorKey||t.color||ph.colorKey||ph.color||phaseColor);
-          const dept=t.dept || t.department || t.afdeling || phaseDept;
+          const dept=String(t.dept || t.department || t.afdeling || phaseDept || "").trim();
           const resourceId=t.resourceId || t.resource || "";
           model.rows.push({
             id,
