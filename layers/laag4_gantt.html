@@ -40,7 +40,7 @@
     .project-result-name{font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .project-result-meta{grid-column:2;color:#64748b;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .project-result-empty{padding:12px;color:#64748b;font-weight:800}
-    .gantt-shell select,.gantt-shell option{font-size:11px}
+    .gantt-shell select,.gantt-shell option{font-size:10px!important;line-height:1.15}
 
     /* V12 Gantt alignment fix
        The left task table has 11 columns. In V11 the table was wider than the
@@ -138,9 +138,13 @@
     /* V19 — centrale kleurweergave, template-kleuren en taakeditor */
     .color-pick{display:flex;align-items:center;gap:6px;width:100%;min-width:0;}
     .color-swatch{width:18px;height:18px;border-radius:5px;border:1px solid rgba(15,23,42,.25);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);flex:0 0 auto;}
-    .color-pick select{flex:1 1 auto;min-width:0;}
+    .color-pick select{flex:1 1 auto;min-width:0;font-size:10px!important;}
     .modal .color-pick{min-height:38px;}
-    .modal .color-pick select{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;padding:0 10px;}
+    .modal .color-pick select{height:34px;border:1px solid #d7dee8;border-radius:10px;background:#fff;padding:0 8px;font-size:10px!important;}
+    .color-choice-grid{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:8px;margin-top:8px}
+    .color-choice-btn{height:34px;border:1px solid #d7dee8;border-radius:10px;background:#fff;color:#0f172a;font-size:11px;font-weight:800;display:flex;align-items:center;gap:8px;padding:0 9px;cursor:pointer;text-align:left}
+    .color-choice-btn:hover,.color-choice-btn.active{background:#eff6ff;border-color:#60a5fa;color:#1d4ed8}
+    .color-choice-swatch{width:18px;height:18px;border-radius:5px;border:1px solid rgba(15,23,42,.32);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);flex:0 0 auto}
     .bar[data-openable="1"]{cursor:pointer;}
     .bar[data-openable="1"]:active{cursor:grabbing;}
 
@@ -148,7 +152,7 @@
     /* V20 — printtabel, robuuste taakpopup, echte kleurkeuzes en niet-werkbare dagen */
     .gantt-table .color-pick{display:grid!important;grid-template-columns:20px minmax(92px,1fr);align-items:center;gap:7px;width:100%;min-width:118px;}
     .gantt-table .color-pick .color-swatch{width:18px!important;height:18px!important;border-radius:5px;border:1px solid rgba(15,23,42,.35);box-shadow:inset 0 0 0 1px rgba(255,255,255,.55);}
-    .gantt-table .color-pick .color-select{height:30px!important;border:1px solid #d7dee8!important;border-radius:8px!important;background:#fff!important;padding:0 6px!important;font-weight:700;color:#0f172a;}
+    .gantt-table .color-pick .color-select{height:28px!important;border:1px solid #d7dee8!important;border-radius:8px!important;background:#fff!important;padding:0 5px!important;font-size:9px!important;font-weight:700;color:#0f172a;}
     .field .color-pick{display:grid!important;grid-template-columns:24px minmax(160px,1fr);align-items:center;gap:8px;width:100%;}
     .field .color-pick .color-swatch{width:22px!important;height:22px!important;border-radius:6px;}
     .bar.selected{outline:2px solid #0b5cac;outline-offset:2px;}
@@ -1001,7 +1005,8 @@
     /* V58 — Projecturen per afdeling zijn de standaard Gantt-urenbron.
        Handmatige taakuren zijn alleen actief als de gebruiker expliciet Handmatig kiest. */
     .hours-source-cell{display:flex;align-items:center;gap:6px;min-width:210px;}
-    .hours-source-select{height:34px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font-weight:800;color:#0f172a;padding:0 8px;max-width:118px;}
+    .hours-source-select{height:34px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font-weight:800;color:#0f172a;padding:0 8px;max-width:118px;font-size:9px!important;}
+    .gantt-shell .hours-source-select,.gantt-shell .hours-source-select option{font-size:9px!important;}
     .hours-source-cell .cellinput{width:74px!important;min-width:74px!important;text-align:right;}
     .hours-source-cell .cellinput:disabled{background:#eef6ff;color:#2563eb;border-color:#bfdbfe;font-weight:900;opacity:1;}
     .hours-source-badge{display:inline-flex;align-items:center;border-radius:999px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;padding:4px 8px;white-space:nowrap;}
@@ -1469,6 +1474,10 @@ var CWS = window.CWS;</script>
       const wrap = selectEl && selectEl.closest ? selectEl.closest(".color-pick") : null;
       const sw = wrap ? wrap.querySelector(".color-swatch") : null;
       if(sw) sw.style.background = colorHex(selectEl.value);
+    }
+    function colorChoiceGrid(value){
+      const selected=normalizeColorKey(value);
+      return `<div class="color-choice-grid">${Object.keys(colorMap).map(k=>`<button type="button" class="color-choice-btn ${selected===k?"active":""}" data-color-key="${esc(k)}"><span class="color-choice-swatch" style="background:${esc(colorMap[k])}"></span><span>${esc(colorNames[k]||k)}</span></button>`).join("")}</div>`;
     }
 
     function companyName(st){ return CWS?.getCompanyName?.() || (Array.isArray(st.settings?.tables?.company)&&st.settings.tables.company[0]?.name) || st.company?.name || ""; }
@@ -3355,6 +3364,21 @@ var CWS = window.CWS;</script>
       $("#modalSave").onclick=()=>{ const v=$("#choiceSelect")?.value||""; onSave?.(v); $("#modalBack").classList.remove("show"); };
       $("#modalBack").classList.add("show");
     }
+    function openColorChoice({title,value,onSave}){
+      $("#modalTitle").textContent=title;
+      $("#modalBody").classList.remove("revision-readonly");
+      let selected=normalizeColorKey(value);
+      $("#modalBody").innerHTML=`<div class="field">Kleur${colorChoiceGrid(selected)}</div>`;
+      const buttons=()=>$$(".color-choice-btn",$("#modalBody"));
+      const mark=()=>buttons().forEach(btn=>btn.classList.toggle("active",btn.dataset.colorKey===selected));
+      buttons().forEach(btn=>{
+        btn.onclick=()=>{ selected=normalizeColorKey(btn.dataset.colorKey,selected); mark(); };
+        btn.ondblclick=()=>{ selected=normalizeColorKey(btn.dataset.colorKey,selected); onSave?.(selected); $("#modalBack").classList.remove("show"); };
+      });
+      $("#modalSave").textContent="Opslaan";
+      $("#modalSave").onclick=()=>{ onSave?.(selected); $("#modalBack").classList.remove("show"); };
+      $("#modalBack").classList.add("show");
+    }
     function departmentChoiceOptions(st=state(), selected=""){
       const seen=new Set();
       const out=departments(st).map(d=>({value:d.id||d.name,label:d.name||d.id})).filter(o=>{ const key=String(o.value||o.label||""); if(!key||seen.has(key)) return false; seen.add(key); return true; });
@@ -3372,7 +3396,7 @@ var CWS = window.CWS;</script>
       if(!assertLiveMode()) return;
       const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId);
       if(!row) return;
-      openDropdownChoice({title:"Kleur wijzigen",label:"Kleur",options:colorChoiceOptions(),value:normalizeColorKey(row.colorKey),onSave:v=>{ row.colorKey=normalizeColorKey(v,row.colorKey||"c1"); saveModel(pid,model,"Kleur bijgewerkt via dropdown"); render(); }});
+      openColorChoice({title:"Kleur wijzigen",value:normalizeColorKey(row.colorKey),onSave:v=>{ row.colorKey=normalizeColorKey(v,row.colorKey||"c1"); saveModel(pid,model,"Kleur bijgewerkt via kleurpalet"); render(); }});
     }
     function bulkDepartmentDropdown(){
       if(!assertLiveMode()) return;
@@ -3380,7 +3404,7 @@ var CWS = window.CWS;</script>
     }
     function bulkColorDropdown(){
       if(!assertLiveMode()) return;
-      openDropdownChoice({title:"Kleur voor selectie",label:"Kleur",options:colorChoiceOptions(),value:"c1",onSave:v=>{ mutateSelectedRows("Bulk kleur gewijzigd", row=>{ row.colorKey=normalizeColorKey(v,row.colorKey||"c1"); }); }});
+      openColorChoice({title:"Kleur voor selectie",value:"c1",onSave:v=>{ mutateSelectedRows("Bulk kleur gewijzigd", row=>{ row.colorKey=normalizeColorKey(v,row.colorKey||"c1"); }); }});
     }
     function toggleLock(rowId){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), row=model.rows.find(r=>r.id===rowId); if(!row) return; row.locked=!row.locked; saveModel(pid,model,row.locked?"Taak vergrendeld":"Taak ontgrendeld"); render(); }
     function applyPhaseColor(rowId){ if(!assertLiveMode()) return; const pid=currentProjectId(), model=getModel(pid), [a,b]=blockRange(model,rowId); if(a<0) return; const color=model.rows[a].colorKey||"c1"; for(let i=a+1;i<=b;i++) model.rows[i].colorKey=color; saveModel(pid,model,"Fasekleur toegepast op onderliggende taken"); render(); }
