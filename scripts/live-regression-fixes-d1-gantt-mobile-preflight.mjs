@@ -136,6 +136,15 @@ check(
 );
 
 check(
+  "Gantt template generatie neemt taakafdelingen over voor capaciteit",
+  gantt.includes("firstTaskDept=tasks.map") &&
+  gantt.includes("const dept=String(t.dept || t.department || t.afdeling || phaseDept || \"\").trim()") &&
+  store.includes("const taskDept = String(task.dept || task.department || task.afdeling || phaseDept || \"\").trim()") &&
+  store.includes("task.department = taskDept") &&
+  settings.includes("tk.dept = inp.value; tk.department = inp.value; tk.afdeling = inp.value")
+);
+
+check(
   "Gantt bulk afdeling en kleur gebruiken dropdowns zonder prompt",
   gantt.includes("function bulkDepartmentDropdown") &&
   gantt.includes("function bulkColorDropdown") &&
@@ -162,6 +171,15 @@ check(
   settings.includes('{ key:"dept", label:"Afdeling", type:"department" }') &&
   settings.includes("function dsColorOptions") &&
   settings.includes("function dsDeptOptions")
+);
+
+check(
+  "Template popup is breder en kolommen passen op tekst",
+  settings.includes("#tplBackdrop .modal{width:min(1500px,98vw)!important") &&
+  settings.includes("modal-body tpl-modal-body") &&
+  settings.includes("template-table-wrap") &&
+  settings.includes("min-width:330px") &&
+  settings.includes("min-width:190px")
 );
 
 check(
