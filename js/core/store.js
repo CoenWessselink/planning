@@ -1274,10 +1274,10 @@ window.CWS = window.CWS || {};
     storageStatus.remoteSaveRetryAttempt = remoteSaveRetryAttempt;
     storageStatus.remoteSaveRetryAt = retryAt;
     storageStatus.remoteSaveLastTransientError = error.message;
-    storageStatus.label = `D1 tijdelijk niet bereikbaar - retry ${remoteSaveRetryAttempt} gepland`;
-    recordWarning(`D1 save tijdelijk mislukt; retry gepland (${error.message}).`);
+    storageStatus.label = "Lokaal veilig - D1 sync opnieuw gepland";
+    recordWarning(`D1 sync tijdelijk uitgesteld; automatische retry gepland (${error.message}).`);
     if(remoteSaveRetryAttempt === 1){
-      try{ window.UI?.toast?.("D1 tijdelijk niet bereikbaar - automatisch opnieuw proberen."); }catch(_){}
+      try{ window.UI?.toast?.("Wijzigingen lokaal veilig bewaard. D1 synchroniseert automatisch opnieuw."); }catch(_){}
     }
     remoteSaveRetryTimer = setTimeout(() => {
       remoteSaveRetryTimer = null;

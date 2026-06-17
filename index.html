@@ -74,22 +74,25 @@
 
         const refreshStatus = () => {
           const state = CWS.getState();
+          const warning = document.getElementById("storageWarning");
           document.getElementById("rolePill").textContent = state.ui.role;
           document.getElementById("deptPill").textContent = state.user?.dept || "Alle";
           document.getElementById("storagePill").textContent = "Opslag: " + CWS.storageStatus.label + (CWS.getRemoteVersion?.() ? ` v${CWS.getRemoteVersion()}` : "") + (CWS.storageStatus.booting ? " - laden..." : "");
           document.getElementById("userPill").textContent = CWS.getCurrentUser().email;
-          document.getElementById("storageWarning").hidden = CWS.storageStatus.mode === "api" && !CWS.storageStatus.unsynced;
+          warning.hidden = CWS.storageStatus.mode === "api" && !CWS.storageStatus.unsynced;
+          warning.className = "storage-warning";
           if(CWS.storageStatus.unsynced){
             const runtime = CWS.getRuntimeInfo?.() || {};
             if(CWS.storageStatus.remoteSaveRetryScheduled){
+              warning.classList.add("storage-sync-notice");
               const when = CWS.storageStatus.remoteSaveRetryAt ? new Date(CWS.storageStatus.remoteSaveRetryAt).toLocaleTimeString("nl-NL") : "zo";
-              document.getElementById("storageWarning").textContent = `D1 is tijdelijk niet bereikbaar. Wijzigingen zijn lokaal veilig bewaard; automatische retry ${CWS.storageStatus.remoteSaveRetryAttempt || 1} staat gepland rond ${when}.`;
+              warning.textContent = `Wijzigingen zijn lokaal veilig bewaard. Synchronisatie met D1 loopt automatisch opnieuw rond ${when}.`;
             }else{
               const prefix = runtime.isPreviewDeployment ? "Previewdeployment: D1/Access kan ontbreken. " : "Let op: wijzigingen zijn nog niet gesynchroniseerd met D1. ";
-              document.getElementById("storageWarning").textContent = prefix + (CWS.storageStatus.lastError || "") + (CWS.storageStatus.accessMissing ? " Cloudflare Access-identiteit ontbreekt." : "");
+              warning.textContent = prefix + (CWS.storageStatus.lastError || "") + (CWS.storageStatus.accessMissing ? " Cloudflare Access-identiteit ontbreekt." : "");
             }
           }else{
-            document.getElementById("storageWarning").textContent = "Let op: je werkt nu met lokale browserdata. Collega\'s zien deze wijzigingen niet.";
+            warning.textContent = "Let op: je werkt nu met lokale browserdata. Collega\'s zien deze wijzigingen niet.";
           }
           document.getElementById("roleToggle").hidden = CWS.storageStatus.mode === "api";
         };
