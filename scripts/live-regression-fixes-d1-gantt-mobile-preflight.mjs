@@ -125,7 +125,10 @@ check(
   gantt.includes("function projectMatchesQuery") &&
   gantt.includes("function renderProjectResults") &&
   gantt.includes("function selectProject") &&
-  gantt.includes("project-search-open")
+  gantt.includes("project-search-open") &&
+  gantt.includes(".gantt-shell.project-search-open .toolbar") &&
+  gantt.includes("z-index:2000") &&
+  gantt.includes("overflow:visible")
 );
 
 console.log("[preflight:live-regression] live regression checks OK");
