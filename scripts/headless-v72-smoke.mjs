@@ -244,13 +244,16 @@ try {
     const count=results?.querySelectorAll('.project-result')?.length || 0;
     const firstText=first?.innerText || "";
     const openBeforeSelect=!results?.hidden;
+    const rr=results?.getBoundingClientRect();
+    const hit=rr ? document.elementFromPoint(Math.max(rr.left+8,rr.right-10), Math.min(rr.bottom-8,rr.top+52)) : null;
+    const overlaysTable=!!hit?.closest('#projectResults,.project-result');
     first?.click();
     const after=sel.value;
     if(before && before!==after){
       sel.value=before;
       sel.dispatchEvent(new Event("change",{bubbles:true}));
     }
-    return {ok:openBeforeSelect && count>0 && firstText.toLowerCase().includes(query.toLowerCase()) && after!==before,count,query,firstText,before,after};
+    return {ok:openBeforeSelect && overlaysTable && count>0 && firstText.toLowerCase().includes(query.toLowerCase()) && after!==before,count,query,firstText,before,after,hit:hit?.className||hit?.tagName};
   })()`);
   check("Gantt projectzoeker filtert en selecteert project", projectSearch.ok, JSON.stringify(projectSearch));
   check("Gantt brede continue balk zichtbaar", await evaluate("Array.from(document.querySelectorAll('.bar:not(.summary)')).some(el => el.getBoundingClientRect().width > 60)"));
