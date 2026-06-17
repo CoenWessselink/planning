@@ -22,6 +22,8 @@
     .bar:not(.summary):active{cursor:grabbing}
     .bar-label,.bar-feedback-dot{pointer-events:none}
     .handle{width:14px;z-index:4;touch-action:none;background:rgba(255,255,255,.20)}
+    .bar:not(.summary) .handle{pointer-events:auto;min-width:14px;z-index:20}
+    .bar-label,.bar-text-before,.bar-text-after,.day-grid-line,.nonwork-shade{pointer-events:none!important}
     .handle.left{border-radius:8px 0 0 8px}
     .handle.right{border-radius:0 8px 8px 0}
     .handle:hover{background:rgba(255,255,255,.42)}
@@ -1473,7 +1475,14 @@ var CWS = window.CWS;</script>
       header.innerHTML=`<div><div class="print-title">${esc(printProjectHeaderText(p))}</div><div class="print-sub"><b>${esc(companyName(st)||"Bedrijf")}</b> · ${esc(status)} · Afdruk: ${new Date().toLocaleString("nl-NL")} · Bereik: ${esc(start)} t/m ${esc(end)}</div></div><div>${logoHtml(st)}</div>`;
     }
 
-    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, selectedRows:new Set(), lastSelectedRow:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null, dragFrame:null, dragPending:null, _suppressSubscriberRender:false, _pendingSubscriberRender:false, _finishingPointerMutation:false, _lastPointerLifecycleFix:"v75", _renderScheduled:false, _lastBootRenderLoopFix:"v76", _lastPrintSettingsRestore:"v80", _v86BulkSelection:true };
+    const UI = { zoom:"week", view:"both", showDeps:false, showCritical:false, showBaseline:false, projectId:null, dept:"", resource:"", selected:null, selectedRows:new Set(), lastSelectedRow:null, originStart:null, drag:null, printMode:false, revisionId:null, printDayW:null, dragFrame:null, dragPending:null, _suppressSubscriberRender:false, _pendingSubscriberRender:false, _finishingPointerMutation:false, _lastPointerLifecycleFix:"v75", _renderScheduled:false, _lastBootRenderLoopFix:"v76", _lastPrintSettingsRestore:"v80", _lastDragClickSuppressUntil:0, _v86BulkSelection:true };
+    const GANTT_POINTER_MOVE_THRESHOLD_PX = 4;
+    function ganttDebug(...args){
+      const qs = new URLSearchParams(location.search || "");
+      if(qs.has("debugGantt") || qs.has("fixture") || localStorage.getItem("cws:gantt-debug")==="1"){
+        console.debug("[gantt:pointer]", ...args);
+      }
+    }
     const COL_KEY = "cws.gantt.visibleColumns.v20";
     const COL_ORDER_KEY = "cws.gantt.columnOrder.v28";
     const ALL_COLUMNS = [
@@ -2812,11 +2821,15 @@ var CWS = window.CWS;</script>
         bar.addEventListener("contextmenu",e=>showGanttContextMenu(e,id,"bar"));
         bar.addEventListener("click",e=>{
           e.stopPropagation();
+          if(Date.now() < (UI._lastDragClickSuppressUntil || 0)){
+            e.preventDefault();
+            return;
+          }
           selectRow(model,id,e);
           if(window.matchMedia?.("(max-width: 767px)")?.matches){ e.preventDefault(); openEdit(id); return; }
           if(e.detail>=2){ e.preventDefault(); openEdit(id); }
         });
-        bar.addEventListener("dblclick",e=>{ if(UI.drag || bar.classList.contains("drag-preview")) return; e.preventDefault(); e.stopPropagation(); selectRow(model,id,e); openEdit(id); });
+        bar.addEventListener("dblclick",e=>{ if(UI.drag || bar.classList.contains("drag-preview") || Date.now() < (UI._lastDragClickSuppressUntil || 0)) return; e.preventDefault(); e.stopPropagation(); selectRow(model,id,e); openEdit(id); });
         if(UI.revisionId||row.type==="summary"||row.locked) return;
         bar.addEventListener("pointerdown",e=>{
           if(e.button != null && e.button !== 0) return;
@@ -2846,6 +2859,7 @@ var CWS = window.CWS;</script>
             originalSchedule:Object.freeze({...baseSc, workdays:originalDuration}),
             tempSchedule:null,
             lastDelta:null,
+            moved:false,
             rowSnapshot:Object.freeze({...row}),
             rangeSnapshot:Object.freeze({start:UI.originStart,days:9999}),
             previewBar:bar,
@@ -2854,6 +2868,7 @@ var CWS = window.CWS;</script>
           };
           UI._lastPointerMoved = false;
           document.body.classList.add("gantt-dragging");
+          ganttDebug("pointerdown", { rowId:id, handle, pointerId:e.pointerId });
           try{ bar.setPointerCapture(e.pointerId); }catch(_e){}
           e.preventDefault();
         });
@@ -2863,8 +2878,13 @@ var CWS = window.CWS;</script>
       const drag=UI.drag;
       if(!drag || e.pointerId!==drag.pointerId) return;
       const delta=Math.round((e.clientX-drag.startX)/drag.dayWidth);
-      if(Math.abs(e.clientX-drag.startX) > 4) UI._lastPointerMoved = true;
+      const movedPx=Math.abs(e.clientX-drag.startX);
+      if(movedPx > GANTT_POINTER_MOVE_THRESHOLD_PX){
+        UI._lastPointerMoved = true;
+        drag.moved = true;
+      }
       if(delta===drag.lastDelta){ e.preventDefault(); return; }
+      if(!drag.moved && delta===0){ e.preventDefault(); return; }
       drag.lastDelta=delta;
       const st=state();
       let schedule={...drag.originalSchedule};
@@ -2875,6 +2895,7 @@ var CWS = window.CWS;</script>
       }
       drag.tempSchedule=schedule;
       drag.previewSchedule=schedule;
+      ganttDebug("pointermove", { rowId:drag.rowId, handle:drag.handle, delta, movedPx });
       if(UI.dragFrame) cancelAnimationFrame(UI.dragFrame);
       UI.dragFrame=requestAnimationFrame(()=>{
         UI.dragFrame=null;
@@ -2905,18 +2926,20 @@ var CWS = window.CWS;</script>
       document.body.classList.remove("gantt-dragging");
       if(UI.dragFrame){ cancelAnimationFrame(UI.dragFrame); UI.dragFrame=null; }
       let saved=false;
+      const suppressClick=!!(drag.moved || drag.tempSchedule);
       try{
         try{
           if(drag.captureTarget?.hasPointerCapture?.(drag.pointerId)){
             drag.captureTarget.releasePointerCapture(drag.pointerId);
           }
         }catch(_e){}
-        if(cancelled || UI.revisionId || !drag.tempSchedule) return;
+        if(cancelled || UI.revisionId || !drag.tempSchedule || !drag.moved) return;
         const model=getModel(drag.projectId);
         const row=model.rows.find(item=>item.id===drag.rowId);
         if(!row || row.locked || row.type==="summary") return;
         const normalized={...drag.tempSchedule};
         if(!normalized.start || !normalized.end){ toast("Wijziging geweigerd: ongeldige taakdatum.","warn"); return; }
+        ganttDebug("pointerup", { rowId:drag.rowId, handle:drag.handle, normalized, suppressingRender:UI._suppressSubscriberRender || UI._finishingPointerMutation });
         model.sched[drag.rowId]={...(model.sched[drag.rowId]||{}),...normalized,explicitRange:true};
         row.duration=normalized.workdays;
         const action=drag.handle==="move"?"gantt_task_moved":"gantt_task_resized";
@@ -2943,8 +2966,10 @@ var CWS = window.CWS;</script>
           return;
         }
         saved=true;
+        ganttDebug("save", { rowId:drag.rowId, ok:true, action });
         toast(drag.handle==="move"?"Taak verplaatst":"Taakduur aangepast");
       }finally{
+        if(suppressClick) UI._lastDragClickSuppressUntil=Date.now()+350;
         UI._suppressSubscriberRender=false;
         UI._finishingPointerMutation=false;
         UI.drag=null;
