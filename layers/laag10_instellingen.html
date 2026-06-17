@@ -296,8 +296,8 @@ var CWS = window.CWS;</script>
   let auditReturnFocus = null;
   let auditEscapeHandler = null;
 
-  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
-  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
+  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e", c9:"#1e3a8a", c10:"#38bdf8", c11:"#06b6d4", c12:"#ec4899", c13:"#db2777", c14:"#4f46e5", c15:"#92400e", c16:"#84cc16", c17:"#166534", c18:"#991b1b", c19:"#6b7280", c20:"#111827" };
+  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime", c9:"Donkerblauw", c10:"Hemelsblauw", c11:"Cyaan", c12:"Roze", c13:"Magenta", c14:"Indigo", c15:"Bruin", c16:"Olijf", c17:"Donkergroen", c18:"Donkerrood", c19:"Grijs", c20:"Zwart" };
   function normalizeTplColor(value, fallback="c1"){
     const raw=String(value??"").trim();
     if(CWS_COLOR_MAP[raw]) return raw;
@@ -1055,7 +1055,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
       columns: [
         { key:"name", label:"Afdeling" },
         { key:"code", label:"Code" },
-        { key:"color", label:"Kleur" },
+        { key:"color", label:"Kleur", type:"color" },
         { key:"emp_count", label:"# Werkn.", readonly:true, valueGetter:(row,ctx)=>{
             const emps = ctx.state?.settings?.tables?.employees || [];
             const name = (row?.name||'').trim();
@@ -1104,7 +1104,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
       statePath: "settings.tables.employees",
       columns: [
         { key:"name", label:"Naam" },
-        { key:"dept", label:"Afdeling" },
+        { key:"dept", label:"Afdeling", type:"department" },
         { key:"email", label:"E-mail" },
         { key:"ma", label:"Ma", type:'number' },
         { key:"di", label:"Di", type:'number' },
@@ -1151,7 +1151,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
       columns: [
         { key:"name", label:"Status" },
         { key:"scope", label:"Scope" },
-        { key:"color", label:"Kleur" },
+        { key:"color", label:"Kleur", type:"color" },
         { key:"progressDefault", label:"Standaard (%)" },
         { key:"order", label:"Volgorde" }
       ],
@@ -1365,6 +1365,16 @@ let editCtx = { mode:"new", sec:"", id:"" };
   function dsNewId(prefix){
     return prefix + "-" + Math.random().toString(16).slice(2,8).toUpperCase();
   }
+  function dsColorOptions(value){
+    const key=normalizeTplColor(value);
+    return Object.keys(CWS_COLOR_MAP).map(c=>`<option value="${tplEsc(c)}" ${key===c?"selected":""}>${tplEsc(CWS_COLOR_NAMES[c])}</option>`).join("");
+  }
+  function dsDeptOptions(value){
+    const rows=tplDepartments();
+    const opts=rows.map(d=>`<option value="${tplEsc(d.id||d.name)}" ${String(value)===String(d.id||d.name)||String(value)===String(d.name)?"selected":""}>${tplEsc(d.name||d.id)}</option>`).join("");
+    const extra=value && !rows.some(d=>String(value)===String(d.id||d.name)||String(value)===String(d.name)) ? `<option value="${tplEsc(value)}" selected>${tplEsc(value)}</option>` : "";
+    return opts+extra;
+  }
 
   function renderDs(){
     const m = DS[dsCtx.moduleId];
@@ -1385,6 +1395,23 @@ let editCtx = { mode:"new", sec:"", id:"" };
       const tr=document.createElement("tr");
       m.cols.forEach(([k,_label])=>{
         const td=document.createElement("td");
+        if(String(k).toLowerCase()==="color"){
+          const key=normalizeTplColor(r[k]||"c1");
+          td.contentEditable = "false";
+          td.innerHTML=`<span class="color-pick"><span class="color-swatch" style="background:${CWS_COLOR_MAP[key]}"></span><select class="input">${dsColorOptions(r[k]||"c1")}</select></span>`;
+          const sel=td.querySelector("select");
+          sel.addEventListener("change",()=>{ dsSet((d)=>{ d.byId[r.id] = d.byId[r.id] || { id:r.id }; d.byId[r.id][k]=CWS_COLOR_MAP[sel.value]||sel.value; }); renderDs(); });
+          tr.appendChild(td);
+          return;
+        }
+        if(["dept","department","afdeling"].includes(String(k).toLowerCase())){
+          td.contentEditable = "false";
+          td.innerHTML=`<select class="input">${dsDeptOptions(r[k]||"")}</select>`;
+          const sel=td.querySelector("select");
+          sel.addEventListener("change",()=>{ dsSet((d)=>{ d.byId[r.id] = d.byId[r.id] || { id:r.id }; d.byId[r.id][k]=sel.value; }); renderDs(); });
+          tr.appendChild(td);
+          return;
+        }
         td.contentEditable = "true";
         td.spellcheck = false;
         td.textContent = r[k] || "";

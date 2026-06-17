@@ -131,4 +131,38 @@ check(
   gantt.includes("overflow:visible")
 );
 
+check(
+  "Gantt bulk afdeling en kleur gebruiken dropdowns zonder prompt",
+  gantt.includes("function bulkDepartmentDropdown") &&
+  gantt.includes("function bulkColorDropdown") &&
+  gantt.includes("function setRowDepartmentDropdown") &&
+  gantt.includes("function setRowColorDropdown") &&
+  gantt.includes("dept.onclick=bulkDepartmentDropdown") &&
+  gantt.includes("color.onclick=bulkColorDropdown") &&
+  !gantt.includes("Afdeling voor selectie\", \"\"") &&
+  !gantt.includes("Kleur voor selectie (Blauw/Groen")
+);
+
+check(
+  "Kleurenpalet bevat 20 vaste kleuren inclusief grijs en zwart",
+  store.includes("c20:\"#111827\"") &&
+  store.includes("c19:\"#6b7280\"") &&
+  gantt.includes("c20:\"#111827\"") &&
+  settings.includes("c20:\"#111827\"") &&
+  (gantt.match(/c\d+:/g) || []).filter((v,i,a)=>a.indexOf(v)===i).length >= 20
+);
+
+check(
+  "Instellingen kleur- en afdelingvelden zijn dropdowns",
+  settings.includes('{ key:"color", label:"Kleur", type:"color" }') &&
+  settings.includes('{ key:"dept", label:"Afdeling", type:"department" }') &&
+  settings.includes("function dsColorOptions") &&
+  settings.includes("function dsDeptOptions")
+);
+
+check(
+  "Gantt printlogo blijft groot in laatste print override",
+  gantt.includes("body.printing .print-logo{max-width:150px!important;max-height:58px!important")
+);
+
 console.log("[preflight:live-regression] live regression checks OK");

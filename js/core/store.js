@@ -135,8 +135,8 @@ window.CWS = window.CWS || {};
     return 'auto';
   };
   const ganttTaskManualHours = (row) => Math.max(0, baseNum(row?.manualHours ?? row?.hours));
-  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
-  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
+  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e", c9:"#1e3a8a", c10:"#38bdf8", c11:"#06b6d4", c12:"#ec4899", c13:"#db2777", c14:"#4f46e5", c15:"#92400e", c16:"#84cc16", c17:"#166534", c18:"#991b1b", c19:"#6b7280", c20:"#111827" };
+  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime", c9:"Donkerblauw", c10:"Hemelsblauw", c11:"Cyaan", c12:"Roze", c13:"Magenta", c14:"Indigo", c15:"Bruin", c16:"Olijf", c17:"Donkergroen", c18:"Donkerrood", c19:"Grijs", c20:"Zwart" };
   const normalizeColorKey = (value, fallback="c1") => {
     const raw = String(value ?? "").trim();
     if(CWS_COLOR_MAP[raw]) return raw;

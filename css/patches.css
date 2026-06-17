@@ -46,6 +46,9 @@
 .cws-yearcal-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
 .cws-yearcal-year{display:flex;align-items:center;gap:10px;}
 .cws-yearcal-yearlbl{font-weight:900;color:#0f172a;min-width:72px;text-align:center;}
+.color-pick{display:inline-flex;align-items:center;gap:8px;min-width:150px;}
+.color-pick .color-swatch{width:18px;height:18px;border-radius:6px;border:1px solid rgba(15,23,42,.25);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);flex:0 0 auto;}
+.color-pick select{min-width:120px;}
 .cws-week-toggles{display:flex;gap:8px;flex-wrap:wrap;}
 .cws-week-toggles .btn.toggle{min-width:42px}
 .cws-week-toggles .btn.toggle.on{background:#e0f2fe;border-color:#93c5fd}
