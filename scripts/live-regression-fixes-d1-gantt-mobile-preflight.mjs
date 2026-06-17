@@ -8,6 +8,7 @@ const gantt = read("layers/laag4_gantt.html");
 const capacity = read("layers/laag5_capaciteit.html");
 const theme = read("css/theme.css");
 const stateApi = read("functions/api/state.js");
+const index = read("index.html");
 
 function check(label, ok) {
   if (!ok) throw new Error(`[preflight:live-regression] ${label}`);
@@ -39,6 +40,23 @@ check(
   store.includes("if(remoteSaveInFlight)") &&
   store.includes("await runRemoteSaveOnce(currentReason)") &&
   store.includes("}while(remoteSaveQueued)")
+);
+
+check(
+  "tijdelijke D1 503 save-fouten plannen automatische retry",
+  store.includes("remoteSaveRetryTimer") &&
+  store.includes("isTransientRemoteSaveError") &&
+  store.includes("[408, 425, 429, 500, 502, 503, 504]") &&
+  store.includes("scheduleRemoteSaveRetry(error)") &&
+  store.includes("flushRemoteSaveQueue(\"remote-save-retry\")") &&
+  store.includes("clearRemoteSaveRetry()")
+);
+
+check(
+  "503 retry-status vervangt terugkerende harde waarschuwing",
+  index.includes("remoteSaveRetryScheduled") &&
+  index.includes("Wijzigingen zijn lokaal veilig bewaard") &&
+  index.includes("automatische retry")
 );
 
 check(

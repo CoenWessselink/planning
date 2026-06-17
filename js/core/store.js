@@ -942,6 +942,8 @@ window.CWS = window.CWS || {};
   let remoteSaveInFlight = false;
   let remoteSaveQueued = false;
   let remoteSaveQueuedReason = "";
+  let remoteSaveRetryTimer = null;
+  let remoteSaveRetryAttempt = 0;
   let deferredPersistenceTimer = null;
   let privilegedMutation = false;
   let currentUser = { email:"Identiteit laden...", role:state.user?.role || "admin" };
@@ -972,6 +974,10 @@ window.CWS = window.CWS || {};
     lastSuccessfulD1LoadAt:null,
     remoteSaveInFlight:false,
     remoteSaveQueued:false,
+    remoteSaveRetryScheduled:false,
+    remoteSaveRetryAttempt:0,
+    remoteSaveRetryAt:null,
+    remoteSaveLastTransientError:null,
     setStateCallsDuringBoot:0,
     rendersDuringBoot:0,
     savesBlockedDuringBoot:0,
@@ -1042,6 +1048,23 @@ window.CWS = window.CWS || {};
   const recordError = (message) => {
     const text = String(message || "").trim();
     if(text && !storageStatus.errors.includes(text)) storageStatus.errors.push(text);
+  };
+
+  const isTransientRemoteSaveError = (error) => {
+    if(error?.cwsTimeout) return true;
+    const status = Number(error?.status || 0);
+    if([408, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+    return /timeout|duurt te lang|temporar|tijdelijk|network|failed to fetch|service unavailable|503/i.test(String(error?.message || ""));
+  };
+
+  const clearRemoteSaveRetry = () => {
+    if(remoteSaveRetryTimer) clearTimeout(remoteSaveRetryTimer);
+    remoteSaveRetryTimer = null;
+    remoteSaveRetryAttempt = 0;
+    storageStatus.remoteSaveRetryScheduled = false;
+    storageStatus.remoteSaveRetryAttempt = 0;
+    storageStatus.remoteSaveRetryAt = null;
+    storageStatus.remoteSaveLastTransientError = null;
   };
 
   const storageAdapter = {
@@ -1192,7 +1215,12 @@ window.CWS = window.CWS || {};
         err.currentVersion = data.currentVersion;
         throw err;
       }
-      if(!response.ok || !data.ok) throw new Error(data.error || `State opslaan mislukt (${response.status}).`);
+      if(!response.ok || !data.ok){
+        const err = new Error(data.error || `State opslaan mislukt (${response.status}).`);
+        err.status = response.status;
+        err.responseData = data;
+        throw err;
+      }
       remoteVersion = Number(data.version || remoteVersion);
       storageStatus.remoteVersion = remoteVersion;
       storageStatus.label = data?.v82?.chunked ? "Cloudflare D1 - chunked gedeelde testdata" : "Cloudflare D1 - gedeelde interne testdata";
@@ -1225,13 +1253,40 @@ window.CWS = window.CWS || {};
       });
       try{ window.UI?.toast?.(error.message); }catch(_){}
     }else if(error.status === 409){
+      clearRemoteSaveRetry();
       storageStatus.label = "D1 conflict - herladen nodig";
       storageAdapter.audit("d1_conflict", { message:error.message, currentVersion:error.currentVersion || null });
       try{ window.UI?.toast?.("Data is gewijzigd door een andere gebruiker. Herlaad om overschrijven te voorkomen."); }catch(_){}
+    }else if(isTransientRemoteSaveError(error) && storageStatus.mode === "api" && storageStatus.stateSource === "remote-d1"){
+      scheduleRemoteSaveRetry(error);
     }else{
+      clearRemoteSaveRetry();
       try{ window.UI?.toast?.("Serveropslag niet bereikbaar - wijzigingen lokaal bewaard."); }catch(_){}
     }
   };
+
+  function scheduleRemoteSaveRetry(error){
+    if(remoteSaveRetryTimer) clearTimeout(remoteSaveRetryTimer);
+    remoteSaveRetryAttempt += 1;
+    const delay = Math.min(60000, 1500 * Math.pow(2, Math.min(remoteSaveRetryAttempt - 1, 5)));
+    const retryAt = new Date(Date.now() + delay).toISOString();
+    storageStatus.remoteSaveRetryScheduled = true;
+    storageStatus.remoteSaveRetryAttempt = remoteSaveRetryAttempt;
+    storageStatus.remoteSaveRetryAt = retryAt;
+    storageStatus.remoteSaveLastTransientError = error.message;
+    storageStatus.label = `D1 tijdelijk niet bereikbaar - retry ${remoteSaveRetryAttempt} gepland`;
+    recordWarning(`D1 save tijdelijk mislukt; retry gepland (${error.message}).`);
+    if(remoteSaveRetryAttempt === 1){
+      try{ window.UI?.toast?.("D1 tijdelijk niet bereikbaar - automatisch opnieuw proberen."); }catch(_){}
+    }
+    remoteSaveRetryTimer = setTimeout(() => {
+      remoteSaveRetryTimer = null;
+      storageStatus.remoteSaveRetryScheduled = false;
+      storageStatus.remoteSaveRetryAt = null;
+      if(storageStatus.mode !== "api" || storageStatus.stateSource !== "remote-d1" || !storageStatus.unsynced) return;
+      flushRemoteSaveQueue("remote-save-retry");
+    }, delay);
+  }
 
   const runRemoteSaveOnce = async (reason="user-mutation") => {
     const snapshot = createRemoteSaveSnapshot(state);
@@ -1243,6 +1298,7 @@ window.CWS = window.CWS || {};
     }
     protectAgainstCatastrophicOverwrite(snapshot, "remote save");
     await storageAdapter.save(snapshot);
+    clearRemoteSaveRetry();
     markRemoteSaveOk(`remote-save-ok:${reason}`);
   };
 
@@ -1292,6 +1348,12 @@ window.CWS = window.CWS || {};
       return false;
     }
     if(saveTimer) clearTimeout(saveTimer);
+    if(remoteSaveRetryTimer){
+      clearTimeout(remoteSaveRetryTimer);
+      remoteSaveRetryTimer = null;
+      storageStatus.remoteSaveRetryScheduled = false;
+      storageStatus.remoteSaveRetryAt = null;
+    }
     saveTimer = setTimeout(() => {
       saveTimer = null;
       flushRemoteSaveQueue(reason);
