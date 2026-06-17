@@ -27,6 +27,17 @@
     .handle.left{border-radius:8px 0 0 8px}
     .handle.right{border-radius:0 8px 8px 0}
     .handle:hover{background:rgba(255,255,255,.42)}
+    .project-picker{position:relative;min-width:min(620px,44vw);flex:1 1 520px}
+    .project-search{width:100%;min-width:280px;padding-right:34px}
+    .project-native-select{position:absolute;left:0;top:0;width:1px!important;min-width:1px!important;height:1px!important;opacity:.01;pointer-events:none}
+    .gantt-shell.project-search-open{overflow:visible}
+    .project-results{position:absolute;z-index:1800;left:0;right:0;top:calc(100% + 5px);max-height:min(430px,62vh);overflow:auto;background:#fff;border:1px solid #bfdbfe;border-radius:13px;box-shadow:0 18px 48px rgba(15,23,42,.20);padding:6px}
+    .project-result{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;width:100%;border:0;background:#fff;border-radius:10px;padding:9px 10px;text-align:left;cursor:pointer;color:#0f172a}
+    .project-result:hover,.project-result.active{background:#eff6ff}
+    .project-result-code{font-weight:950;color:#1d4ed8}
+    .project-result-name{font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .project-result-meta{grid-column:2;color:#64748b;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .project-result-empty{padding:12px;color:#64748b;font-weight:800}
 
     /* V12 Gantt alignment fix
        The left task table has 11 columns. In V11 the table was wider than the
@@ -1384,7 +1395,7 @@
       <div class="status"><span class="badge" id="storageBadge">Opslag controleren…</span><span class="badge ok" id="saveBadge">Gereed</span></div>
     </div>
     <div class="toolbar" data-testid="gantt-toolbar">
-      <div class="toolbar-group"><select class="select project" id="projectSel"></select><select class="select" id="deptSel"><option value="">Alle afdelingen</option></select><select class="select" id="resourceSel"><option value="">Alle resources</option></select></div>
+      <div class="toolbar-group"><div class="project-picker" id="projectPicker" data-v89-project-search="1"><input class="select project project-search" id="projectSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Zoek projectnummer, naam of opdrachtgever..." aria-label="Project zoeken" aria-controls="projectResults" aria-expanded="false"><select class="select project project-native-select" id="projectSel" aria-label="Project fallback"></select><div class="project-results" id="projectResults" role="listbox" hidden></div></div><select class="select" id="deptSel"><option value="">Alle afdelingen</option></select><select class="select" id="resourceSel"><option value="">Alle resources</option></select></div>
       <div class="toolbar-group"><button class="btn" id="todayBtn">Vandaag</button><button class="btn" data-zoom="day">Dag</button><button class="btn active" data-zoom="week">Week</button><button class="btn" data-zoom="month">Maand</button></div>
       <div class="toolbar-group"><select class="select" id="templateSel" title="Template voor Genereer fasen" style="min-width:190px"><option value="">Template: Standaard</option></select><button class="btn primary" id="generateBtn">Genereer fasen</button><button class="btn primary" id="addPhaseBtn">Nieuwe fase</button><button class="btn primary" id="addTaskBtn">Taak toevoegen</button><button class="btn" id="recalcBtn">Herbereken planning</button></div>
       <div class="toolbar-group"><button class="btn" id="depsBtn">Afhankelijkheden</button><button class="btn" id="criticalBtn">Kritiek pad</button><button class="btn" id="baselineBtn">Baseline</button><button class="btn" id="setBaselineBtn">Baseline = actueel</button></div>
@@ -1909,6 +1920,60 @@ var CWS = window.CWS;</script>
       return list[0]?.id || null;
     }
     function projectLabel(p){ return `${p.nr||p.code||p.id} - ${p.name||"Project"}`; }
+    function projectSearchText(p){
+      return [
+        p?.nr, p?.code, p?.id, p?.name, p?.title,
+        p?.client, p?.customer, p?.opdrachtgever, p?.plaats, p?.city, p?.status
+      ].filter(Boolean).join(" ").toLowerCase();
+    }
+    function projectClientText(p){ return p?.client || p?.customer || p?.opdrachtgever || p?.plaats || p?.city || ""; }
+    function projectMatchesQuery(p, query){
+      const q=String(query||"").trim().toLowerCase();
+      if(!q) return true;
+      return q.split(/\s+/).every(part=>projectSearchText(p).includes(part));
+    }
+    function syncProjectSearchInput(pid=currentProjectId(), st=state()){
+      const input=$("#projectSearch");
+      if(!input) return;
+      const p=projects(st).find(item=>String(item.id)===String(pid));
+      input.value=p?projectLabel(p):"";
+      input.title=p?projectSearchText(p):"";
+    }
+    function closeProjectResults(){
+      const results=$("#projectResults"), input=$("#projectSearch");
+      if(results){ results.hidden=true; results.innerHTML=""; }
+      if(input) input.setAttribute("aria-expanded","false");
+      $(".gantt-shell")?.classList.remove("project-search-open");
+      UI.projectSearchIndex=0;
+    }
+    function selectProject(projectId){
+      const id=String(projectId||"");
+      if(!projectExists(id)) return;
+      UI.projectId=id;
+      const sel=$("#projectSel");
+      if(sel) sel.value=id;
+      closeProjectResults();
+      render();
+    }
+    function renderProjectResults(query=""){
+      const results=$("#projectResults"), input=$("#projectSearch");
+      if(!results||!input) return;
+      const list=selectableProjects().filter(p=>projectMatchesQuery(p,query)).slice(0,80);
+      input.setAttribute("aria-expanded","true");
+      results.hidden=false;
+      $(".gantt-shell")?.classList.add("project-search-open");
+      UI.projectSearchIndex=Math.max(0,Math.min(Number(UI.projectSearchIndex)||0,Math.max(0,list.length-1)));
+      if(!list.length){
+        results.innerHTML='<div class="project-result-empty">Geen projecten gevonden. Zoek op nummer, naam, opdrachtgever of plaats.</div>';
+        return;
+      }
+      results.innerHTML=list.map((p,i)=>{
+        const code=p.nr||p.code||p.id||"";
+        const meta=[projectClientText(p),p.status,p.id].filter(Boolean).join(" | ");
+        return `<button type="button" class="project-result ${i===UI.projectSearchIndex?"active":""}" role="option" aria-selected="${i===UI.projectSearchIndex?"true":"false"}" data-project-id="${esc(p.id)}"><span class="project-result-code">${esc(code)}</span><span class="project-result-name">${esc(p.name||p.title||"Project")}</span><span class="project-result-meta">${esc(meta)}</span></button>`;
+      }).join("");
+      $$(".project-result",results).forEach(btn=>btn.onclick=()=>selectProject(btn.dataset.projectId));
+    }
     function getModel(projectId){ const m = CWS?.gantt?.getProjectGantt ? CWS.gantt.getProjectGantt(projectId) : (state().ganttV2?.byProject?.[projectId] || {rows:[],sched:{}}); m.rows = Array.isArray(m.rows)?m.rows:[]; m.sched = m.sched || {}; return m; }
     function saveModel(projectId, model, msg="Opgeslagen", mutationMeta={}){
       if(!projectId) return {ok:false,errors:["Project ontbreekt."]};
@@ -2296,6 +2361,7 @@ var CWS = window.CWS;</script>
       }else{
         UI.projectId=null;
       }
+      if(document.activeElement !== $("#projectSearch")) syncProjectSearchInput(pid,st);
       $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+departments(st).map(d=>`<option value="${esc(d.id||d.name)}">${esc(d.name||d.id)}</option>`).join("");
       $("#deptSel").value=UI.dept||"";
       $("#resourceSel").innerHTML='<option value="">Alle resources</option>'+resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)} (${esc(r.dept||"")})</option>`).join("");
@@ -3361,7 +3427,22 @@ var CWS = window.CWS;</script>
       const clear=$("#bulkClearBtn"); if(clear) clear.onclick=()=>{ UI.selected=null; clearSelection(getModel(currentProjectId())); toast("Selectie gewist"); };
       updateBulkUi();
     }
-    function bind(){ $("#projectSel").onchange=e=>{UI.projectId=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); const boardWrap=$("#boardWrap"); boardWrap.addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); boardWrap.addEventListener("wheel",e=>{ const horizontalDelta=Math.abs(e.deltaX)>1?e.deltaX:(e.shiftKey?e.deltaY:0); if(horizontalDelta){ const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+horizontalDelta)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } return; } const maxY=Math.max(0,boardWrap.scrollHeight-boardWrap.clientHeight); const nextY=Math.max(0,Math.min(maxY,boardWrap.scrollTop+e.deltaY)); if(nextY!==boardWrap.scrollTop){ boardWrap.scrollTop=nextY; e.preventDefault(); return; } const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+e.deltaY)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } },{passive:false,capture:true}); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
+    function bind(){
+      $("#projectSel").onchange=e=>{UI.projectId=e.target.value; syncProjectSearchInput(e.target.value); render();};
+      const projectSearch=$("#projectSearch");
+      if(projectSearch){
+        projectSearch.addEventListener("focus",()=>{ UI.projectSearchIndex=0; renderProjectResults(projectSearch.value); });
+        projectSearch.addEventListener("input",()=>{ UI.projectSearchIndex=0; renderProjectResults(projectSearch.value); });
+        projectSearch.addEventListener("keydown",e=>{
+          const results=$("#projectResults");
+          const items=$$(".project-result",results||document);
+          if(e.key==="ArrowDown" && items.length){ e.preventDefault(); UI.projectSearchIndex=Math.min(items.length-1,(Number(UI.projectSearchIndex)||0)+1); renderProjectResults(projectSearch.value); }
+          else if(e.key==="ArrowUp" && items.length){ e.preventDefault(); UI.projectSearchIndex=Math.max(0,(Number(UI.projectSearchIndex)||0)-1); renderProjectResults(projectSearch.value); }
+          else if(e.key==="Enter" && items.length){ e.preventDefault(); const active=items[Math.max(0,Math.min(items.length-1,Number(UI.projectSearchIndex)||0))]; selectProject(active?.dataset?.projectId); }
+          else if(e.key==="Escape"){ e.preventDefault(); closeProjectResults(); syncProjectSearchInput(currentProjectId()); }
+        });
+      }
+      $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); const boardWrap=$("#boardWrap"); boardWrap.addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); boardWrap.addEventListener("wheel",e=>{ const horizontalDelta=Math.abs(e.deltaX)>1?e.deltaX:(e.shiftKey?e.deltaY:0); if(horizontalDelta){ const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+horizontalDelta)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } return; } const maxY=Math.max(0,boardWrap.scrollHeight-boardWrap.clientHeight); const nextY=Math.max(0,Math.min(maxY,boardWrap.scrollTop+e.deltaY)); if(nextY!==boardWrap.scrollTop){ boardWrap.scrollTop=nextY; e.preventDefault(); return; } const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+e.deltaY)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } },{passive:false,capture:true}); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); if(!e.target.closest("#projectPicker")) closeProjectResults(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); closeProjectResults(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
         if(UI._suppressSubscriberRender || UI._finishingPointerMutation || UI.drag){
           UI._pendingSubscriberRender=true;
           return;

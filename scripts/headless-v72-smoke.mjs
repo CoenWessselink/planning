@@ -227,6 +227,32 @@ try {
 
   await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
   check("Gantt projectdropdown gevuld", await evaluate("document.querySelectorAll('#projectSel option').length > 0"));
+  const projectSearch = await evaluate(`(()=>{
+    const input=document.querySelector('#projectSearch');
+    const sel=document.querySelector('#projectSel');
+    const before=sel?.value || "";
+    if(!input || !sel) return {ok:false,reason:"missing controls"};
+    const candidates=Array.from(document.querySelectorAll('#projectSel option')).map(option=>({id:option.value,label:option.textContent||""})).filter(item=>item.id && item.id!==before);
+    const target=candidates.find(item=>/\\d/.test(item.label)) || candidates[0];
+    if(!target) return {ok:false,reason:"missing target",before};
+    const query=target.label.split(" - ").at(-1).trim().split(/\\s+/).slice(0,2).join(" ") || target.label.slice(0,8);
+    input.focus();
+    input.value=query;
+    input.dispatchEvent(new Event("input",{bubbles:true}));
+    const results=document.querySelector('#projectResults');
+    const first=results?.querySelector('.project-result');
+    const count=results?.querySelectorAll('.project-result')?.length || 0;
+    const firstText=first?.innerText || "";
+    const openBeforeSelect=!results?.hidden;
+    first?.click();
+    const after=sel.value;
+    if(before && before!==after){
+      sel.value=before;
+      sel.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    return {ok:openBeforeSelect && count>0 && firstText.toLowerCase().includes(query.toLowerCase()) && after!==before,count,query,firstText,before,after};
+  })()`);
+  check("Gantt projectzoeker filtert en selecteert project", projectSearch.ok, JSON.stringify(projectSearch));
   check("Gantt brede continue balk zichtbaar", await evaluate("Array.from(document.querySelectorAll('.bar:not(.summary)')).some(el => el.getBoundingClientRect().width > 60)"));
   check("Gantt tabel bedekt de balken niet", await evaluate(`(()=>{const table=document.querySelector('.table-pane');const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!table||!bar)return false;const t=table.getBoundingClientRect(),r=bar.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return t.right<=r.left && !!hit?.closest('.bar');})()`));
   await evaluate("document.querySelector('#boardWrap').scrollLeft=0");

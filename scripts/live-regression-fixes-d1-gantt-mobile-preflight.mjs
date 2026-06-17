@@ -116,4 +116,16 @@ check(
   gantt.includes(".toolbar{overflow-x:auto")
 );
 
+check(
+  "Gantt projecten zijn doorzoekbaar en filterbaar",
+  gantt.includes("data-v89-project-search=\"1\"") &&
+  gantt.includes("id=\"projectSearch\"") &&
+  gantt.includes("id=\"projectResults\"") &&
+  gantt.includes("function projectSearchText") &&
+  gantt.includes("function projectMatchesQuery") &&
+  gantt.includes("function renderProjectResults") &&
+  gantt.includes("function selectProject") &&
+  gantt.includes("project-search-open")
+);
+
 console.log("[preflight:live-regression] live regression checks OK");
