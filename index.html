@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/responsive-v73.css">
 </head>
-<body data-cws-build="V87_SETTINGS_DEPARTMENT_DELETE_FIX" data-cws-previous-build="V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+<body data-cws-build="COMPLETE_GANTT_CAPACITY_MOBILE_STABILITY_BUILD" data-cws-previous-build="V87_SETTINGS_DEPARTMENT_DELETE_FIX" data-cws-legacy-builds="V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
   <div class="headerbar">
     <div class="left">
       <button class="btn" id="openApps">Apps Menu</button>
@@ -61,7 +61,7 @@
   <script>
     (async()=>{
       try{
-        document.body.dataset.cwsBuild = "V78";
+        document.body.dataset.cwsBuild = "COMPLETE_GANTT_CAPACITY_MOBILE_STABILITY_BUILD";
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
@@ -83,7 +83,26 @@
           warning.className = "storage-warning";
           if(CWS.storageStatus.unsynced){
             const runtime = CWS.getRuntimeInfo?.() || {};
-            if(CWS.storageStatus.remoteSaveRetryScheduled){
+            if(CWS.storageStatus.conflictActionRequired){
+              const msg = document.createElement("span");
+              msg.textContent = "D1 conflict: kies hoe je verder wilt. ";
+              const load = document.createElement("button");
+              load.className = "btn";
+              load.type = "button";
+              load.textContent = "Serverversie laden";
+              load.onclick = () => CWS.loadServerVersion?.();
+              const retry = document.createElement("button");
+              retry.className = "btn primary";
+              retry.type = "button";
+              retry.textContent = "Mijn wijziging opnieuw proberen";
+              retry.onclick = () => CWS.retryRemoteSave?.("conflict-action-retry");
+              const cancel = document.createElement("button");
+              cancel.className = "btn";
+              cancel.type = "button";
+              cancel.textContent = "Annuleren";
+              cancel.onclick = () => UI.toast("Conflict blijft open tot je herlaadt of opnieuw opslaat.");
+              warning.replaceChildren(msg, load, retry, cancel);
+            }else if(CWS.storageStatus.remoteSaveRetryScheduled){
               warning.classList.add("storage-sync-notice");
               const when = CWS.storageStatus.remoteSaveRetryAt ? new Date(CWS.storageStatus.remoteSaveRetryAt).toLocaleTimeString("nl-NL") : "zo";
               warning.textContent = `Wijzigingen zijn lokaal veilig bewaard. Synchronisatie met D1 loopt automatisch opnieuw rond ${when}.`;
