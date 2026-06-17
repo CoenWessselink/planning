@@ -53,10 +53,14 @@ check(
 );
 
 check(
-  "503 retry-status vervangt terugkerende harde waarschuwing",
+  "503 retry-status toont rustige lokale-buffer melding",
   index.includes("remoteSaveRetryScheduled") &&
   index.includes("Wijzigingen zijn lokaal veilig bewaard") &&
-  index.includes("automatische retry")
+  index.includes("Synchronisatie met D1 loopt automatisch opnieuw") &&
+  index.includes("storage-sync-notice") &&
+  store.includes("Lokaal veilig - D1 sync opnieuw gepland") &&
+  !index.includes("D1 is tijdelijk niet bereikbaar") &&
+  !store.includes("D1 tijdelijk niet bereikbaar")
 );
 
 check(
