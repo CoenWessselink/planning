@@ -227,6 +227,35 @@ try {
 
   await openRoute("layers/laag4_gantt.html?fixture=restored-d1", 1440, 1000);
   check("Gantt projectdropdown gevuld", await evaluate("document.querySelectorAll('#projectSel option').length > 0"));
+  const projectSearch = await evaluate(`(()=>{
+    const input=document.querySelector('#projectSearch');
+    const sel=document.querySelector('#projectSel');
+    const before=sel?.value || "";
+    if(!input || !sel) return {ok:false,reason:"missing controls"};
+    const candidates=Array.from(document.querySelectorAll('#projectSel option')).map(option=>({id:option.value,label:option.textContent||""})).filter(item=>item.id && item.id!==before);
+    const target=candidates.find(item=>/\\d/.test(item.label)) || candidates[0];
+    if(!target) return {ok:false,reason:"missing target",before};
+    const query=target.label.split(" - ").at(-1).trim().split(/\\s+/).slice(0,2).join(" ") || target.label.slice(0,8);
+    input.focus();
+    input.value=query;
+    input.dispatchEvent(new Event("input",{bubbles:true}));
+    const results=document.querySelector('#projectResults');
+    const first=results?.querySelector('.project-result');
+    const count=results?.querySelectorAll('.project-result')?.length || 0;
+    const firstText=first?.innerText || "";
+    const openBeforeSelect=!results?.hidden;
+    const rr=results?.getBoundingClientRect();
+    const hit=rr ? document.elementFromPoint(Math.max(rr.left+8,rr.right-10), Math.min(rr.bottom-8,rr.top+52)) : null;
+    const overlaysTable=!!hit?.closest('#projectResults,.project-result');
+    first?.click();
+    const after=sel.value;
+    if(before && before!==after){
+      sel.value=before;
+      sel.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    return {ok:openBeforeSelect && overlaysTable && count>0 && firstText.toLowerCase().includes(query.toLowerCase()) && after!==before,count,query,firstText,before,after,hit:hit?.className||hit?.tagName};
+  })()`);
+  check("Gantt projectzoeker filtert en selecteert project", projectSearch.ok, JSON.stringify(projectSearch));
   check("Gantt brede continue balk zichtbaar", await evaluate("Array.from(document.querySelectorAll('.bar:not(.summary)')).some(el => el.getBoundingClientRect().width > 60)"));
   check("Gantt tabel bedekt de balken niet", await evaluate(`(()=>{const table=document.querySelector('.table-pane');const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!table||!bar)return false;const t=table.getBoundingClientRect(),r=bar.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return t.right<=r.left && !!hit?.closest('.bar');})()`));
   await evaluate("document.querySelector('#boardWrap').scrollLeft=0");
@@ -243,11 +272,23 @@ try {
     check("Gantt rechter-resize houdt start vast", resized.ok, JSON.stringify(resized));
   } else check("Gantt resize-handle gevonden", false);
 
+  let persistedTask = null;
   const leftResizeBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.left');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`, 44);
   if(leftResizeBefore) {
     const resized = await evaluate(`(()=>{const st=CWS.getState(),model=st.ganttV2.byProject[${JSON.stringify(leftResizeBefore.pid)}],sc=model.sched[${JSON.stringify(leftResizeBefore.id)}],row=model.rows.find(item=>item.id===${JSON.stringify(leftResizeBefore.id)});return {ok:sc.start!==${JSON.stringify(leftResizeBefore.start)} && sc.end===${JSON.stringify(leftResizeBefore.end)} && row.duration===sc.workdays && sc.workdays<50 && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(leftResizeBefore)},validation:CWS.getLastValidation()};})()`);
     check("Gantt linker-resize houdt einde vast", resized.ok, JSON.stringify(resized));
+    if(resized.ok) persistedTask = { pid:leftResizeBefore.pid, id:leftResizeBefore.id, start:resized.start, end:resized.end, workdays:resized.workdays };
   } else check("Gantt linker resize-handle gevonden", false);
+
+  if(persistedTask) {
+    await openRoute("layers/laag4_gantt.html", 1440, 1000);
+    const persisted = await evaluate(`(()=>{const model=CWS.getState().ganttV2.byProject[${JSON.stringify(persistedTask.pid)}],sc=model?.sched?.[${JSON.stringify(persistedTask.id)}];return {ok:!!sc && sc.start===${JSON.stringify(persistedTask.start)} && sc.end===${JSON.stringify(persistedTask.end)},start:sc?.start,end:sc?.end};})()`);
+    check("Gantt wijziging blijft behouden na refresh/heropen", persisted.ok, JSON.stringify(persisted));
+    await openRoute("layers/laag5_capaciteit.html", 1440, 1000);
+    const capacity = await evaluate(`(()=>{const st=CWS.getState(),wanted=${JSON.stringify(persistedTask)},sources=st.gantt?.sourcesByDay||{},hours=st.gantt?.hoursByDay||{};const rows=[];Object.entries(sources).forEach(([date,byDept])=>Object.entries(byDept||{}).forEach(([dept,items])=>(Array.isArray(items)?items:[]).forEach(item=>{if(item.projectId===wanted.pid && (item.taskId===wanted.id || item.rowId===wanted.id)) rows.push({date,dept,hours:Number(item.hours)||0,projectId:item.projectId,taskId:item.taskId,taskName:item.taskName,hoursSource:item.hoursSource,allocationMode:item.allocationMode,start:item.start,end:item.end});})));const weekendRows=rows.filter(r=>{const d=new Date(r.date+'T00:00:00Z').getUTCDay();return d===0||d===6;});const total=rows.reduce((sum,r)=>sum+r.hours,0);return {ok:rows.length>0 && total>0 && rows.some(r=>r.date>=wanted.start && r.date<=wanted.end) && rows.every(r=>r.hoursSource==='project-dept-hours'||r.hoursSource==='manual-override') && weekendRows.length===0,rows:rows.slice(0,3),rowCount:rows.length,total,weekendRows,hourDays:Object.keys(hours).length};})()`);
+    check("Capaciteit rekent door vanuit Gantt hoursByDay/sourcesByDay", capacity.ok, JSON.stringify(capacity));
+    await openRoute("layers/laag4_gantt.html", 1440, 1000);
+  }
 
   const repeatedBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect(),id=bar.dataset.id,pid=document.querySelector('#projectSel')?.value,model=CWS.getState().ganttV2.byProject[pid],sc=model.sched[id],row=model.rows.find(item=>item.id===id);return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration};})()`, 22);
   if(repeatedBefore) {

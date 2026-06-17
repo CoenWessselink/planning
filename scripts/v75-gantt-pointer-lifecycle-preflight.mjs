@@ -28,6 +28,12 @@ check("v75 metadata gaat mee met saveModel", /v75PointerLifecycleFix:true/.test(
 check("cleanup in finally zet flags terug", /finally\s*\{[\s\S]*UI\._suppressSubscriberRender\s*=\s*false[\s\S]*UI\._finishingPointerMutation\s*=\s*false[\s\S]*UI\.drag\s*=\s*null[\s\S]*render\(\)/.test(finishBody));
 check("oude directe subscriber-render is verdwenen", !/CWS\.subscribe\(\(\)=>\{render\(\);\}\)/.test(gantt));
 check("V74 performancefix blijft aanwezig", /requestAnimationFrame/.test(gantt) && /deferPersistence:true/.test(gantt) && /v74DragResizeFreezeFix:true/.test(gantt));
+check("bar pointerdown en window pointermove/pointerup lifecycle aanwezig", /\.bar"\)\.forEach[\s\S]{0,1800}addEventListener\("pointerdown"/.test(gantt) && /window\.addEventListener\("pointermove"[\s\S]*passive:false/.test(gantt) && /window\.addEventListener\("pointerup",event=>finishPointerMutation\(event,false\)\)/.test(gantt));
+check("pointercancel en blur ruimen zonder save op", /window\.addEventListener\("pointercancel",event=>finishPointerMutation\(event,true\)\)/.test(gantt) && /window\.addEventListener\("blur",\(\)=>\{ if\(UI\.drag\) finishPointerMutation\(\{ pointerId:UI\.drag\.pointerId \}, true\); \}\)/.test(gantt));
+check("movement threshold scheidt klik van drag", /GANTT_POINTER_MOVE_THRESHOLD_PX\s*=\s*4/.test(gantt) && /drag\.moved\s*=\s*true/.test(gantt) && /!drag\.tempSchedule \|\| !drag\.moved/.test(finishBody));
+check("click/dblclick na drag wordt kort onderdrukt", /_lastDragClickSuppressUntil/.test(gantt) && /Date\.now\(\)\+350/.test(finishBody));
+check("labels en raster-overlays eten geen pointer events", /\.bar-label,\s*\.bar-text-before,\s*\.bar-text-after,\s*\.day-grid-line,\s*\.nonwork-shade\{pointer-events:none!important\}/.test(gantt) && /\.bar:not\(\.summary\) \.handle\{pointer-events:auto;min-width:14px;z-index:20\}/.test(gantt));
+check("development/test diagnostiek zonder productiespam", /function ganttDebug/.test(gantt) && /debugGantt/.test(gantt) && /console\.debug\("\[gantt:pointer\]"/.test(gantt));
 
 if(failed) process.exit(1);
 console.log("V75 Gantt pointer lifecycle preflight geslaagd.");

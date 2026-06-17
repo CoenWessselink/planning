@@ -74,16 +74,15 @@
 
         const refreshStatus = () => {
           const state = CWS.getState();
+          const warning = document.getElementById("storageWarning");
           document.getElementById("rolePill").textContent = state.ui.role;
           document.getElementById("deptPill").textContent = state.user?.dept || "Alle";
           document.getElementById("storagePill").textContent = "Opslag: " + CWS.storageStatus.label + (CWS.getRemoteVersion?.() ? ` v${CWS.getRemoteVersion()}` : "") + (CWS.storageStatus.booting ? " - laden..." : "");
           document.getElementById("userPill").textContent = CWS.getCurrentUser().email;
-          const warning = document.getElementById("storageWarning");
           warning.hidden = CWS.storageStatus.mode === "api" && !CWS.storageStatus.unsynced;
+          warning.className = "storage-warning";
           if(CWS.storageStatus.unsynced){
             const runtime = CWS.getRuntimeInfo?.() || {};
-            const prefix = runtime.isPreviewDeployment ? "Previewdeployment: D1/Access kan ontbreken. " : "Let op: wijzigingen zijn nog niet gesynchroniseerd met D1. ";
-            warning.textContent = prefix + (CWS.storageStatus.lastError || "") + (CWS.storageStatus.accessMissing ? " Cloudflare Access-identiteit ontbreekt." : "");
             if(CWS.storageStatus.conflictActionRequired){
               const msg = document.createElement("span");
               msg.textContent = "D1 conflict: kies hoe je verder wilt. ";
@@ -103,6 +102,13 @@
               cancel.textContent = "Annuleren";
               cancel.onclick = () => UI.toast("Conflict blijft open tot je herlaadt of opnieuw opslaat.");
               warning.replaceChildren(msg, load, retry, cancel);
+            }else if(CWS.storageStatus.remoteSaveRetryScheduled){
+              warning.classList.add("storage-sync-notice");
+              const when = CWS.storageStatus.remoteSaveRetryAt ? new Date(CWS.storageStatus.remoteSaveRetryAt).toLocaleTimeString("nl-NL") : "zo";
+              warning.textContent = `Wijzigingen zijn lokaal veilig bewaard. Synchronisatie met D1 loopt automatisch opnieuw rond ${when}.`;
+            }else{
+              const prefix = runtime.isPreviewDeployment ? "Previewdeployment: D1/Access kan ontbreken. " : "Let op: wijzigingen zijn nog niet gesynchroniseerd met D1. ";
+              warning.textContent = prefix + (CWS.storageStatus.lastError || "") + (CWS.storageStatus.accessMissing ? " Cloudflare Access-identiteit ontbreekt." : "");
             }
           }else{
             warning.textContent = "Let op: je werkt nu met lokale browserdata. Collega\'s zien deze wijzigingen niet.";

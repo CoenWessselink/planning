@@ -135,8 +135,8 @@ window.CWS = window.CWS || {};
     return 'auto';
   };
   const ganttTaskManualHours = (row) => Math.max(0, baseNum(row?.manualHours ?? row?.hours));
-  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e" };
-  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime" };
+  const CWS_COLOR_MAP = { c1:"#2f6fbd", c2:"#16a34a", c3:"#f59e0b", c4:"#dc2626", c5:"#8b5cf6", c6:"#14b8a6", c7:"#f97316", c8:"#22c55e", c9:"#1e3a8a", c10:"#38bdf8", c11:"#06b6d4", c12:"#ec4899", c13:"#db2777", c14:"#4f46e5", c15:"#92400e", c16:"#84cc16", c17:"#166534", c18:"#991b1b", c19:"#6b7280", c20:"#111827" };
+  const CWS_COLOR_NAMES = { c1:"Blauw", c2:"Groen", c3:"Geel", c4:"Rood", c5:"Paars", c6:"Turquoise", c7:"Oranje", c8:"Lime", c9:"Donkerblauw", c10:"Hemelsblauw", c11:"Cyaan", c12:"Roze", c13:"Magenta", c14:"Indigo", c15:"Bruin", c16:"Olijf", c17:"Donkergroen", c18:"Donkerrood", c19:"Grijs", c20:"Zwart" };
   const normalizeColorKey = (value, fallback="c1") => {
     const raw = String(value ?? "").trim();
     if(CWS_COLOR_MAP[raw]) return raw;
@@ -921,6 +921,17 @@ window.CWS = window.CWS || {};
         phase.tasks.forEach((task, taskIndex) => {
           task.id = task.id || `T-${taskIndex+1}`;
           task.name = task.name || "Taak";
+          const taskDept = String(task.dept || task.department || task.afdeling || "").trim();
+          if(taskDept){
+            task.dept = taskDept;
+            task.department = taskDept;
+            task.afdeling = taskDept;
+          }
+          const taskResource = String(task.resourceId || task.resource || "").trim();
+          if(taskResource){
+            task.resourceId = taskResource;
+            task.resource = taskResource;
+          }
           task.days = Math.max(1, Number(task.days || task.duration || 5) || 5);
           task.hours = Math.max(0, Number(task.hours || 0) || 0);
           task.colorKey = normalizeColorKey(task.colorKey || task.color || phase.colorKey || "c1");
@@ -942,6 +953,8 @@ window.CWS = window.CWS || {};
   let remoteSaveInFlight = false;
   let remoteSaveQueued = false;
   let remoteSaveQueuedReason = "";
+  let remoteSaveRetryTimer = null;
+  let remoteSaveRetryAttempt = 0;
   let deferredPersistenceTimer = null;
   let privilegedMutation = false;
   let currentUser = { email:"Identiteit laden...", role:state.user?.role || "admin" };
@@ -975,6 +988,10 @@ window.CWS = window.CWS || {};
     conflictActionRequired:false,
     conflictCurrentVersion:null,
     conflictAt:null,
+    remoteSaveRetryScheduled:false,
+    remoteSaveRetryAttempt:0,
+    remoteSaveRetryAt:null,
+    remoteSaveLastTransientError:null,
     setStateCallsDuringBoot:0,
     rendersDuringBoot:0,
     savesBlockedDuringBoot:0,
@@ -1045,6 +1062,23 @@ window.CWS = window.CWS || {};
   const recordError = (message) => {
     const text = String(message || "").trim();
     if(text && !storageStatus.errors.includes(text)) storageStatus.errors.push(text);
+  };
+
+  const isTransientRemoteSaveError = (error) => {
+    if(error?.cwsTimeout) return true;
+    const status = Number(error?.status || 0);
+    if([408, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+    return /timeout|duurt te lang|temporar|tijdelijk|network|failed to fetch|service unavailable|503/i.test(String(error?.message || ""));
+  };
+
+  const clearRemoteSaveRetry = () => {
+    if(remoteSaveRetryTimer) clearTimeout(remoteSaveRetryTimer);
+    remoteSaveRetryTimer = null;
+    remoteSaveRetryAttempt = 0;
+    storageStatus.remoteSaveRetryScheduled = false;
+    storageStatus.remoteSaveRetryAttempt = 0;
+    storageStatus.remoteSaveRetryAt = null;
+    storageStatus.remoteSaveLastTransientError = null;
   };
 
   const storageAdapter = {
@@ -1195,7 +1229,12 @@ window.CWS = window.CWS || {};
         err.currentVersion = data.currentVersion;
         throw err;
       }
-      if(!response.ok || !data.ok) throw new Error(data.error || `State opslaan mislukt (${response.status}).`);
+      if(!response.ok || !data.ok){
+        const err = new Error(data.error || `State opslaan mislukt (${response.status}).`);
+        err.status = response.status;
+        err.responseData = data;
+        throw err;
+      }
       remoteVersion = Number(data.version || remoteVersion);
       storageStatus.remoteVersion = remoteVersion;
       storageStatus.label = data?.v82?.chunked ? "Cloudflare D1 - chunked gedeelde testdata" : "Cloudflare D1 - gedeelde interne testdata";
@@ -1228,16 +1267,43 @@ window.CWS = window.CWS || {};
       });
       try{ window.UI?.toast?.(error.message); }catch(_){}
     }else if(error.status === 409){
+      clearRemoteSaveRetry();
       storageStatus.label = "D1 conflict - herladen nodig";
       storageStatus.conflictActionRequired = true;
       storageStatus.conflictCurrentVersion = error.currentVersion || null;
       storageStatus.conflictAt = new Date().toISOString();
       storageAdapter.audit("d1_conflict", { message:error.message, currentVersion:error.currentVersion || null });
       try{ window.UI?.toast?.("Data is gewijzigd door een andere gebruiker. Herlaad om overschrijven te voorkomen."); }catch(_){}
+    }else if(isTransientRemoteSaveError(error) && storageStatus.mode === "api" && storageStatus.stateSource === "remote-d1"){
+      scheduleRemoteSaveRetry(error);
     }else{
+      clearRemoteSaveRetry();
       try{ window.UI?.toast?.("Serveropslag niet bereikbaar - wijzigingen lokaal bewaard."); }catch(_){}
     }
   };
+
+  function scheduleRemoteSaveRetry(error){
+    if(remoteSaveRetryTimer) clearTimeout(remoteSaveRetryTimer);
+    remoteSaveRetryAttempt += 1;
+    const delay = Math.min(60000, 1500 * Math.pow(2, Math.min(remoteSaveRetryAttempt - 1, 5)));
+    const retryAt = new Date(Date.now() + delay).toISOString();
+    storageStatus.remoteSaveRetryScheduled = true;
+    storageStatus.remoteSaveRetryAttempt = remoteSaveRetryAttempt;
+    storageStatus.remoteSaveRetryAt = retryAt;
+    storageStatus.remoteSaveLastTransientError = error.message;
+    storageStatus.label = "Lokaal veilig - D1 sync opnieuw gepland";
+    recordWarning(`D1 sync tijdelijk uitgesteld; automatische retry gepland (${error.message}).`);
+    if(remoteSaveRetryAttempt === 1){
+      try{ window.UI?.toast?.("Wijzigingen lokaal veilig bewaard. D1 synchroniseert automatisch opnieuw."); }catch(_){}
+    }
+    remoteSaveRetryTimer = setTimeout(() => {
+      remoteSaveRetryTimer = null;
+      storageStatus.remoteSaveRetryScheduled = false;
+      storageStatus.remoteSaveRetryAt = null;
+      if(storageStatus.mode !== "api" || storageStatus.stateSource !== "remote-d1" || !storageStatus.unsynced) return;
+      flushRemoteSaveQueue("remote-save-retry");
+    }, delay);
+  }
 
   const runRemoteSaveOnce = async (reason="user-mutation") => {
     const snapshot = createRemoteSaveSnapshot(state);
@@ -1249,6 +1315,7 @@ window.CWS = window.CWS || {};
     }
     protectAgainstCatastrophicOverwrite(snapshot, "remote save");
     await storageAdapter.save(snapshot);
+    clearRemoteSaveRetry();
     markRemoteSaveOk(`remote-save-ok:${reason}`);
   };
 
@@ -1298,6 +1365,12 @@ window.CWS = window.CWS || {};
       return false;
     }
     if(saveTimer) clearTimeout(saveTimer);
+    if(remoteSaveRetryTimer){
+      clearTimeout(remoteSaveRetryTimer);
+      remoteSaveRetryTimer = null;
+      storageStatus.remoteSaveRetryScheduled = false;
+      storageStatus.remoteSaveRetryAt = null;
+    }
     saveTimer = setTimeout(() => {
       saveTimer = null;
       flushRemoteSaveQueue(reason);
@@ -2621,12 +2694,15 @@ window.CWS = window.CWS || {};
         const model = { rows:[], sched:{} };
         let day = 0;
         phases.forEach(phase => {
-          model.rows.push({ id:`${projectId}-${phase.id}`, name:phase.name, type:"summary", level:0, department:phase.name, progress:0, predecessor:"", locked:false });
+          const firstTaskDept = (phase.tasks || []).map(task => String(task.dept || task.department || task.afdeling || "").trim()).find(Boolean);
+          const phaseDept = String(phase.dept || phase.department || phase.afdeling || firstTaskDept || "").trim();
+          model.rows.push({ id:`${projectId}-${phase.id}`, name:phase.name, type:"summary", level:0, department:phaseDept, progress:0, predecessor:"", locked:false });
           (phase.tasks || []).forEach((task, index) => {
             const id = `${projectId}-${task.id}`;
             const start = cursorIso;
             const end = addGanttWorkdays(draft, start, 5);
-            model.rows.push({ id, name:task.name, type:"task", level:1, department:phase.name, progress:0, predecessor:index ? `${projectId}-${phase.tasks[index-1].id}FS` : "", locked:false, hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 });
+            const taskDept = String(task.dept || task.department || task.afdeling || phaseDept || "").trim();
+            model.rows.push({ id, name:task.name, type:"task", level:1, department:taskDept, progress:0, predecessor:index ? `${projectId}-${phase.tasks[index-1].id}FS` : "", locked:false, hoursMode:"auto", hoursSource:"project-dept-hours", hours:0, manualHours:0 });
             model.sched[id] = { start, end };
             cursorIso = nextGanttWorkIso(draft, isoDateUTC(addDaysUTC(new Date(end + "T00:00:00Z"), 1)));
             day += 5;

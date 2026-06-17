@@ -97,6 +97,11 @@ a{color:inherit}
   color:#92400e;
   font-weight:700;
 }
+.storage-warning.storage-sync-notice{
+  border-color:#bfdbfe;
+  background:#eff6ff;
+  color:#1e3a8a;
+}
 .panel{
   background:var(--panel);
   border:1px solid var(--border);

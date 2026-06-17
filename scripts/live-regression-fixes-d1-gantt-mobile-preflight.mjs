@@ -7,7 +7,9 @@ const store = read("js/core/store.js");
 const gantt = read("layers/laag4_gantt.html");
 const capacity = read("layers/laag5_capaciteit.html");
 const theme = read("css/theme.css");
+const ui = read("js/core/ui.js");
 const stateApi = read("functions/api/state.js");
+const index = read("index.html");
 
 function check(label, ok) {
   if (!ok) throw new Error(`[preflight:live-regression] ${label}`);
@@ -39,6 +41,27 @@ check(
   store.includes("if(remoteSaveInFlight)") &&
   store.includes("await runRemoteSaveOnce(currentReason)") &&
   store.includes("}while(remoteSaveQueued)")
+);
+
+check(
+  "tijdelijke D1 503 save-fouten plannen automatische retry",
+  store.includes("remoteSaveRetryTimer") &&
+  store.includes("isTransientRemoteSaveError") &&
+  store.includes("[408, 425, 429, 500, 502, 503, 504]") &&
+  store.includes("scheduleRemoteSaveRetry(error)") &&
+  store.includes("flushRemoteSaveQueue(\"remote-save-retry\")") &&
+  store.includes("clearRemoteSaveRetry()")
+);
+
+check(
+  "503 retry-status toont rustige lokale-buffer melding",
+  index.includes("remoteSaveRetryScheduled") &&
+  index.includes("Wijzigingen zijn lokaal veilig bewaard") &&
+  index.includes("Synchronisatie met D1 loopt automatisch opnieuw") &&
+  index.includes("storage-sync-notice") &&
+  store.includes("Lokaal veilig - D1 sync opnieuw gepland") &&
+  !index.includes("D1 is tijdelijk niet bereikbaar") &&
+  !store.includes("D1 tijdelijk niet bereikbaar")
 );
 
 check(
@@ -96,6 +119,84 @@ check(
   gantt.includes("id=\"addPhaseBtn\"") &&
   gantt.includes("id=\"addTaskBtn\"") &&
   gantt.includes(".toolbar{overflow-x:auto")
+);
+
+check(
+  "Gantt projecten zijn doorzoekbaar en filterbaar",
+  gantt.includes("data-v89-project-search=\"1\"") &&
+  gantt.includes("id=\"projectSearch\"") &&
+  gantt.includes("id=\"projectResults\"") &&
+  gantt.includes("function projectSearchText") &&
+  gantt.includes("function projectMatchesQuery") &&
+  gantt.includes("function renderProjectResults") &&
+  gantt.includes("function selectProject") &&
+  gantt.includes("project-search-open") &&
+  gantt.includes(".gantt-shell.project-search-open .toolbar") &&
+  gantt.includes("z-index:2000") &&
+  gantt.includes("overflow:visible")
+);
+
+check(
+  "Gantt template generatie neemt taakafdelingen over voor capaciteit",
+  gantt.includes("firstTaskDept=tasks.map") &&
+  gantt.includes("const dept=String(t.dept || t.department || t.afdeling || phaseDept || \"\").trim()") &&
+  store.includes("const taskDept = String(task.dept || task.department || task.afdeling || phaseDept || \"\").trim()") &&
+  store.includes("task.department = taskDept") &&
+  settings.includes("tk.dept = inp.value; tk.department = inp.value; tk.afdeling = inp.value")
+);
+
+check(
+  "Gantt bulk afdeling en kleur gebruiken dropdowns zonder prompt",
+  gantt.includes("function bulkDepartmentDropdown") &&
+  gantt.includes("function bulkColorDropdown") &&
+  gantt.includes("function setRowDepartmentDropdown") &&
+  gantt.includes("function setRowColorDropdown") &&
+  gantt.includes("dept.onclick=bulkDepartmentDropdown") &&
+  gantt.includes("color.onclick=bulkColorDropdown") &&
+  !gantt.includes("Afdeling voor selectie\", \"\"") &&
+  !gantt.includes("Kleur voor selectie (Blauw/Groen")
+);
+
+check(
+  "Gantt kleurkeuze toont echte kleurvlakken en compacte dropdowntekst",
+  gantt.includes("function openColorChoice") &&
+  gantt.includes("color-choice-grid") &&
+  gantt.includes("color-choice-swatch") &&
+  gantt.includes("data-color-key") &&
+  gantt.includes(".gantt-shell select,.gantt-shell option{font-size:10px!important") &&
+  settings.includes("#tplBackdrop select,#tplBackdrop option{font-size:10px!important") &&
+  ui.includes("linear-gradient(90deg")
+);
+
+check(
+  "Kleurenpalet bevat 20 vaste kleuren inclusief grijs en zwart",
+  store.includes("c20:\"#111827\"") &&
+  store.includes("c19:\"#6b7280\"") &&
+  gantt.includes("c20:\"#111827\"") &&
+  settings.includes("c20:\"#111827\"") &&
+  (gantt.match(/c\d+:/g) || []).filter((v,i,a)=>a.indexOf(v)===i).length >= 20
+);
+
+check(
+  "Instellingen kleur- en afdelingvelden zijn dropdowns",
+  settings.includes('{ key:"color", label:"Kleur", type:"color" }') &&
+  settings.includes('{ key:"dept", label:"Afdeling", type:"department" }') &&
+  settings.includes("function dsColorOptions") &&
+  settings.includes("function dsDeptOptions")
+);
+
+check(
+  "Template popup is breder en kolommen passen op tekst",
+  settings.includes("#tplBackdrop .modal{width:min(1500px,98vw)!important") &&
+  settings.includes("modal-body tpl-modal-body") &&
+  settings.includes("template-table-wrap") &&
+  settings.includes("min-width:330px") &&
+  settings.includes("min-width:190px")
+);
+
+check(
+  "Gantt printlogo blijft groot in laatste print override",
+  gantt.includes("body.printing .print-logo{max-width:150px!important;max-height:58px!important")
 );
 
 console.log("[preflight:live-regression] live regression checks OK");

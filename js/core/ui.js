@@ -451,6 +451,33 @@ const UI = (() => {
     };
 
     const visibleCols = () => cols.filter(c => c.visible !== false);
+    const colorApi = () => (typeof CWS !== 'undefined' && CWS.colors) ? CWS.colors : null;
+    const colorMap = () => colorApi()?.map || {};
+    const colorNames = () => colorApi()?.names || {};
+    const normalizeColor = (value) => colorApi()?.normalize ? colorApi().normalize(value) : String(value || '');
+    const colorOptionsHtml = (value) => {
+      const map = colorMap();
+      const names = colorNames();
+      const key = normalizeColor(value);
+      return Object.keys(map).map(k => `<option value="${escapeHtml(k)}" ${k===key?'selected':''} style="background:linear-gradient(90deg, ${escapeHtml(map[k])} 0 22px, #fff 22px);color:#0f172a;padding-left:26px">${escapeHtml(names[k] || k)}</option>`).join('');
+    };
+    const departmentOptionsHtml = (value) => {
+      const st = (typeof CWS !== 'undefined' && CWS.getState) ? CWS.getState() : {};
+      const seen = new Set();
+      const rows = [];
+      const add = (id, name) => {
+        const v = String(id || name || '').trim();
+        const label = String(name || id || '').trim();
+        if(!v || seen.has(v)) return;
+        seen.add(v);
+        rows.push({ value:v, label:label || v });
+      };
+      (st.departments?.order || []).forEach(id => add(id, st.departments?.byId?.[id]?.name || id));
+      (Array.isArray(st.settings?.tables?.departments) ? st.settings.tables.departments : []).forEach(d => add(d.id || d.name || d.code, d.name || d.id || d.code));
+      (st.resources?.order || []).forEach(id => add(st.resources?.byId?.[id]?.dept, st.resources?.byId?.[id]?.dept));
+      if(value && !rows.some(r => String(r.value) === String(value) || String(r.label) === String(value))) add(value, value);
+      return rows.map(r => `<option value="${escapeHtml(r.value)}" ${String(r.value)===String(value)||String(r.label)===String(value)?'selected':''}>${escapeHtml(r.label)}</option>`).join('');
+    };
 
     const render = () => {
       const q = (els.q.value||'').toLowerCase().trim();
@@ -480,7 +507,9 @@ const UI = (() => {
         vcols.forEach(c => {
           const td = document.createElement('td');
           const ro = !!(c.readonly || c.readOnly);
-          td.contentEditable = ro ? 'false' : 'true';
+          const isColor = !ro && (c.type === 'color' || String(c.key).toLowerCase() === 'color');
+          const isDepartment = !ro && (c.type === 'department' || ['dept','department','afdeling'].includes(String(c.key).toLowerCase()));
+          td.contentEditable = (ro || isColor || isDepartment) ? 'false' : 'true';
           td.dataset.key = c.key;
           // Support computed columns
           let cellVal = '';
@@ -491,6 +520,28 @@ const UI = (() => {
               cellVal = (r?.[c.key] ?? '');
             }
           }catch(_){ cellVal = (r?.[c.key] ?? ''); }
+          if(isColor){
+            const key = normalizeColor(cellVal);
+            const hex = colorMap()[key] || cellVal || '#6b7280';
+            td.innerHTML = `<span class="color-pick"><span class="color-swatch" style="background:${escapeHtml(hex)}"></span><select class="input" data-kind="color">${colorOptionsHtml(cellVal)}</select></span>`;
+            const sel = td.querySelector('select');
+            sel.addEventListener('change', () => {
+              writeRows(arr => { const rr = arr[idx] || {}; rr[c.key] = colorMap()[sel.value] || sel.value; arr[idx] = rr; return arr; });
+              render();
+            });
+            tr.appendChild(td);
+            return;
+          }
+          if(isDepartment){
+            td.innerHTML = `<select class="input" data-kind="department">${departmentOptionsHtml(cellVal)}</select>`;
+            const sel = td.querySelector('select');
+            sel.addEventListener('change', () => {
+              writeRows(arr => { const rr = arr[idx] || {}; rr[c.key] = sel.value; arr[idx] = rr; return arr; });
+              render();
+            });
+            tr.appendChild(td);
+            return;
+          }
           td.textContent = (cellVal ?? '').toString();
           td.addEventListener('blur', () => {
             const key = td.dataset.key;
