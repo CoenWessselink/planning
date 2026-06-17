@@ -243,11 +243,23 @@ try {
     check("Gantt rechter-resize houdt start vast", resized.ok, JSON.stringify(resized));
   } else check("Gantt resize-handle gevonden", false);
 
+  let persistedTask = null;
   const leftResizeBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.left');if(!bar||!h)return null;const r=h.getBoundingClientRect();const id=bar.dataset.id;const pid=document.querySelector('#projectSel')?.value;const sc=CWS.getState().ganttV2.byProject[pid].sched[id];return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end};})()`, 44);
   if(leftResizeBefore) {
     const resized = await evaluate(`(()=>{const st=CWS.getState(),model=st.ganttV2.byProject[${JSON.stringify(leftResizeBefore.pid)}],sc=model.sched[${JSON.stringify(leftResizeBefore.id)}],row=model.rows.find(item=>item.id===${JSON.stringify(leftResizeBefore.id)});return {ok:sc.start!==${JSON.stringify(leftResizeBefore.start)} && sc.end===${JSON.stringify(leftResizeBefore.end)} && row.duration===sc.workdays && sc.workdays<50 && st.meta.lastAction==='gantt_task_resized',start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration,lastAction:st.meta.lastAction,audit:st.auditLog?.at(-1)?.meta,before:${JSON.stringify(leftResizeBefore)},validation:CWS.getLastValidation()};})()`);
     check("Gantt linker-resize houdt einde vast", resized.ok, JSON.stringify(resized));
+    if(resized.ok) persistedTask = { pid:leftResizeBefore.pid, id:leftResizeBefore.id, start:resized.start, end:resized.end, workdays:resized.workdays };
   } else check("Gantt linker resize-handle gevonden", false);
+
+  if(persistedTask) {
+    await openRoute("layers/laag4_gantt.html", 1440, 1000);
+    const persisted = await evaluate(`(()=>{const model=CWS.getState().ganttV2.byProject[${JSON.stringify(persistedTask.pid)}],sc=model?.sched?.[${JSON.stringify(persistedTask.id)}];return {ok:!!sc && sc.start===${JSON.stringify(persistedTask.start)} && sc.end===${JSON.stringify(persistedTask.end)},start:sc?.start,end:sc?.end};})()`);
+    check("Gantt wijziging blijft behouden na refresh/heropen", persisted.ok, JSON.stringify(persisted));
+    await openRoute("layers/laag5_capaciteit.html", 1440, 1000);
+    const capacity = await evaluate(`(()=>{const st=CWS.getState(),wanted=${JSON.stringify(persistedTask)},sources=st.gantt?.sourcesByDay||{},hours=st.gantt?.hoursByDay||{};const rows=[];Object.entries(sources).forEach(([date,byDept])=>Object.entries(byDept||{}).forEach(([dept,items])=>(Array.isArray(items)?items:[]).forEach(item=>{if(item.projectId===wanted.pid && (item.taskId===wanted.id || item.rowId===wanted.id)) rows.push({date,dept,hours:Number(item.hours)||0,projectId:item.projectId,taskId:item.taskId,taskName:item.taskName,hoursSource:item.hoursSource,allocationMode:item.allocationMode,start:item.start,end:item.end});})));const weekendRows=rows.filter(r=>{const d=new Date(r.date+'T00:00:00Z').getUTCDay();return d===0||d===6;});const total=rows.reduce((sum,r)=>sum+r.hours,0);return {ok:rows.length>0 && total>0 && rows.some(r=>r.date>=wanted.start && r.date<=wanted.end) && rows.every(r=>r.hoursSource==='project-dept-hours'||r.hoursSource==='manual-override') && weekendRows.length===0,rows:rows.slice(0,3),rowCount:rows.length,total,weekendRows,hourDays:Object.keys(hours).length};})()`);
+    check("Capaciteit rekent door vanuit Gantt hoursByDay/sourcesByDay", capacity.ok, JSON.stringify(capacity));
+    await openRoute("layers/laag4_gantt.html", 1440, 1000);
+  }
 
   const repeatedBefore = await dragPointer(`(()=>{const bar=document.querySelector('.bar:not(.summary):not(.locked)');const h=bar?.querySelector('.handle.right');if(!bar||!h)return null;const r=h.getBoundingClientRect(),id=bar.dataset.id,pid=document.querySelector('#projectSel')?.value,model=CWS.getState().ganttV2.byProject[pid],sc=model.sched[id],row=model.rows.find(item=>item.id===id);return {x:r.left+r.width/2,y:r.top+r.height/2,id,pid,start:sc.start,end:sc.end,workdays:sc.workdays,duration:row.duration};})()`, 22);
   if(repeatedBefore) {
