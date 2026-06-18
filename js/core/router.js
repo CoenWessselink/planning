@@ -59,6 +59,7 @@ const Router = (() => {
   const safeBootApp = () => {
     const explicit = appFromUrl();
     if(explicit) return explicit;
+    if(window.CWS_MobileAdapter?.profile?.().family === "mobile" || window.innerWidth <= 640) return "dashboard";
     // V77: always start the production shell on a cheap stable module. The previous
     // D1 ui.lastApp could force a heavy Gantt boot before the app was interactive.
     return "projecten";

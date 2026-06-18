@@ -106,7 +106,7 @@ try {
   await waitFor(async () => {
     const response = await fetch(`http://127.0.0.1:${port}/api/health`);
     const data = await response.json();
-    return response.ok && ["local-test-v73","local-test-v76","local-test-v77","local-test-v78"].includes(data.version);
+    return response.ok && ["local-test-v73","local-test-v76","local-test-v77","local-test-v78","local-test-v86","local-test-v87"].includes(data.version);
   });
   check("lokale V73 health", true);
 
@@ -149,18 +149,18 @@ try {
   await cdp("Page.enable");
   await cdp("Runtime.enable");
 
-  for (const [width, expected] of [[390,"mobile-small"], [768,"tablet-portrait"], [1024,"tablet-landscape"], [1440,"desktop"]]) {
-    await openShell(width);
+  for (const [width, height, expected] of [[360,740,"mobile-small"], [390,844,"mobile-small"], [844,390,"tablet-portrait"], [768,1024,"tablet-portrait"], [1024,768,"tablet-landscape"], [1180,820,"tablet-landscape"], [1440,900,"desktop"]]) {
+    await openShell(width, height);
     const shell = await evaluate(`(()=>({
       viewport:document.body.dataset.cwsV73Viewport,
       family:["is-mobile","is-tablet","is-desktop"].find(c=>document.body.classList.contains(c)),
       menuVisible:document.querySelector("#openApps")?.getBoundingClientRect().width>0,
       bodyOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth
     }))()`);
-    check(`shell classificeert ${width}px`, shell.viewport === expected, JSON.stringify(shell));
-    check(`menu bereikbaar op ${width}px`, shell.menuVisible);
-    check(`geen onbedoelde shell body-overflow op ${width}px`, shell.bodyOverflow <= 2, `delta=${shell.bodyOverflow}`);
-    check(`shell zonder kritieke consolefout op ${width}px`, consoleErrors.length === 0, consoleErrors.slice(0,2).join(" | "));
+    check(`shell classificeert ${width}x${height}`, shell.viewport === expected, JSON.stringify(shell));
+    check(`menu bereikbaar op ${width}x${height}`, shell.menuVisible);
+    check(`geen onbedoelde shell body-overflow op ${width}x${height}`, shell.bodyOverflow <= 2, `delta=${shell.bodyOverflow}`);
+    check(`shell zonder kritieke consolefout op ${width}x${height}`, consoleErrors.length === 0, consoleErrors.slice(0,2).join(" | "));
   }
 
   const allModules = [
@@ -186,7 +186,26 @@ try {
   }
 
   await openShell(390, 844);
+  await loadModule("dashboard");
+  const mobileDashboard = await frameEval(`(()=>{const el=document.querySelector('[data-testid="mobile-dashboard"]');return !!el && getComputedStyle(el).display!=="none";})()`);
+  check("Mobiel dashboard/cockpit zichtbaar", mobileDashboard);
+
   await loadModule("projecten");
+  const mobileProjects = await frameEval(`(()=>{
+    const view=document.querySelector('[data-testid="mobile-projects"]');
+    const forbidden=["Boven","Compact","Menu","Brondata","Uren per afdeling","Import Excel","Kolommen","Export CSV","Print A3"];
+    const visibleButtons=Array.from(document.querySelectorAll('button')).filter(b=>getComputedStyle(b).display!=="none" && b.offsetParent!==null).map(b=>b.textContent.trim());
+    return {
+      visible:!!view && getComputedStyle(view).display!=="none",
+      cards:document.querySelectorAll('.mobile-project-card').length,
+      tableVisible:getComputedStyle(document.querySelector('.table-wrap')).display!=="none",
+      forbiddenTop:forbidden.filter(label=>visibleButtons.includes(label))
+    };
+  })()`);
+  check("Projecten mobiel kaartweergave zichtbaar", mobileProjects.visible && mobileProjects.cards > 0 && !mobileProjects.tableVisible, JSON.stringify(mobileProjects));
+  check("Projecten mobiel toont geen verboden desktopknoppen bovenin", mobileProjects.forbiddenTop.length === 0, JSON.stringify(mobileProjects));
+  const moreSheet = await evaluate(`(()=>{document.querySelector('[data-mobile-app="more"]')?.click(); const s=document.querySelector('#mobileMoreSheet'); return !!s && s.classList.contains('show') && s.textContent.includes('Projectoverzicht') && s.textContent.includes('Import / Export');})()`);
+  check("Mobiele Meer-bottom-sheet opent", moreSheet);
   await frameEval(`(()=>{document.querySelector("#newProject")?.click();return true;})()`);
   await delay(150);
   const projectModal = await frameEval(`(()=>{const m=document.querySelector("#npBackdrop .modal");const r=m?.getBoundingClientRect();return {open:document.querySelector("#npBackdrop")?.classList.contains("show"),left:r?.left,top:r?.top,right:r?.right,bottom:r?.bottom,vw:innerWidth,vh:innerHeight,saveVisible:!!document.querySelector("#npSave")};})()`);
@@ -195,16 +214,20 @@ try {
 
   await loadModule("gantt");
   const gantt = await frameEval(`(()=>({
-    selector:document.querySelector("#projectSel")?.getBoundingClientRect().width>0,
-    toolbar:document.querySelector(".gantt-shell .toolbar")?.scrollWidth>=document.querySelector(".gantt-shell .toolbar")?.clientWidth,
+    selector:document.querySelector("#mobileProjectSel")?.getBoundingClientRect().width>0,
+    workbar:!!document.querySelector('[data-testid="mobile-gantt-workbar"]') && getComputedStyle(document.querySelector('[data-testid="mobile-gantt-workbar"]')).display!=="none",
     scroll:document.querySelector(".board-wrap")?.scrollWidth>document.querySelector(".board-wrap")?.clientWidth,
     hint:!!document.querySelector(".v73-gantt-mobile-hint") && getComputedStyle(document.querySelector(".v73-gantt-mobile-hint")).display!=="none"
   }))()`);
-  check("Gantt mobiel selector/toolbar/scroll/fallback", gantt.selector && gantt.toolbar && gantt.scroll && gantt.hint, JSON.stringify(gantt));
+  check("Gantt mobiel selector/workbar/scroll/fallback", gantt.selector && gantt.workbar && gantt.scroll && gantt.hint, JSON.stringify(gantt));
+  const taskPopup = await frameEval(`(()=>{const row=document.querySelector('#tableRows tr'); row?.dispatchEvent(new MouseEvent('dblclick',{bubbles:true})); return document.querySelector('#modalBack')?.classList.contains('show');})()`);
+  check("Gantt taakpopup opent mobiel", taskPopup);
 
   await loadModule("capaciteit");
-  const capacity = await frameEval(`(()=>{const w=document.querySelector(".matrix-wrap");return {scroll:!!w && w.scrollWidth>w.clientWidth,proxy:!!document.querySelector("#matrixScrollProxy")};})()`);
-  check("Capaciteit mobiele matrix horizontaal scrollbaar", capacity.scroll && capacity.proxy, JSON.stringify(capacity));
+  const capacity = await frameEval(`(()=>{const w=document.querySelector(".matrix-wrap");return {scroll:!!w && w.scrollWidth>w.clientWidth,proxy:!!document.querySelector("#matrixScrollProxy"),workbar:!!document.querySelector('[data-testid="mobile-capacity-workbar"]') && getComputedStyle(document.querySelector('[data-testid="mobile-capacity-workbar"]')).display!=="none"};})()`);
+  check("Capaciteit mobiele matrix horizontaal scrollbaar", capacity.scroll && capacity.proxy && capacity.workbar, JSON.stringify(capacity));
+  const whyPopup = await frameEval(`(()=>{const cell=document.querySelector('.hm-cell'); cell?.click(); return document.querySelector('#modalBack')?.classList.contains('show');})()`);
+  check("Capaciteit WHY popup opent mobiel", whyPopup);
 
   await openShell(1440, 1000);
   await loadModule("gantt");
