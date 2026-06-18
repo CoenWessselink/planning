@@ -29,6 +29,10 @@ const CWS_Responsive = (() => {
   const routerApi = () => window.Router || (typeof Router !== "undefined" ? Router : null);
   const appsMenuApi = () => window.AppsMenu || (typeof AppsMenu !== "undefined" ? AppsMenu : null);
   const viewport = () => window.CWS_MobileAdapter?.profile?.().family || (window.innerWidth <= 767 ? "mobile" : (window.innerWidth <= 1199 ? "tablet" : "desktop"));
+  const isMobileViewport = () => {
+    const vp = viewport();
+    return vp === "mobile" || vp === "is-mobile" || vp === "mobile-small" || window.innerWidth <= 760;
+  };
   const activeApp = () => (routerApi()?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "projecten");
 
   function applyViewport(){
@@ -171,6 +175,10 @@ const CWS_Responsive = (() => {
   }
 
   function addMobileToolbar(doc){
+    if(isMobileViewport()){
+      doc.getElementById("cwsMobileToolbar")?.remove();
+      return;
+    }
     if(doc.getElementById("cwsMobileToolbar")) return;
     const bar=doc.createElement("div");
     bar.id="cwsMobileToolbar";
@@ -207,9 +215,8 @@ const CWS_Responsive = (() => {
   }
 
   function addMobileActionDock(doc){
-    const vp = viewport();
     let dock = doc.getElementById("cwsV37MobileActionDock");
-    if(vp !== "mobile"){
+    if(!isMobileViewport()){
       if(dock) dock.remove();
       return;
     }

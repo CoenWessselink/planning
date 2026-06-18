@@ -12,11 +12,32 @@
     .mobile-toolbar{display:none}
     @media(max-width:1180px){body{padding:10px}.grid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}.panelx-head{align-items:flex-start;flex-wrap:wrap}.health-table{min-width:760px}.panelx .content{overflow:auto}}
     @media(max-width:760px){body{padding:8px}.mobile-toolbar{display:flex;position:sticky;top:0;z-index:20;gap:6px;padding:6px;background:rgba(245,247,251,.96);backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0}.mobile-toolbar button{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;font-weight:900;color:#1f2a44}.hero{display:block}.hero h1{font-size:18px;margin:6px 0}.toolbar{overflow:auto;flex-wrap:nowrap}.tiles{grid-template-columns:1fr 1fr;gap:8px}.tile{padding:11px}.tile b{font-size:22px}.grid{grid-template-columns:1fr;gap:10px}.panelx{border-radius:14px}.panelx-head{padding:11px}.content{padding:10px}.health-table{min-width:0}.health-table thead{display:none}.health-table,.health-table tbody,.health-table tr,.health-table td{display:block;width:100%}.health-table tr{border:1px solid #e2e8f0;border-radius:12px;margin:8px 0;overflow:hidden}.health-table td{display:grid;grid-template-columns:118px 1fr;gap:8px;border-bottom:1px solid #eef2f7}.health-table td:before{content:attr(data-label);font-size:11px;font-weight:900;color:#64748b}.progress{width:100%}}
+    .mobile-dashboard{display:none}
+    @media(max-width:760px){
+      body{padding:0;background:#f3f7fc}.dash>.panelx,.dash>.grid{display:none}.dash{display:block}
+      .mobile-dashboard{display:block;padding:18px 14px 28px}
+      .mobile-welcome{margin-bottom:16px}.mobile-welcome span{display:block;color:#64748b;font-size:15px;font-weight:800}.mobile-welcome h1{margin:4px 0 14px;font-size:29px;line-height:1.08;color:#081b35}
+      .mobile-dash-controls{display:flex;justify-content:space-between;gap:10px}.mobile-dash-controls button{height:44px;border:1px solid #dbe3ef;background:#fff;border-radius:18px;padding:0 14px;font-weight:900;color:#172033;box-shadow:0 8px 20px rgba(15,23,42,.05)}
+      .mobile-kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+      .mobile-kpi{border:1px solid #dbe3ef;background:#fff;border-radius:22px;padding:15px;box-shadow:0 14px 34px rgba(15,23,42,.07)}
+      .mobile-kpi i{display:flex;width:38px;height:38px;border-radius:16px;align-items:center;justify-content:center;background:#e8f1ff;color:#0b5cac;font-style:normal;font-weight:950;margin-bottom:12px}.mobile-kpi b{font-size:28px;color:#081b35}.mobile-kpi span{display:block;color:#64748b;font-size:12px;font-weight:850;margin-top:4px}
+      .mobile-section{border:1px solid #dbe3ef;background:#fff;border-radius:24px;padding:16px;margin-top:14px;box-shadow:0 14px 34px rgba(15,23,42,.07)}
+      .mobile-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.mobile-section-head h2{margin:0;font-size:18px;color:#081b35}.mobile-section-head button{border:0;background:transparent;color:#0b5cac;font-weight:900}
+      .mobile-run-list{display:grid;gap:10px}.mobile-run-project{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eef2f7}.mobile-run-project:last-child{border-bottom:0}.mobile-run-icon{width:44px;height:44px;border-radius:16px;background:#e8f1ff;color:#0b5cac;display:flex;align-items:center;justify-content:center;font-weight:950}.mobile-run-project b{display:block;color:#081b35}.mobile-run-project span{display:block;color:#64748b;font-size:12px;font-weight:800}.mobile-run-project strong{color:#0b5cac}.mobile-run-progress{grid-column:2/4;height:7px;background:#e2e8f0;border-radius:99px;overflow:hidden}.mobile-run-progress i{display:block;height:100%;background:#0b5cac}
+      .mobile-cap-bar{height:18px;border-radius:99px;background:#e8eef6;overflow:hidden;margin:10px 0}.mobile-cap-bar i{display:block;height:100%;background:linear-gradient(90deg,#0b5cac,#73a7ff)}
+      .mobile-cap-legend{display:flex;gap:10px;flex-wrap:wrap;color:#64748b;font-size:12px;font-weight:800}
+    }
 
   </style>
 </head>
 <body>
   <div class="dash">
+    <section class="mobile-dashboard cws-mobile-page" data-testid="mobile-dashboard">
+      <div class="mobile-welcome"><span id="mobileGreeting">Welkom</span><h1>Hier is je planning overzicht.</h1><div class="mobile-dash-controls"><button id="mobileToday">Vandaag</button><button id="mobileFilter">Filter</button></div></div>
+      <div class="mobile-kpis" id="mobileKpis"></div>
+      <div class="mobile-section"><div class="mobile-section-head"><h2>Projecten in uitvoering</h2><button id="mobileAllProjects">Bekijk alle projecten</button></div><div class="mobile-run-list" id="mobileRunningProjects"></div></div>
+      <div class="mobile-section"><div class="mobile-section-head"><h2>Capaciteit overzicht</h2><button id="mobileCapacityOpen">Deze week</button></div><div id="mobileCapacityPct" style="font-size:30px;font-weight:950;color:#0b5cac">0%</div><div class="mobile-cap-bar"><i id="mobileCapacityFill" style="width:0%"></i></div><div class="mobile-cap-legend"><span>Bezet</span><span>Gereserveerd</span><span>Beschikbaar</span></div></div>
+    </section>
     <div class="panelx">
       <div class="panelx-head hero">
         <div><h2>Dashboard — Vandaag aandacht nodig</h2><div class="small">Automatische signalering uit Projecten, Gantt, Capaciteit, Revisies en terugkoppelingen.</div></div>
@@ -59,8 +80,40 @@ var CWS = window.CWS;</script>
       wrap.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>CWS.attention.openModule(b.dataset.open));
       AppUI.openModal({title:'Waarom aandacht?',subtitle:h.project.name||projectId,contentEl:wrap,actions:[{label:'Sluiten',onClick:({close})=>close()}]});
     }
+    function projectProgress(p){
+      const status=String(p?.status||'').toLowerCase();
+      if(status.includes('gereed')) return 100;
+      if(status.includes('uitvoering')) return 55;
+      if(status.includes('ingepland')) return 25;
+      return 0;
+    }
+    function allTasks(st){
+      return Object.values(st.tasks?.byProject||{}).flatMap(model=>Array.isArray(model?.rows)?model.rows:[]);
+    }
+    function renderMobileCockpit(st){
+      const host=$('#mobileKpis'); if(!host) return;
+      const projects=(st.projects?.order||[]).map(id=>st.projects.byId[id]).filter(Boolean);
+      const tasks=allTasks(st).filter(t=>t?.type!=='summary');
+      const overdue=tasks.filter(t=>String(t.status||'').toLowerCase()!=='gereed' && t.end && new Date(String(t.end).split('-').reverse().join('-')) < new Date()).length;
+      const planned=Object.values(st.gantt?.hoursByDay||{}).reduce((s,byDept)=>s+Object.values(byDept||{}).reduce((a,v)=>a+(Number(v)||0),0),0);
+      const available=Math.max(planned, Object.values(st.capacity?.availabilityOverrides||{}).reduce((s,byDay)=>s+Object.values(byDay||{}).reduce((a,v)=>a+(Number(v?.hours)||0),0),0));
+      const capPct=available?Math.min(100,Math.round(planned/available*100)):(planned?100:0);
+      $('#mobileGreeting').textContent='Goedemorgen';
+      host.innerHTML=[
+        ['P',projects.length,'Projecten'],
+        ['T',tasks.length,'Actieve taken'],
+        ['!',overdue,'Taken verlopen'],
+        ['%',`${capPct}%`,'Capaciteit benut']
+      ].map(([icon,n,label])=>`<div class="mobile-kpi"><i>${icon}</i><b>${n}</b><span>${label}</span></div>`).join('');
+      const running=projects.filter(p=>!String(p.status||'').toLowerCase().includes('gereed')).slice(0,5);
+      $('#mobileRunningProjects').innerHTML=running.length?running.map(p=>{ const pct=projectProgress(p); return `<div class="mobile-run-project" data-project-id="${esc(p.id)}"><div class="mobile-run-icon">P</div><div><b>${esc(p.name||p.nr||p.id)}</b><span>Start: ${esc(p.start||'-')} · Status: ${esc(p.status||'-')}</span></div><strong>${pct}%</strong><div class="mobile-run-progress"><i style="width:${pct}%"></i></div></div>`; }).join(''):'<div class="small">Geen lopende projecten gevonden.</div>';
+      $('#mobileRunningProjects').querySelectorAll('[data-project-id]').forEach(el=>el.onclick=()=>{ CWS.setState(s=>{ s.ui.activeProjectId=el.dataset.projectId; return s; }); CWS.attention.openModule('gantt'); });
+      $('#mobileCapacityPct').textContent=`${capPct}%`;
+      $('#mobileCapacityFill').style.width=`${capPct}%`;
+    }
     function render(){
       const st=CWS.getState(); const dash=CWS.attention.dashboard(st); const q=($('#q').value||'').toLowerCase().trim();
+      renderMobileCockpit(st);
       const counters=dash.counters;
       const tiles=[['Projecten rood',counters.redProjects,'red','projectoverzicht'],['Projecten oranje',counters.orangeProjects,'orange','projectoverzicht'],['Verlopen taken',counters.overdueTasks,'red','gantt'],['Capaciteitstekorten',counters.capacityShortages,'red','capaciteit'],['Zonder planning',counters.noPlanning,'blue','gantt'],['Geblokkeerde taken',counters.blockedTasks,'red','projectoverzicht'],['Oude terugkoppeling',counters.staleFeedback,'orange','projectoverzicht'],['Capaciteitsafwijkingen',counters.overrides,'blue','capaciteit']];
       $('#tiles').innerHTML=tiles.map(([label,n,sev,mod])=>`<div class="tile ${CWS.attention.severityClass(sev)}" data-open="${mod}"><b>${n}</b><span>${label}</span></div>`).join('');
@@ -75,6 +128,9 @@ var CWS = window.CWS;</script>
       $('#items').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>CWS.attention.openModule(b.dataset.open));
     }
     $('#refresh').onclick=render; $('#q').oninput=render; $('#report').onclick=()=>CWS.attention.openModule('rapporten'); if(CWS.subscribe) CWS.subscribe(render); render();
+    $('#mobileAllProjects').onclick=()=>CWS.attention.openModule('projecten');
+    $('#mobileCapacityOpen').onclick=()=>CWS.attention.openModule('capaciteit');
+    $('#mobileFilter').onclick=()=>$('#q')?.focus();
   </script>
 </body>
 </html>

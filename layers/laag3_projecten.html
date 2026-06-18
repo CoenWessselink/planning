@@ -38,6 +38,45 @@
   @media (max-width:720px){
     .projects-infinite-panel .table-wrap{max-height:calc(100vh - 300px);}
   }
+  .mobile-projects-view{display:none}
+  @media (max-width:760px){
+    body{background:#f3f7fc!important;padding:0!important}
+    .projects-infinite-panel{min-height:100dvh;border:0!important;border-radius:0!important;box-shadow:none!important;background:#f3f7fc!important}
+    .projects-infinite-panel>.panel-head,.projects-infinite-panel>.tabs,.projects-infinite-panel>.table-toolbar,.projects-infinite-panel>.table-wrap,.projects-infinite-panel>.footerbar{display:none!important}
+    .mobile-projects-view{display:block;padding:16px 14px 28px}
+    .mobile-projects-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .mobile-projects-title{font-size:27px;line-height:1.08;font-weight:950;color:#081b35;margin:0}
+    .mobile-projects-sub{font-size:13px;color:#64748b;margin-top:5px;font-weight:700}
+    .mobile-projects-actions{display:flex;gap:8px;align-items:center}
+    .mobile-primary,.mobile-iconbtn{border:1px solid #bfdbfe;background:#0b5cac;color:#fff;border-radius:16px;height:42px;padding:0 14px;font-weight:900}
+    .mobile-iconbtn{width:42px;padding:0;background:#fff;color:#0b5cac;border-color:#dbe3ef}
+    .mobile-search-card{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:12px}
+    .mobile-search-card input{height:46px;border:1px solid #dbe3ef;border-radius:17px;background:#fff;padding:0 14px;font-size:15px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+    .mobile-filter-btn{height:46px;border:1px solid #dbe3ef;border-radius:17px;background:#fff;color:#172033;font-weight:900;padding:0 13px}
+    .mobile-status-chips{display:flex;gap:8px;overflow:auto;padding:2px 1px 12px;scrollbar-width:none}
+    .mobile-status-chips button{flex:0 0 auto;border:1px solid #dbe3ef;background:#fff;border-radius:999px;height:34px;padding:0 12px;font-size:12px;font-weight:900;color:#52627a}
+    .mobile-status-chips button.active{background:#e8f1ff;border-color:#9cc4ff;color:#0b5cac}
+    .mobile-project-list{display:grid;gap:12px}
+    .mobile-project-card{border:1px solid #dbe3ef;background:rgba(255,255,255,.96);border-radius:22px;padding:15px;box-shadow:0 14px 34px rgba(15,23,42,.08)}
+    .mobile-project-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .mobile-project-nr{font-size:13px;font-weight:950;color:#0b5cac}
+    .mobile-project-name{font-size:17px;font-weight:950;color:#081b35;margin-top:4px;line-height:1.2}
+    .mobile-project-client{font-size:12px;color:#64748b;font-weight:800;margin-top:4px}
+    .mobile-status-badge{border-radius:999px;padding:6px 9px;font-size:11px;font-weight:950;background:#eef4ff;color:#0b5cac;white-space:nowrap}
+    .mobile-project-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:13px 0}
+    .mobile-project-meta div{border:1px solid #eef2f7;background:#f8fbff;border-radius:14px;padding:8px}
+    .mobile-project-meta span{display:block;font-size:10px;color:#64748b;font-weight:900;text-transform:uppercase}
+    .mobile-project-meta b{display:block;margin-top:3px;font-size:13px;color:#172033}
+    .mobile-progress{height:8px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin:8px 0 13px}
+    .mobile-progress i{display:block;height:100%;background:linear-gradient(90deg,#0b5cac,#1d7cff)}
+    .mobile-card-actions{display:flex;gap:8px}
+    .mobile-card-actions button{flex:1;border:1px solid #dbe3ef;background:#fff;border-radius:14px;height:38px;font-weight:900;color:#0b5cac}
+    .mobile-project-more{display:none;position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.36);align-items:flex-end}
+    .mobile-project-more.show{display:flex}
+    .mobile-project-sheet{width:100%;background:#fff;border-radius:24px 24px 0 0;padding:14px 16px 22px;box-shadow:0 -22px 60px rgba(15,23,42,.28)}
+    .mobile-project-sheet h2{margin:0 0 10px;font-size:18px;color:#081b35}
+    .mobile-project-sheet button{width:100%;height:46px;margin-top:8px;border:1px solid #dbe3ef;background:#fff;border-radius:14px;font-weight:900;color:#172033;text-align:left;padding:0 14px}
+  }
 </style></head>
 <body style="background:transparent">
 <div class="panel projects-infinite-panel" data-projects-mode="infinite-scroll">
@@ -56,6 +95,29 @@
       <button class="btn" id="colsBtn">Kolommen</button>
       <button class="btn" id="exportBtn">Export CSV</button>
       <button class="btn" id="printBtn">Print A3</button>
+    </div>
+  </div>
+
+  <section class="mobile-projects-view cws-mobile-page" data-testid="mobile-projects">
+    <div class="mobile-projects-hero">
+      <div><h1 class="mobile-projects-title">Projecten</h1><div class="mobile-projects-sub" id="mobileProjectSummary">Planning laden...</div></div>
+      <div class="mobile-projects-actions"><button class="mobile-iconbtn" id="mobileProjectMore" aria-label="Meer acties">...</button><button class="mobile-primary" id="mobileNewProject">Nieuw</button></div>
+    </div>
+    <div class="mobile-search-card"><input id="mobileProjectSearch" type="search" placeholder="Zoek project, opdrachtgever of status..."><button class="mobile-filter-btn" id="mobileFilterBtn">Filter</button></div>
+    <div class="mobile-status-chips" id="mobileStatusChips"></div>
+    <div class="mobile-project-list" id="mobileProjectCards"></div>
+  </section>
+
+  <div class="mobile-project-more" id="mobileProjectMoreSheet" aria-hidden="true">
+    <div class="mobile-project-sheet">
+      <h2>Projectacties</h2>
+      <button type="button" data-mobile-project-act="bron">Brondata</button>
+      <button type="button" data-mobile-project-act="uren">Uren per afdeling</button>
+      <button type="button" data-mobile-project-act="import">Import Excel</button>
+      <button type="button" data-mobile-project-act="kolommen">Kolommen</button>
+      <button type="button" data-mobile-project-act="export">Export CSV</button>
+      <button type="button" data-mobile-project-act="print">Print A3</button>
+      <button type="button" data-mobile-project-close>Sluiten</button>
     </div>
   </div>
 
@@ -312,6 +374,7 @@ var CWS = window.CWS;</script>
   let page = 1;
 
   function norm(s){ return (s||"").toString().toLowerCase().trim(); }
+  function esc(s){ return String(s??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
 
   function openNP(open){
     const bd = document.getElementById("npBackdrop");
@@ -588,6 +651,44 @@ function bindNP(){
     return ids;
   }
 
+  function projectProgress(p){
+    const status = String(p?.status||"").toLowerCase();
+    if(status.includes("gereed")) return 100;
+    if(status.includes("uitvoering")) return 55;
+    if(status.includes("ingepland")) return 25;
+    return 0;
+  }
+
+  function renderMobileCards(st, active, idsAll){
+    const summary=document.getElementById("mobileProjectSummary");
+    const chips=document.getElementById("mobileStatusChips");
+    const cards=document.getElementById("mobileProjectCards");
+    const mobileSearch=document.getElementById("mobileProjectSearch");
+    if(!summary || !chips || !cards) return;
+    summary.textContent = `${idsAll.length} projecten in ${active.toLowerCase()}`;
+    chips.innerHTML = TABS.map(t=>`<button type="button" data-mobile-tab="${t}" class="${t===active?"active":""}">${t}</button>`).join("");
+    chips.querySelectorAll("[data-mobile-tab]").forEach(btn=>btn.onclick=()=>{
+      CWS.setState(s=>{ s.ui.lastTab=btn.dataset.mobileTab; return s; });
+      page=1;
+      render();
+    });
+    cards.innerHTML = idsAll.length ? idsAll.map(id=>{
+      const p=st.projects.byId[id] || {};
+      const pct=projectProgress(p);
+      const deptEntries=Object.entries(p.deptHours||{}).filter(([,v])=>Number(v)>0).slice(0,2).map(([d,h])=>`${esc(d)} ${esc(h)}u`).join(" | ");
+      return `<article class="mobile-project-card" data-project-id="${esc(id)}">
+        <div class="mobile-project-top"><div><div class="mobile-project-nr">${esc(p.nr||id)}</div><div class="mobile-project-name">${esc(p.name||"Project")}</div><div class="mobile-project-client">${esc(p.client||"Geen opdrachtgever")}</div></div><span class="mobile-status-badge">${esc(p.status||"Te plannen")}</span></div>
+        <div class="mobile-project-meta"><div><span>Start</span><b>${esc(p.start||"-")}</b></div><div><span>Uren</span><b>${esc(p.needHours??0)} u</b></div><div><span>Afdeling</span><b>${deptEntries||"-"}</b></div></div>
+        <div class="mobile-progress" aria-label="Voortgang ${pct}%"><i style="width:${pct}%"></i></div>
+        <div class="mobile-card-actions"><button type="button" data-open-project="${esc(id)}">Bewerk</button><button type="button" data-open-gantt="${esc(id)}">Gantt</button><button type="button" data-open-capacity="${esc(id)}">Capaciteit</button></div>
+      </article>`;
+    }).join("") : `<div class="mobile-project-card"><div class="mobile-project-name">Geen projecten gevonden</div><div class="mobile-project-client">Pas je zoekterm of filter aan.</div></div>`;
+    cards.querySelectorAll("[data-open-project]").forEach(btn=>btn.onclick=()=>openProjectModal(btn.dataset.openProject));
+    cards.querySelectorAll("[data-open-gantt]").forEach(btn=>btn.onclick=()=>{ CWS.setState(s=>{ s.ui.activeProjectId=btn.dataset.openGantt; s.ui.lastProjectId=btn.dataset.openGantt; return s; }); window.parent?.Router?.loadApp?.("gantt"); });
+    cards.querySelectorAll("[data-open-capacity]").forEach(btn=>btn.onclick=()=>{ CWS.setState(s=>{ s.ui.activeProjectId=btn.dataset.openCapacity; s.ui.lastProjectId=btn.dataset.openCapacity; return s; }); window.parent?.Router?.loadApp?.("capaciteit"); });
+    if(mobileSearch && mobileSearch.value !== document.getElementById("search").value) mobileSearch.value = document.getElementById("search").value;
+  }
+
   function statusSelect(projectId, cur){
     const sel=document.createElement("select");
     sel.className="select-badge";
@@ -680,6 +781,7 @@ function bindNP(){
 
     const q = document.getElementById("search").value;
     const idsAll = filteredIds(st, active, q);
+    renderMobileCards(st, active, idsAll);
 
     // V55: alles op één pagina, dus geen slice/paginering meer.
     const pages = 1;
@@ -800,8 +902,30 @@ function bindNP(){
 
   window.CWS_Projecten_OpenNew = () => openProjectModal(null);
   document.getElementById("newProject").addEventListener("click", (e)=>{ e.preventDefault(); openProjectModal(null); });
+  document.getElementById("mobileNewProject")?.addEventListener("click", (e)=>{ e.preventDefault(); openProjectModal(null); });
 
   document.getElementById("search").addEventListener("input", ()=>{ page=1; render(); });
+  document.getElementById("mobileProjectSearch")?.addEventListener("input", (e)=>{
+    document.getElementById("search").value = e.target.value;
+    page=1;
+    render();
+  });
+  document.getElementById("mobileFilterBtn")?.addEventListener("click", ()=>{
+    const chips=document.getElementById("mobileStatusChips");
+    chips?.scrollIntoView({block:"nearest",behavior:"smooth"});
+  });
+  const mobileMoreSheet=document.getElementById("mobileProjectMoreSheet");
+  document.getElementById("mobileProjectMore")?.addEventListener("click", ()=>{ mobileMoreSheet?.classList.add("show"); mobileMoreSheet?.setAttribute("aria-hidden","false"); });
+  mobileMoreSheet?.addEventListener("click", event=>{
+    if(event.target===mobileMoreSheet || event.target.closest("[data-mobile-project-close]")){
+      mobileMoreSheet.classList.remove("show");
+      mobileMoreSheet.setAttribute("aria-hidden","true");
+      return;
+    }
+    const act=event.target.closest("[data-mobile-project-act]")?.dataset.mobileProjectAct;
+    const map={bron:"openBron",uren:"openDeptHours",import:"importExcelBtn",kolommen:"colsBtn",export:"exportBtn",print:"printBtn"};
+    if(act && map[act]){ mobileMoreSheet.classList.remove("show"); document.getElementById(map[act])?.click(); }
+  });
 
   // Ctrl+K focus search
   window.addEventListener("keydown",(e)=>{

@@ -1393,6 +1393,28 @@
     }
     body:not(.printing) .today-line::before{z-index:86!important;}
 
+    .mobile-gantt-workbar{display:none}
+    @media(max-width:760px){
+      body{padding:0!important;background:#f3f7fc!important}
+      .gantt-shell{border:0!important;border-radius:0!important;box-shadow:none!important;background:#f3f7fc!important}
+      .module-head{padding:14px 14px 8px!important;background:#f3f7fc!important;border:0!important}
+      .module-head h1{font-size:19px!important;color:#081b35}.module-head p{font-size:12px!important}
+      .module-head .status{display:none!important}
+      .gantt-shell>.toolbar{display:none!important}
+      .mobile-gantt-workbar{display:block;padding:0 14px 12px;background:#f3f7fc}
+      .mobile-gantt-grid{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:9px}
+      .mobile-gantt-grid select,.mobile-gantt-grid input{height:44px;border:1px solid #dbe3ef;border-radius:16px;background:#fff;padding:0 12px;font-size:13px;font-weight:800;color:#172033;min-width:0}
+      .mobile-gantt-grid button,.mobile-gantt-segments button{height:44px;border:1px solid #dbe3ef;border-radius:16px;background:#fff;color:#0b5cac;font-weight:950;padding:0 12px}
+      .mobile-gantt-grid .primary{background:#0b5cac;color:#fff;border-color:#0b5cac}
+      .mobile-gantt-segments{display:flex;gap:7px;overflow:auto;padding-bottom:2px;scrollbar-width:none}
+      .mobile-gantt-segments button.active{background:#e8f1ff;border-color:#9cc4ff}
+      .meta-line{padding:7px 14px!important;font-size:11px!important}
+      .board-wrap{margin:0 10px 12px!important;border-radius:18px!important;background:#fff!important;box-shadow:0 14px 34px rgba(15,23,42,.08)}
+      .table-pane{max-height:42dvh!important}
+      .chart-pane{min-width:900px!important}
+      .v73-gantt-mobile-hint{margin:0 14px 10px!important;border-radius:15px!important}
+      .modalback{align-items:flex-end!important}.modal{width:100vw!important;max-height:92dvh!important;border-radius:22px 22px 0 0!important}.modal-foot{position:sticky;bottom:0;background:#fff}
+    }
   </style>
 </head>
 <body>
@@ -1401,6 +1423,11 @@
     <div class="module-head">
       <div><h1>Laag 4 — Gantt Planning</h1><p>SSOT-koppeling: Projecturen per afdeling → Gantt-taakplanning → Capaciteit.</p></div>
       <div class="status"><span class="badge" id="storageBadge">Opslag controleren…</span><span class="badge ok" id="saveBadge">Gereed</span></div>
+    </div>
+    <div class="mobile-gantt-workbar cws-mobile-page" data-testid="mobile-gantt-workbar">
+      <div class="mobile-gantt-grid"><select id="mobileProjectSel" aria-label="Project"></select><button class="primary" id="mobileAddTask">+ Taak</button></div>
+      <div class="mobile-gantt-grid"><select id="mobileDeptSel" aria-label="Afdeling"><option value="">Alle afdelingen</option></select><button id="mobileGanttMore">Meer</button></div>
+      <div class="mobile-gantt-segments"><button data-mobile-zoom="day">Dag</button><button data-mobile-zoom="week">Week</button><button data-mobile-zoom="month">Maand</button><button data-mobile-view="table">Tabel</button><button data-mobile-view="both">Beide</button><button data-mobile-view="diagram">Diagram</button></div>
     </div>
     <div class="toolbar" data-testid="gantt-toolbar">
       <div class="toolbar-group"><div class="project-picker" id="projectPicker" data-v89-project-search="1"><input class="select project project-search" id="projectSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Zoek projectnummer, naam of opdrachtgever..." aria-label="Project zoeken" aria-controls="projectResults" aria-expanded="false"><select class="select project project-native-select" id="projectSel" aria-label="Project fallback"></select><div class="project-results" id="projectResults" role="listbox" hidden></div></div><select class="select" id="deptSel"><option value="">Alle afdelingen</option></select><select class="select" id="resourceSel"><option value="">Alle resources</option></select></div>
@@ -2379,12 +2406,29 @@ var CWS = window.CWS;</script>
       $("#deptSel").value=UI.dept||"";
       $("#resourceSel").innerHTML='<option value="">Alle resources</option>'+resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)} (${esc(r.dept||"")})</option>`).join("");
       $("#resourceSel").value=UI.resource||"";
+      syncMobileGanttControls(st,list,pid);
       const dl=$("#resourceOptions");
       if(dl) dl.innerHTML=resources(st).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.id)}</option>`).join("");
       renderTemplateSelect(st,pid);
       const status=CWS?.storageStatus;
       $("#storageBadge").textContent=status?.mode==="api"?`D1 gedeeld v${CWS.getRemoteVersion?.()||0}`:"Lokale browserdata";
       $("#storageBadge").className="badge "+(status?.mode==="api"?"ok":"warn");
+    }
+    function syncMobileGanttControls(st, projectList, pid){
+      const mobileProject=$("#mobileProjectSel");
+      if(mobileProject){
+        const next=(projectList||selectableProjects(st)).map(p=>`<option value="${esc(p.id)}">${esc(projectLabel(p))}</option>`).join("");
+        if(mobileProject.innerHTML!==next) mobileProject.innerHTML=next;
+        mobileProject.value=pid||"";
+      }
+      const mobileDept=$("#mobileDeptSel");
+      if(mobileDept){
+        const next='<option value="">Alle afdelingen</option>'+departments(st).map(d=>`<option value="${esc(d.id||d.name)}">${esc(d.name||d.id)}</option>`).join("");
+        if(mobileDept.innerHTML!==next) mobileDept.innerHTML=next;
+        mobileDept.value=UI.dept||"";
+      }
+      $$("[data-mobile-zoom]").forEach(b=>b.classList.toggle("active", b.dataset.mobileZoom===UI.zoom));
+      $$("[data-mobile-view]").forEach(b=>b.classList.toggle("active", b.dataset.mobileView===UI.view));
     }
     function renderTemplateSelect(st,pid){
       const sel=$("#templateSel"); if(!sel) return;
@@ -3511,6 +3555,8 @@ var CWS = window.CWS;</script>
     }
     function bind(){
       $("#projectSel").onchange=e=>{UI.projectId=e.target.value; syncProjectSearchInput(e.target.value); render();};
+      const mobileProject=$("#mobileProjectSel");
+      if(mobileProject) mobileProject.onchange=e=>{ UI.projectId=e.target.value; const sel=$("#projectSel"); if(sel) sel.value=e.target.value; syncProjectSearchInput(e.target.value); render(); };
       const projectSearch=$("#projectSearch");
       if(projectSearch){
         projectSearch.addEventListener("focus",()=>{ UI.projectSearchIndex=0; renderProjectResults(projectSearch.value); });
@@ -3524,7 +3570,7 @@ var CWS = window.CWS;</script>
           else if(e.key==="Escape"){ e.preventDefault(); closeProjectResults(); syncProjectSearchInput(currentProjectId()); }
         });
       }
-      $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); const boardWrap=$("#boardWrap"); boardWrap.addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); boardWrap.addEventListener("wheel",e=>{ const horizontalDelta=Math.abs(e.deltaX)>1?e.deltaX:(e.shiftKey?e.deltaY:0); if(horizontalDelta){ const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+horizontalDelta)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } return; } const maxY=Math.max(0,boardWrap.scrollHeight-boardWrap.clientHeight); const nextY=Math.max(0,Math.min(maxY,boardWrap.scrollTop+e.deltaY)); if(nextY!==boardWrap.scrollTop){ boardWrap.scrollTop=nextY; e.preventDefault(); return; } const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+e.deltaY)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } },{passive:false,capture:true}); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); if(!e.target.closest("#projectPicker")) closeProjectResults(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); closeProjectResults(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
+      $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; const mobileDept=$("#mobileDeptSel"); if(mobileDept) mobileDept.onchange=e=>{ UI.dept=e.target.value; const sel=$("#deptSel"); if(sel) sel.value=e.target.value; render(); }; $("#resourceSel").onchange=e=>{UI.resource=e.target.value; render();}; const templateSel=$("#templateSel"); if(templateSel) templateSel.onchange=e=>{ const pid=currentProjectId(); CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=e.target.value; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=e.target.value; return st; }); render(); }; $$('[data-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.zoom; render();}); $$('[data-mobile-zoom]').forEach(b=>b.onclick=()=>{UI.zoom=b.dataset.mobileZoom; render();}); $$('[data-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.view; render();}); $$('[data-mobile-view]').forEach(b=>b.onclick=()=>{UI.view=b.dataset.mobileView; render();}); $("#generateBtn").onclick=()=>{ const pid=currentProjectId(); const selected=$("#templateSel")?.value||""; if(selected){ CWS.setState(st=>{ st.templates=st.templates||{taskSets:[]}; st.templates.activeTaskSetId=selected; if(pid && st.projects?.byId?.[pid]) st.projects.byId[pid].templateId=selected; return st; }); } const live=getModel(pid); if(live?.rows?.length){ const choice=window.confirm("Dit project bevat al Gantt-taken. OK = bestaande taken vervangen door gekozen template. Annuleren = alleen ontbrekende taken niet toevoegen en stoppen."); if(!choice) return; } const m=generateModel(pid); saveModel(pid,m,"Fasen uit gekozen template gegenereerd"); toast("Fasen uit gekozen template gegenereerd"); render();}; $("#addTaskBtn").onclick=addTask; $("#mobileAddTask").onclick=addTask; $("#mobileGanttMore").onclick=e=>showGanttContextMenu(e,null,"empty"); $("#recalcBtn").onclick=applyPredecessors; $("#depsBtn").onclick=()=>{UI.showDeps=!UI.showDeps; render();}; $("#criticalBtn").onclick=()=>{UI.showCritical=!UI.showCritical; render();}; $("#baselineBtn").onclick=()=>{UI.showBaseline=!UI.showBaseline; render();}; $("#setBaselineBtn").onclick=setBaseline; $("#saveRevisionBtn").onclick=openSaveRevision; $("#revisionsBtn").onclick=openRevisions; $("#liveBtn").onclick=exitRevision; $("#indentBtn").onclick=()=>indent(1); $("#outdentBtn").onclick=()=>indent(-1); $("#undoBtn").onclick=()=>{CWS?.undo?.(); render();}; $("#redoBtn").onclick=()=>{CWS?.redo?.(); render();}; $("#printBtn").onclick=printA3; $("#columnsBtn").onclick=openColumns; $("#labelsBtn").onclick=openLabels; $("#exportBtn").onclick=exportCsv; $("#todayBtn").onclick=()=>{ const wrap=$("#boardWrap"); const todayX=xFor(toIso(new Date()),{start:UI.originStart})-250; wrap.scrollLeft=Math.max(0,todayX); }; $("#chartPane").addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")) return; showGanttContextMenu(e,null,"empty"); }); const boardWrap=$("#boardWrap"); boardWrap.addEventListener("contextmenu",e=>{ if(e.target.closest(".bar")||e.target.closest("#tableRows tr")||e.target.closest("#ganttContextMenu")) return; showGanttContextMenu(e,null,"empty"); }); boardWrap.addEventListener("wheel",e=>{ const horizontalDelta=Math.abs(e.deltaX)>1?e.deltaX:(e.shiftKey?e.deltaY:0); if(horizontalDelta){ const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+horizontalDelta)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } return; } const maxY=Math.max(0,boardWrap.scrollHeight-boardWrap.clientHeight); const nextY=Math.max(0,Math.min(maxY,boardWrap.scrollTop+e.deltaY)); if(nextY!==boardWrap.scrollTop){ boardWrap.scrollTop=nextY; e.preventDefault(); return; } const maxX=Math.max(0,boardWrap.scrollWidth-boardWrap.clientWidth); const nextX=Math.max(0,Math.min(maxX,boardWrap.scrollLeft+e.deltaY)); if(nextX!==boardWrap.scrollLeft){ boardWrap.scrollLeft=nextX; e.preventDefault(); } },{passive:false,capture:true}); document.body.addEventListener("contextmenu",e=>{ const inMenu=e.target.closest("#ganttContextMenu"); if(inMenu) return; if(e.target.closest("input,textarea,select,button")) return; if(e.target.closest(".bar")||e.target.closest("#tableRows tr")) return; if(e.target.closest(".gantt-shell,.board-wrap,.chart-pane,.table-pane,.panel")){ showGanttContextMenu(e,null,"empty"); } }); $("#chartPane").addEventListener("dblclick",e=>{ const bar=e.target.closest(".bar"); if(!bar) return; e.preventDefault(); e.stopPropagation(); UI.selected=bar.dataset.id; openEdit(bar.dataset.id); }); $("#modalClose").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; document.addEventListener("click",e=>{ if(!e.target.closest("#ganttContextMenu")) hideGanttContextMenu(); if(!e.target.closest("#projectPicker")) closeProjectResults(); }); window.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#modalBack").classList.remove("show"); hideGanttContextMenu(); closeProjectResults(); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();CWS?.undo?.();render();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();CWS?.redo?.();render();} }); if(CWS?.subscribe) CWS.subscribe(()=>{
         if(UI._suppressSubscriberRender || UI._finishingPointerMutation || UI.drag){
           UI._pendingSubscriberRender=true;
           return;
