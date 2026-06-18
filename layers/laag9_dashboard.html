@@ -90,14 +90,43 @@ var CWS = window.CWS;</script>
     function allTasks(st){
       return Object.values(st.tasks?.byProject||{}).flatMap(model=>Array.isArray(model?.rows)?model.rows:[]);
     }
+    function isoWeekKeyFromDate(input){
+      const d=new Date(Date.UTC(input.getFullYear(),input.getMonth(),input.getDate()));
+      const day=d.getUTCDay()||7;
+      d.setUTCDate(d.getUTCDate()+4-day);
+      const year=d.getUTCFullYear();
+      const yearStart=new Date(Date.UTC(year,0,1));
+      const week=Math.ceil((((d-yearStart)/86400000)+1)/7);
+      return `${year}-W${String(week).padStart(2,'0')}`;
+    }
+    function mobileCapacitySnapshot(st){
+      const weekKey=isoWeekKeyFromDate(new Date());
+      const plannedByDept=(CWS.capacity?.computePlannedWeekByDept?.(weekKey)) || {};
+      let planned=Object.values(plannedByDept).reduce((s,v)=>s+(Number(v)||0),0);
+      if(!planned){
+        planned=Object.entries(st.gantt?.hoursByDay||{}).reduce((sum,[iso,byDept])=>{
+          const d=new Date(`${iso}T00:00:00Z`);
+          if(Number.isNaN(d.getTime()) || isoWeekKeyFromDate(d)!==weekKey) return sum;
+          return sum+Object.values(byDept||{}).reduce((a,v)=>a+(Number(v)||0),0);
+        },0);
+      }
+      const capacityWeek=CWS.capacity?.computeDeptCapacityForWeek?.(weekKey);
+      let available=Number(capacityWeek?.total||0);
+      const overrideAvailable=Object.values(st.capacity?.availabilityOverrides||{}).reduce((deptSum,byDay)=>deptSum+Object.entries(byDay||{}).reduce((daySum,[iso,row])=>{
+        const d=new Date(`${iso}T00:00:00Z`);
+        if(Number.isNaN(d.getTime()) || isoWeekKeyFromDate(d)!==weekKey) return daySum;
+        return daySum+(Number(row?.hours)||0);
+      },0),0);
+      if(overrideAvailable>0) available=Math.max(available,overrideAvailable);
+      const capPct=available?Math.min(100,Math.round((planned/available)*100)):(planned?100:0);
+      return {weekKey,planned,available,capPct};
+    }
     function renderMobileCockpit(st){
       const host=$('#mobileKpis'); if(!host) return;
       const projects=(st.projects?.order||[]).map(id=>st.projects.byId[id]).filter(Boolean);
       const tasks=allTasks(st).filter(t=>t?.type!=='summary');
       const overdue=tasks.filter(t=>String(t.status||'').toLowerCase()!=='gereed' && t.end && new Date(String(t.end).split('-').reverse().join('-')) < new Date()).length;
-      const planned=Object.values(st.gantt?.hoursByDay||{}).reduce((s,byDept)=>s+Object.values(byDept||{}).reduce((a,v)=>a+(Number(v)||0),0),0);
-      const available=Math.max(planned, Object.values(st.capacity?.availabilityOverrides||{}).reduce((s,byDay)=>s+Object.values(byDay||{}).reduce((a,v)=>a+(Number(v?.hours)||0),0),0));
-      const capPct=available?Math.min(100,Math.round(planned/available*100)):(planned?100:0);
+      const { capPct }=mobileCapacitySnapshot(st);
       $('#mobileGreeting').textContent='Goedemorgen';
       host.innerHTML=[
         ['P',projects.length,'Projecten'],

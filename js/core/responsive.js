@@ -23,6 +23,8 @@ const CWS_Responsive = (() => {
     {id:"instellingen", label:"Instellingen", icon:"IN"},
     {id:"audit", label:"Auditlog", icon:"AU"},
     {id:"preflight", label:"Self-test / Preflight", icon:"PF"},
+    {id:"projectplanning", label:"Projectplanning", icon:"PP"},
+    {id:"transport", label:"Transportplanning", icon:"TR"},
   ];
   let moreBound = false;
 

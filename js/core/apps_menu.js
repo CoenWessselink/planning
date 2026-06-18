@@ -22,6 +22,9 @@ const AppsMenu = (() => {
     { id:"importexport", label:"Import / Export", icon:"IO", desc:"Excel, CSV en state-uitwisseling." },
     { id:"instellingen", label:"Instellingen", icon:"IN", desc:"Bedrijf, afdelingen, medewerkers en kalender." },
     { id:"audit", label:"Auditlog", icon:"AU", desc:"Controleer wijzigingen, saves en systeemacties." },
+  ];
+
+  const utilityItems = [
     { id:"preflight", label:"Self-test / Preflight", icon:"PF", desc:"Technische controles voor release en beheer." },
     { id:"projectplanning", label:"Projectplanning", icon:"PP", desc:"Projectplanning en detailafstemming." },
     { id:"transport", label:"Transportplanning", icon:"TR", desc:"Transportplanning en logistieke voorbereiding." },
@@ -61,13 +64,13 @@ const AppsMenu = (() => {
     footer().textContent = `Veilig. Betrouwbaar. Gebouwd voor planning. | ${n} projecten | D1-state blijft leidend.`;
   };
 
-  const render = () => {
-    const g = grid();
-    g.innerHTML = "";
+  const renderCards = (host, list, className) => {
+    host.innerHTML = "";
     const st = CWS.getState();
-    items.filter(it => Permissions.can(st.ui.role, "switch_app", { appId:it.id })).forEach(it => {
+    const visible = list.filter(it => Permissions.can(st.ui.role, "switch_app", { appId:it.id }));
+    visible.forEach(it => {
       const card = document.createElement("button");
-      card.className = "app-card";
+      card.className = className;
       card.type = "button";
       card.setAttribute("aria-label", `${it.label} openen`);
       card.dataset.appId = it.id;
@@ -87,7 +90,7 @@ const AppsMenu = (() => {
       const arrow = document.createElement("span");
       arrow.className = "app-arrow";
       arrow.setAttribute("aria-hidden", "true");
-      arrow.textContent = "→";
+      arrow.textContent = "->";
 
       card.append(icon,label,sub,arrow);
 
@@ -95,8 +98,20 @@ const AppsMenu = (() => {
       card.addEventListener("click", open);
       card.addEventListener("keydown", (e)=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); open(); } });
 
-      g.appendChild(card);
+      host.appendChild(card);
     });
+    return visible.length;
+  };
+
+  const render = () => {
+    const mainCount = renderCards(grid(), items, "app-card");
+    const util = document.getElementById("appsUtility");
+    if(util){
+      const count = renderCards(util, utilityItems, "apps-utility-card");
+      util.hidden = count === 0;
+      util.previousElementSibling?.classList?.toggle("hidden", count === 0);
+    }
+    try{ document.getElementById("appsGrid")?.setAttribute("data-main-app-count", String(mainCount)); }catch(_){}
   };
 
   const bind = () => {

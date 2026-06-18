@@ -159,16 +159,21 @@ try {
   const desktopMenu = await evaluate(`(()=> {
     AppsMenu.show();
     const cards = Array.from(document.querySelectorAll("#appsGrid .app-card")).map(card => card.textContent.trim());
+    const utility = Array.from(document.querySelectorAll("#appsUtility .apps-utility-card")).map(card => card.textContent.trim());
     return {
       open:document.querySelector("#appsBackdrop")?.classList.contains("show"),
       hero:document.querySelector(".apps-hero h1")?.textContent || "",
       cards,
+      utility,
+      mainCount:Number(document.querySelector("#appsGrid")?.dataset.mainAppCount || cards.length),
       footer:document.querySelector("#appsFooter")?.textContent || "",
       navVisible:getComputedStyle(document.querySelector("#mobileBottomNav")).display !== "none"
     };
   })()`);
   check("Desktop Apps Menu opent premium met hero", desktopMenu.open && desktopMenu.hero.includes("Welkom bij CWS Planning"));
-  check("Desktop Apps Menu bevat alle hoofdmodules", ["Dashboard","Projecten","Gantt","Capaciteit","Projectoverzicht","Instellingen"].every(label => desktopMenu.cards.some(text => text.includes(label))));
+  check("Desktop Apps Menu toont exact 10 hoofdmodules", desktopMenu.mainCount === 10 && desktopMenu.cards.length === 10, JSON.stringify({ mainCount:desktopMenu.mainCount, cards:desktopMenu.cards.length }));
+  check("Desktop Apps Menu bevat alle mockup-hoofdmodules", ["Dashboard","Projecten","Gantt","Capaciteit","Projectoverzicht","Planbord","Rapporten","Import / Export","Instellingen","Auditlog"].every(label => desktopMenu.cards.some(text => text.includes(label))));
+  check("Desktop Apps Menu behoudt beheer-extra's compact", ["Self-test","Projectplanning","Transportplanning"].every(label => desktopMenu.utility.some(text => text.includes(label))));
   check("Desktop toont geen mobiele bottom nav", desktopMenu.navVisible === false);
   check("Apps Menu footer behoudt premium regel", desktopMenu.footer.includes("Veilig") && desktopMenu.footer.includes("D1-state"));
   await evaluate(`(()=> {
@@ -265,8 +270,12 @@ try {
   check("Capaciteit past globale afdeling-target toe", capacityFilter === globalCapacitySearch.dept, JSON.stringify({ capacityFilter, expected:globalCapacitySearch.dept }));
 
   const viewports = [
+    [1920, 1080],
     [360, 740],
+    [375, 812],
     [390, 844],
+    [414, 896],
+    [430, 932],
     [844, 390],
     [768, 1024],
     [1024, 768],
@@ -328,6 +337,22 @@ try {
       check(`Viewport ${width}x${height} Meer-sheet sluit via X en Escape`, more.closedByX && more.closedByEsc);
     }
   }
+
+  await openShell(375, 812);
+  await loadModule("dashboard");
+  const dashboardMobile = await frameEval(`(()=> {
+    const dash = document.querySelector("[data-testid='mobile-dashboard']");
+    const visible = dash && getComputedStyle(dash).display !== "none";
+    return {
+      visible,
+      kpis:document.querySelectorAll(".mobile-kpi").length,
+      sections:Array.from(document.querySelectorAll(".mobile-section h2")).map(h=>h.textContent.trim()),
+      capacityText:document.querySelector("#mobileCapacityPct")?.textContent || "",
+      capacityWidth:document.querySelector("#mobileCapacityFill")?.style.width || "",
+    };
+  })()`);
+  check("Mobiel dashboard toont cockpit volgens referentie", dashboardMobile.visible && dashboardMobile.kpis >= 4 && dashboardMobile.sections.includes("Projecten in uitvoering") && dashboardMobile.sections.includes("Capaciteit overzicht"), JSON.stringify(dashboardMobile));
+  check("Mobiel dashboard toont echte capaciteit-KPI", /%$/.test(dashboardMobile.capacityText) && /%$/.test(dashboardMobile.capacityWidth), JSON.stringify(dashboardMobile));
 
   await openShell(390, 844);
   await loadModule("capaciteit");
