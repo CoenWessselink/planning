@@ -1,0 +1,163 @@
+/* CWS Planning V94 - screenshot regression fix for mobile Capacity/Gantt/Projecten.
+   Purpose: remove remaining vertical clipping, ghost empty fields and module content behind nav. */
+@media(max-width:767px){
+  html,body{overflow-x:hidden!important;background:#f3f7fc!important}
+  body.cws-v93-mobile-shell .app-shell{height:auto!important;overflow:visible!important}
+  body.cws-v93-mobile-shell .panel{height:auto!important;overflow:visible!important}
+  body.cws-v93-mobile-shell #appFrame{
+    height:calc(100dvh - 66px - 102px)!important;
+    min-height:calc(100dvh - 66px - 102px)!important;
+    max-height:calc(100dvh - 66px - 102px)!important;
+    overflow:hidden!important;
+  }
+  .mobile-bottom-nav{z-index:5000!important}
+}
+
+body.cws-responsive-frame.cws-v93-mobile-mockup{
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+body.cws-responsive-frame.cws-v93-mobile-mockup::after{
+  content:"";
+  display:block;
+  height:132px;
+}
+
+@media(max-width:767px){
+  body.cws-responsive-frame.cws-v93-mobile-mockup :where(.empty,.ghost,.placeholder){display:none!important}
+  body.cws-responsive-frame.cws-v93-mobile-mockup :where(input:placeholder-shown:empty){min-height:0!important}
+
+  /* Projects already close to the mockup: keep the useful card layout, prevent hidden overflow. */
+  body.cws-responsive-frame.cws-v93-mobile-mockup .projects-infinite-panel{
+    padding:22px 16px 132px!important;
+    overflow:visible!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .projects-infinite-panel :where(.table-wrap,.tablewrap){
+    max-height:none!important;
+    overflow:visible!important;
+  }
+
+  /* Capacity: one continuous mobile document, no clipped top, no huge blank ghost field. */
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell{
+    display:block!important;
+    height:auto!important;
+    min-height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding:0 0 132px!important;
+    background:#f3f7fc!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell .toolbar{
+    position:static!important;
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:10px!important;
+    padding:14px 16px 18px!important;
+    margin:0!important;
+    background:#f3f7fc!important;
+    overflow:visible!important;
+    max-height:none!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell .toolbar > *{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell .toolbar :where(select,input,button,.btn){
+    height:46px!important;
+    min-height:46px!important;
+    border-radius:20px!important;
+    font-size:14px!important;
+    line-height:1.1!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.module-head,.panel-head){
+    margin:0!important;
+    padding:18px 16px 12px!important;
+    background:#fff!important;
+    border-radius:24px 24px 0 0!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.module-head h1,.panel-head h1,.panel-head h2){
+    margin:0 0 6px!important;
+    font-size:23px!important;
+    line-height:1.15!important;
+    color:#081b35!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.module-head p,.panel-head p,.sub,.small){
+    font-size:15px!important;
+    line-height:1.35!important;
+    color:#64748b!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.kpi,.kpi2,.summary-cards){
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:10px!important;
+    padding:0 16px 12px!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.kpi .k,.kpi2 .k,.summary-cards > *){
+    flex:0 0 auto!important;
+    min-width:140px!important;
+    border-radius:999px!important;
+    background:#fff!important;
+    box-shadow:0 10px 24px rgba(8,27,53,.06)!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.heatmap-wrap,.matrix-wrap,.table-wrap,.tablewrap,.cap-table){
+    margin:10px 16px 18px!important;
+    width:auto!important;
+    max-width:calc(100vw - 32px)!important;
+    max-height:none!important;
+    min-height:0!important;
+    border-radius:22px!important;
+    border:1px solid #dbe5f2!important;
+    background:#fff!important;
+    overflow:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    box-shadow:0 10px 24px rgba(8,27,53,.06)!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.heatmap-wrap,.matrix-wrap,.table-wrap,.tablewrap,.cap-table) + :where(.heatmap-wrap,.matrix-wrap,.table-wrap,.tablewrap,.cap-table){
+    margin-top:8px!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.matrix,table){
+    min-width:760px!important;
+    font-size:12px!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(thead th,tbody td){
+    padding:8px 10px!important;
+    line-height:1.15!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.scrollbar-dock,.scrollbar-proxy){
+    position:static!important;
+    margin:4px 16px!important;
+    width:auto!important;
+    max-width:calc(100vw - 32px)!important;
+  }
+
+  /* Hide empty rounded bars that were visible as blank ghost controls in screenshots. */
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.toolbar input[value=""],.toolbar input:not([value]),.filterbar input[value=""],.filterbar input:not([value])){
+    display:none!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .cap-shell :where(.empty:has(+ .heatmap-wrap),.notice.hidden){display:none!important}
+
+  /* Gantt: prevent board/table from starting under nav and keep controls compact. */
+  body.cws-responsive-frame.cws-v93-mobile-mockup .gantt-shell{
+    display:block!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding-bottom:132px!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .gantt-shell .toolbar{
+    grid-template-columns:1fr auto!important;
+    padding:12px 16px!important;
+    gap:10px!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .gantt-shell .board-wrap{
+    margin:8px 16px 18px!important;
+    max-width:calc(100vw - 32px)!important;
+    max-height:none!important;
+    height:calc(100dvh - 360px)!important;
+    min-height:300px!important;
+    overflow:auto!important;
+  }
+  body.cws-responsive-frame.cws-v93-mobile-mockup .gantt-shell .context,
+  body.cws-responsive-frame.cws-v93-mobile-mockup .gantt-shell .notice.hidden{display:none!important}
+}
