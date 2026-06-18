@@ -651,6 +651,22 @@ function bindNP(){
     return ids;
   }
 
+  let globalSearchProjectAppliedAt = "";
+  function applyGlobalSearchProjectTarget(st){
+    const target = st.ui?.globalSearchTarget;
+    if(!target || target.module !== "projecten" || !target.projectId || target.openedAt === globalSearchProjectAppliedAt) return;
+    const p = st.projects?.byId?.[target.projectId];
+    if(!p) return;
+    const value = String(p.nr || p.code || p.name || target.projectId || "").trim();
+    if(!value) return;
+    const search = document.getElementById("search");
+    const mobileSearch = document.getElementById("mobileProjectSearch");
+    if(search) search.value = value;
+    if(mobileSearch) mobileSearch.value = value;
+    page = 1;
+    globalSearchProjectAppliedAt = target.openedAt;
+  }
+
   function projectProgress(p){
     const status = String(p?.status||"").toLowerCase();
     if(status.includes("gereed")) return 100;
@@ -775,6 +791,7 @@ function bindNP(){
   function render(){
     const st = CWS.getState();
     const depts = ensureDeptColumns(st);
+    applyGlobalSearchProjectTarget(st);
     const active = TABS.includes(st.ui.lastTab) ? st.ui.lastTab : "Alle";
     if(st.ui.lastTab !== active){ try{ CWS.setState(x=>{ x.ui.lastTab = active; return x; }); }catch(_e){} }
     renderTabs(active);

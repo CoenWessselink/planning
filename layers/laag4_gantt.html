@@ -1954,8 +1954,10 @@ var CWS = window.CWS;</script>
       const ids = new Set(list.map(p => String(p?.id || "")).filter(Boolean));
       const uiId = UI.projectId ? String(UI.projectId) : "";
       const domId = $("#projectSel")?.value ? String($("#projectSel").value) : "";
+      const searchId = st.ui?.globalSearchTarget?.projectId ? String(st.ui.globalSearchTarget.projectId) : "";
       if(uiId && ids.has(uiId)) return uiId;
       if(domId && ids.has(domId)) return domId;
+      if(searchId && ids.has(searchId)) return searchId;
       return list[0]?.id || null;
     }
     function projectLabel(p){ return `${p.nr||p.code||p.id} - ${p.name||"Project"}`; }

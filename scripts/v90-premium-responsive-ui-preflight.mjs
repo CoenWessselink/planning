@@ -24,8 +24,11 @@ const index = read("index.html");
 const theme = read("css/theme.css");
 const appsMenu = read("js/core/apps_menu.js");
 const responsive = read("js/core/responsive.js");
+const globalSearch = read("js/core/global_search.js");
+const projectsLayer = read("layers/laag3_projecten.html");
 const gantt = read("layers/laag4_gantt.html");
 const capacity = read("layers/laag5_capaciteit.html");
+const projectOverview = read("layers/laag6_projectoverzicht.html");
 
 ok("package.json bevat preflight:v90", pkg.includes('"preflight:v90"'));
 ok("package.json voert premium UI E2E uit", pkg.includes("tests/e2e/premium-responsive-ui.mjs"));
@@ -40,6 +43,16 @@ ok("Mobiele Gantt primaire actie aanwezig", responsive.includes("primary:true") 
 ok("Mobiele Meer-bottomsheet aanwezig", responsive.includes("mobileMoreSheet") && responsive.includes("showMobileMore") && theme.includes(".mobile-more-sheet"));
 ok("Meer-menu sluit via Escape/backdrop/X", responsive.includes('event.key === "Escape"') && responsive.includes("mobile-more-close") && responsive.includes("event.target === sheet"));
 ok("Actieve bottom-nav state gebruikt aria-current", responsive.includes("aria-current"));
+
+ok("Globale Ctrl+K zoekmodule wordt geladen en gebonden", index.includes("js/core/global_search.js") && index.includes("CWS_GlobalSearch.bind"));
+ok("Globale zoekactie leest echte planningdata", globalSearch.includes("buildResults") && globalSearch.includes("projects") && globalSearch.includes("ganttV2") && globalSearch.includes("sourcesByDay"));
+ok("Globale zoekactie ondersteunt directe routes", ["projecten","gantt","capaciteit","project360"].every(id => globalSearch.includes(id)) && globalSearch.includes("router?.loadApp"));
+ok("Globale zoekactie bewaart target voor modules", globalSearch.includes("globalSearchTarget") && globalSearch.includes("sessionStorage.setItem"));
+ok("Globale zoek-overlay is responsive gestyled", theme.includes(".global-search-backdrop") && theme.includes(".global-search-result") && theme.includes("global-search-actions"));
+ok("Projecten consumeert globale projectzoek-target", projectsLayer.includes("applyGlobalSearchProjectTarget") && projectsLayer.includes('target.module !== "projecten"'));
+ok("Gantt consumeert globale projectzoek-target", gantt.includes("globalSearchTarget") && gantt.includes("searchId && ids.has(searchId)"));
+ok("Capaciteit consumeert globale afdeling/week-target", capacity.includes("applyGlobalSearchTarget") && capacity.includes('target.module!=="capaciteit"') && capacity.includes("isoWeekFromDate"));
+ok("Projectoverzicht opent Project 360 vanuit globale zoek-target", projectOverview.includes("openGlobalSearchTarget360") && projectOverview.includes('target.module !== "project360"'));
 
 ok("Premium design tokens aanwezig", ["--cws-navy", "--cws-blue", "--cws-bg", "--cws-card", "--cws-line"].every(token => theme.includes(token)));
 ok("Header/topbar premium navy aanwezig", theme.includes(".headerbar") && theme.includes("var(--cws-navy)"));

@@ -322,6 +322,7 @@ var CWS = window.CWS;</script>
         ]
       });
     }
+    let globalSearch360OpenedAt = "";
     function open360(projectId){
       const st=CWS.getState(), p=st.projects.byId[projectId];
       const wrap=document.createElement("div");
@@ -355,6 +356,13 @@ var CWS = window.CWS;</script>
       show("Algemeen");
       UI.openModal({title:"Project 360",subtitle:`${p.nr} - ${p.name}`,contentEl:wrap,actions:[{label:"Sluiten",onClick:({close})=>close()}]});
     }
+    function openGlobalSearchTarget360(){
+      const target = CWS.getState()?.ui?.globalSearchTarget;
+      if(!target || target.module !== "project360" || !target.projectId || target.openedAt === globalSearch360OpenedAt) return;
+      if(!CWS.getState()?.projects?.byId?.[target.projectId]) return;
+      globalSearch360OpenedAt = target.openedAt;
+      setTimeout(()=>open360(target.projectId), 60);
+    }
     $("#search").addEventListener("input",render);
     $("#undo").addEventListener("click",()=>{CWS.undo();render();});
     $("#redo").addEventListener("click",()=>{CWS.redo();render();});
@@ -376,6 +384,7 @@ var CWS = window.CWS;</script>
     `;
     $("#print").addEventListener("click",()=>UI.printA3("Projectoverzicht","CWS Planning",document.querySelector(".tablewrap").innerHTML,{paper:"A0 landscape",extraCss:projectOverviewA0Css}));
     render();
+    openGlobalSearchTarget360();
   </script>
 </body>
 </html>

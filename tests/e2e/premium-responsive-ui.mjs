@@ -184,11 +184,85 @@ try {
       add:[...document.querySelectorAll("button")].some(b=>/Taak toevoegen/i.test(b.textContent)),
       phase:[...document.querySelectorAll("button")].some(b=>/Nieuwe fase/i.test(b.textContent)),
       board:!!document.querySelector(".board-wrap"),
-      labelsSafe:getComputedStyle(document.querySelector(".bar-label") || document.body).pointerEvents === "none"
+      labelsSafe:!document.querySelector(".bar-label") || getComputedStyle(document.querySelector(".bar-label")).pointerEvents === "none"
     };
   })()`);
   check("Gantt desktop toolbar en board blijven aanwezig", ganttDesktop.toolbar && ganttDesktop.add && ganttDesktop.phase && ganttDesktop.board);
   check("Gantt labels blokkeren pointer-events niet", ganttDesktop.labelsSafe);
+
+  const globalSearchOpen = await evaluate(`(()=> {
+    const st = CWS.getState();
+    const all = (st.projects?.order || []).map(id => st.projects.byId[id]).filter(Boolean);
+    const project = all.find(p => String(p.status || "").trim().toLowerCase() !== "gereed") || all[0] || {};
+    const query = String(project.nr || project.code || project.name || project.id || "").trim();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key:"k", ctrlKey:true, bubbles:true, cancelable:true }));
+    const input = document.querySelector("#globalSearchInput");
+    if(input){
+      input.value = query;
+      input.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    return {
+      open:document.querySelector("#globalSearchBackdrop")?.classList.contains("show"),
+      query,
+      projectId:project.id || "",
+      count:document.querySelectorAll(".global-search-result").length,
+      actions:Array.from(document.querySelectorAll("[data-global-search-action]")).map(btn => btn.dataset.globalSearchAction)
+    };
+  })()`);
+  check("Ctrl+K opent globale zoek-overlay", globalSearchOpen.open && globalSearchOpen.query);
+  check("Globale zoek-overlay toont routeknoppen", globalSearchOpen.count > 0 && ["gantt","capaciteit","project360"].every(action => globalSearchOpen.actions.includes(action)), JSON.stringify(globalSearchOpen));
+  await evaluate(`document.querySelector('[data-global-search-action="projecten"]')?.click()`);
+  await waitFor(() => evaluate(`document.body.dataset.activeApp === "projecten"`));
+  await waitFor(frameReady);
+  const projectenSearchValue = await frameEval(`(()=> document.querySelector("#search")?.value || "")()`);
+  check("Globale zoekactie navigeert naar Projecten met zoekfilter", projectenSearchValue.includes(globalSearchOpen.query), JSON.stringify({ projectenSearchValue, expected:globalSearchOpen.query }));
+
+  await evaluate(`(()=> {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key:"k", ctrlKey:true, bubbles:true, cancelable:true }));
+    const input = document.querySelector("#globalSearchInput");
+    if(input){
+      input.value = ${JSON.stringify(globalSearchOpen.query)};
+      input.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    document.querySelector('[data-global-search-action="gantt"]')?.click();
+    return true;
+  })()`);
+  await waitFor(() => evaluate(`document.body.dataset.activeApp === "gantt"`));
+  await waitFor(frameReady);
+  await waitFor(() => frameEval(`(()=> document.querySelector("#projectSel")?.value === ${JSON.stringify(globalSearchOpen.projectId)})()`));
+  const globalSearchGanttTarget = await evaluate(`(()=> {
+    const target = CWS.getState().ui?.globalSearchTarget || {};
+    return { module:target.module, projectId:target.projectId };
+  })()`);
+  const selectedGlobalProject = await frameEval(`(()=> document.querySelector("#projectSel")?.value || "")()`);
+  check("Globale zoekactie navigeert naar Gantt met projecttarget", globalSearchGanttTarget.module === "gantt" && globalSearchGanttTarget.projectId === globalSearchOpen.projectId && selectedGlobalProject === globalSearchOpen.projectId, JSON.stringify({ globalSearchGanttTarget, selectedGlobalProject, expected:globalSearchOpen.projectId }));
+
+  const globalCapacitySearch = await evaluate(`(()=> {
+    const st = CWS.getState();
+    const deptNames = new Set();
+    (st.departments?.order || Object.keys(st.departments?.byId || {})).forEach(id => {
+      const dept = st.departments?.byId?.[id];
+      deptNames.add(dept?.name || id);
+    });
+    Object.values(st.gantt?.sourcesByDay || {}).forEach(byDept => Object.keys(byDept || {}).forEach(name => deptNames.add(name)));
+    const dept = Array.from(deptNames).filter(Boolean)[0] || "";
+    document.dispatchEvent(new KeyboardEvent("keydown", { key:"k", ctrlKey:true, bubbles:true, cancelable:true }));
+    const input = document.querySelector("#globalSearchInput");
+    if(input){
+      input.value = dept;
+      input.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    const row = Array.from(document.querySelectorAll(".global-search-result")).find(item => item.textContent.includes("department") && item.textContent.includes(dept));
+    const button = row?.querySelector('[data-global-search-action="capaciteit"]');
+    const clicked = button ? button.dispatchEvent(new MouseEvent("click", { bubbles:true, cancelable:true, view:window })) : false;
+    const target = CWS.getState().ui?.globalSearchTarget || {};
+    return { dept, clicked, count:document.querySelectorAll(".global-search-result").length, activeApp:document.body.dataset.activeApp, targetModule:target.module, targetDept:target.dept };
+  })()`);
+  check("Globale zoekactie vindt afdeling voor Capaciteit", Boolean(globalCapacitySearch.dept) && globalCapacitySearch.clicked, JSON.stringify(globalCapacitySearch));
+  await waitFor(() => evaluate(`document.body.dataset.activeApp === "capaciteit"`));
+  await waitFor(frameReady);
+  const capacityFilter = await frameEval(`(()=> document.querySelector("#deptSel")?.value || "")()`);
+  check("Capaciteit past globale afdeling-target toe", capacityFilter === globalCapacitySearch.dept, JSON.stringify({ capacityFilter, expected:globalCapacitySearch.dept }));
 
   const viewports = [
     [360, 740],
