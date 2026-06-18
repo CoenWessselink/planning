@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { loadDemoData } from './helpers.js';
 
 test('Boot + demo data zichtbaar in Projecten', async ({ page }) => {
   await page.goto('/index.html');
   await expect(page.locator('#moduleTitle')).toHaveText('Projecten');
-  await page.getByRole('button', { name: 'Demo data' }).click();
-  await page.waitForTimeout(300);
+  await loadDemoData(page);
   const frame = page.frameLocator('iframe#appFrame');
   const count = await frame.locator('table tbody tr').count();
   expect(count).toBeGreaterThan(0);

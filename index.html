@@ -27,9 +27,6 @@
       <button class="shell-icon-btn" type="button" aria-label="Help" title="Help">?</button>
       <span class="pill" id="storagePill">Opslag detecteren...</span>
       <span class="pill">Gebruiker: <span id="userPill">Identiteit laden...</span></span>
-      <button class="btn" id="importExcel">Import Excel</button>
-      <button class="btn" id="resetDemo">Demo data</button>
-      <button class="btn" id="clearData">Data leegmaken</button>
     </div>
   </div>
 
@@ -75,6 +72,7 @@
   <script src="js/core/mobile_adapter.js"></script>
   <script src="js/core/responsive.js"></script>
   <script src="js/core/apps_menu.js"></script>
+  <script src="js/core/global_search.js"></script>
   <script src="js/core/export.js"></script>
   <script src="js/core/import_excel.js"></script>
   <script>
@@ -84,6 +82,7 @@
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
+        CWS_GlobalSearch.bind();
         CWS_MobileAdapter.bind();
         Router.boot();
         CWS_Responsive.bind();
@@ -141,11 +140,7 @@
         Router.markReady();
         document.body.dataset.cwsReady = "true";
 
-        window.addEventListener("message", event => {
-          if(event?.data?.type === "cws_apps_menu") AppsMenu.show();
-        });
-
-        document.getElementById("resetDemo").addEventListener("click", () => {
+        const runDemoData = () => {
           if(!CWS.hasPermission("admin_settings")){
             CWS.audit("demo_data_attempt_blocked", { reason:"permission", role:CWS.getState().user?.role || "unknown" });
             return UI.toast("Alleen een beheerder kan demo data laden.");
@@ -163,9 +158,9 @@
           }catch(_e){}
           UI.toast("Demo data geladen.");
           setTimeout(()=>Router.loadApp("projecten"), 80);
-        });
+        };
 
-        document.getElementById("clearData").addEventListener("click", () => {
+        const runClearData = () => {
           if(!CWS.hasPermission("admin_settings")){
             CWS.audit("clear_data_attempt_blocked", { reason:"permission", role:CWS.getState().user?.role || "unknown" });
             return UI.toast("Alleen een beheerder kan alle data wissen.");
@@ -180,6 +175,20 @@
           try{ localStorage.removeItem("cws.v35.demoRequested"); localStorage.removeItem("cws.v33.demoLoadedAt"); }catch(_e){}
           UI.toast("Data geleegd.");
           Router.loadApp("projecten");
+        };
+
+        window.CWS_AdminDataActions = {
+          importExcel: () => CWS_ExcelImport.open?.(),
+          demoData: runDemoData,
+          clearData: runClearData,
+        };
+
+        window.addEventListener("message", event => {
+          const type = event?.data?.type;
+          if(type === "cws_apps_menu") return AppsMenu.show();
+          if(type === "cws_admin_import_excel") return window.CWS_AdminDataActions.importExcel();
+          if(type === "cws_admin_demo_data") return window.CWS_AdminDataActions.demoData();
+          if(type === "cws_admin_clear_data") return window.CWS_AdminDataActions.clearData();
         });
       }catch(error){
         console.error("Boot failed", error);

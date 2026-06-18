@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { loadDemoData } from '../helpers.js';
 
 function guard(page) {
   const errors = [];
@@ -12,7 +13,7 @@ async function home(page) {
   await page.goto('/index.html');
   await expect(page.locator('body[data-cws-ready="true"]')).toBeVisible();
   await expect(page.locator('#openApps')).toBeVisible();
-  await page.getByRole('button', { name:'Demo data' }).click();
+  await loadDemoData(page);
 }
 
 async function openApp(page, name) {

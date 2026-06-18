@@ -69,11 +69,14 @@ export async function selectAppAndExpect(page, name) {
 
 /** @param {import('@playwright/test').Page} page */
 export async function loadDemoData(page) {
-  const btn = page.getByRole('button', { name: 'Demo data' });
-  if (await btn.count()) {
-    await btn.click();
-    await page.waitForTimeout(300);
-  }
+  await selectApp(page, 'Instellingen');
+  const frame = page.frameLocator('iframe#appFrame');
+  await frame.locator('.tile', { hasText: 'Data beheer' }).click();
+  page.once('dialog', async dialog => {
+    await dialog.accept('DEMO OVERSCHRIJVEN');
+  });
+  await frame.getByRole('button', { name: 'Demo data laden' }).click();
+  await page.waitForTimeout(500);
 }
 
 /** @param {import('@playwright/test').Page} page */
