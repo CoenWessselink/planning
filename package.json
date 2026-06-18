@@ -77,6 +77,7 @@
     "preflight:v89": "node scripts/v89-complete-stability-build-preflight.mjs",
     "preflight:v90": "node scripts/v90-premium-responsive-ui-preflight.mjs",
     "preflight:v91": "node scripts/v91-visual-system-mockups-preflight.mjs",
+    "preflight:v92": "node scripts/v92-visual-system-polish-preflight.mjs",
     "preflight:live-regression": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs"
   },
   "devDependencies": {}
