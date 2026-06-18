@@ -1,5 +1,9 @@
 const CWS_MobileAdapter = (() => {
   const DEVICE_CLASSES = ["is-mobile", "is-tablet", "is-desktop", "is-touch"];
+  const RESPONSIVE_STYLESHEETS = [
+    { marker:"v73", href:"css/responsive-v73.css", attr:"cwsV73Responsive" },
+    { marker:"v92", href:"css/visual-system-v92.css", attr:"cwsV92VisualSystem" },
+  ];
   let resizeQueued = false;
   let frameObserver = null;
 
@@ -27,16 +31,22 @@ const CWS_MobileAdapter = (() => {
       if (touch) node.classList.add("is-touch");
       node.dataset.cwsV73Viewport = current.viewport;
       node.dataset.cwsV73Responsive = "true";
+      node.dataset.cwsV92VisualSystem = "true";
     });
   }
 
   function ensureStylesheet(doc) {
-    if (!doc?.head || doc.querySelector('link[data-cws-v73-responsive="true"]')) return;
-    const link = doc.createElement("link");
-    link.rel = "stylesheet";
-    link.href = new URL("css/responsive-v73.css", window.location.href).href;
-    link.dataset.cwsV73Responsive = "true";
-    doc.head.appendChild(link);
+    if (!doc?.head) return;
+    RESPONSIVE_STYLESHEETS.forEach(sheet => {
+      const selector = `link[data-cws-${sheet.marker}-stylesheet="true"]`;
+      if (doc.querySelector(selector)) return;
+      const link = doc.createElement("link");
+      link.rel = "stylesheet";
+      link.href = new URL(sheet.href, window.location.href).href;
+      link.dataset[`cws${sheet.marker.toUpperCase()}Stylesheet`] = "true";
+      link.dataset[sheet.attr] = "true";
+      doc.head.appendChild(link);
+    });
   }
 
   function improveAccessibility(doc) {
@@ -102,6 +112,7 @@ const CWS_MobileAdapter = (() => {
 
   function apply() {
     applyClasses(document);
+    ensureStylesheet(document);
     enhanceFrame();
   }
 
