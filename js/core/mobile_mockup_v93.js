@@ -1,17 +1,20 @@
 const CWS_MobileMockupV93 = (() => {
-  const STYLE_HREF = "css/mobile-mockup-v93.css";
+  const STYLE_HREFS = ["css/mobile-mockup-v93.css", "css/mobile-mockup-v94.css"];
   let observer = null;
 
   const isMobile = () => window.innerWidth <= 767 || window.CWS_MobileAdapter?.profile?.().family === "mobile";
 
   function injectStylesheet(doc) {
     if (!doc?.head) return;
-    if (doc.querySelector('link[data-cws-v93-mobile-mockup="true"]')) return;
-    const link = doc.createElement("link");
-    link.rel = "stylesheet";
-    link.href = new URL(STYLE_HREF, window.location.href).href;
-    link.dataset.cwsV93MobileMockup = "true";
-    doc.head.appendChild(link);
+    STYLE_HREFS.forEach((href, index) => {
+      const key = `cwsV9${3 + index}MobileMockup`;
+      if (doc.querySelector(`link[data-${key.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}="true"]`)) return;
+      const link = doc.createElement("link");
+      link.rel = "stylesheet";
+      link.href = new URL(href, window.location.href).href;
+      link.dataset[key] = "true";
+      doc.head.appendChild(link);
+    });
   }
 
   function removeLegacyDocks(doc) {
@@ -24,9 +27,11 @@ const CWS_MobileMockupV93 = (() => {
     if (!doc?.body) return;
     const route = window.Router?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "";
     doc.documentElement.dataset.cwsV93MobileMockup = "true";
+    doc.documentElement.dataset.cwsV94ScreenshotFix = "true";
     doc.body.dataset.cwsV93MobileMockup = "true";
+    doc.body.dataset.cwsV94ScreenshotFix = "true";
     doc.body.dataset.cwsActiveModule = route;
-    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup");
+    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup", "cws-v94-screenshot-fix");
   }
 
   function fixIframeHeight() {
@@ -35,17 +40,17 @@ const CWS_MobileMockupV93 = (() => {
     const header = document.querySelector(".headerbar")?.getBoundingClientRect?.().height || 66;
     const nav = document.getElementById("mobileBottomNav")?.getBoundingClientRect?.().height || 86;
     if (isMobile()) {
-      const available = Math.max(340, Math.floor(window.innerHeight - header - nav - 18));
+      const available = Math.max(360, Math.floor(window.innerHeight - header - nav - 18));
       frame.style.height = `${available}px`;
       frame.style.minHeight = `${available}px`;
       frame.style.maxHeight = `${available}px`;
       document.documentElement.style.setProperty("--cws-vh", `${window.innerHeight}px`);
-      document.body.classList.add("cws-v93-mobile-shell");
+      document.body.classList.add("cws-v93-mobile-shell", "cws-v94-screenshot-fix");
     } else {
       frame.style.height = "calc(100vh - 140px)";
       frame.style.minHeight = "";
       frame.style.maxHeight = "";
-      document.body.classList.remove("cws-v93-mobile-shell");
+      document.body.classList.remove("cws-v93-mobile-shell", "cws-v94-screenshot-fix");
     }
   }
 
