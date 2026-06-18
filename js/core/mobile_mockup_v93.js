@@ -1,6 +1,7 @@
 const CWS_MobileMockupV93 = (() => {
-  const STYLE_HREFS = ["css/mobile-mockup-v93.css", "css/mobile-mockup-v94.css"];
+  const STYLE_HREFS = ["css/mobile-mockup-v93.css", "css/mobile-mockup-v94.css", "css/mobile-mockup-v95.css"];
   let observer = null;
+  let lastRoute = "";
 
   const isMobile = () => window.innerWidth <= 767 || window.CWS_MobileAdapter?.profile?.().family === "mobile";
 
@@ -24,33 +25,44 @@ const CWS_MobileMockupV93 = (() => {
   }
 
   function markModule(doc) {
-    if (!doc?.body) return;
+    if (!doc?.body) return "";
     const route = window.Router?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "";
     doc.documentElement.dataset.cwsV93MobileMockup = "true";
     doc.documentElement.dataset.cwsV94ScreenshotFix = "true";
+    doc.documentElement.dataset.cwsV95FinalFit = "true";
     doc.body.dataset.cwsV93MobileMockup = "true";
     doc.body.dataset.cwsV94ScreenshotFix = "true";
+    doc.body.dataset.cwsV95FinalFit = "true";
     doc.body.dataset.cwsActiveModule = route;
-    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup", "cws-v94-screenshot-fix");
+    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup", "cws-v94-screenshot-fix", "cws-v95-final-fit");
+    return route;
+  }
+
+  function resetFrameScrollIfRouteChanged(doc, route) {
+    if (!isMobile() || !doc) return;
+    if (route && route !== lastRoute) {
+      try { doc.scrollingElement?.scrollTo({ top:0, left:0, behavior:"auto" }); } catch (_e) {}
+      try { doc.documentElement.scrollTop = 0; doc.body.scrollTop = 0; } catch (_e) {}
+      lastRoute = route;
+    }
   }
 
   function fixIframeHeight() {
     const frame = document.getElementById("appFrame");
     if (!frame) return;
     const header = document.querySelector(".headerbar")?.getBoundingClientRect?.().height || 66;
-    const nav = document.getElementById("mobileBottomNav")?.getBoundingClientRect?.().height || 86;
     if (isMobile()) {
-      const available = Math.max(360, Math.floor(window.innerHeight - header - nav - 18));
+      const available = Math.max(420, Math.floor(window.innerHeight - header));
       frame.style.height = `${available}px`;
       frame.style.minHeight = `${available}px`;
       frame.style.maxHeight = `${available}px`;
       document.documentElement.style.setProperty("--cws-vh", `${window.innerHeight}px`);
-      document.body.classList.add("cws-v93-mobile-shell", "cws-v94-screenshot-fix");
+      document.body.classList.add("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit");
     } else {
       frame.style.height = "calc(100vh - 140px)";
       frame.style.minHeight = "";
       frame.style.maxHeight = "";
-      document.body.classList.remove("cws-v93-mobile-shell", "cws-v94-screenshot-fix");
+      document.body.classList.remove("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit");
     }
   }
 
@@ -61,8 +73,9 @@ const CWS_MobileMockupV93 = (() => {
     try {
       const doc = frame.contentDocument;
       injectStylesheet(doc);
-      markModule(doc);
+      const route = markModule(doc);
       removeLegacyDocks(doc);
+      resetFrameScrollIfRouteChanged(doc, route);
       if (observer) observer.disconnect();
       observer = new MutationObserver(() => removeLegacyDocks(doc));
       if (doc.body) observer.observe(doc.body, { childList:true, subtree:true });
@@ -76,7 +89,7 @@ const CWS_MobileMockupV93 = (() => {
     window.addEventListener("resize", () => requestAnimationFrame(enhanceFrame), { passive:true });
     window.addEventListener("orientationchange", () => setTimeout(enhanceFrame, 120), { passive:true });
     document.addEventListener("cws:appchange", () => setTimeout(enhanceFrame, 80));
-    document.getElementById("appFrame")?.addEventListener("load", () => setTimeout(enhanceFrame, 40));
+    document.getElementById("appFrame")?.addEventListener("load", () => { lastRoute = ""; setTimeout(enhanceFrame, 40); });
   }
 
   return { bind, enhanceFrame };
