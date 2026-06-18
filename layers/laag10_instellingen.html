@@ -418,7 +418,32 @@ var CWS = window.CWS;</script>
     });
   }
 
+  function bindAuditModalControls(){
+    const __auditClose=document.getElementById("auditClose");
+    if(__auditClose && __auditClose.dataset.cwsAuditBound!=="1"){
+      __auditClose.dataset.cwsAuditBound="1";
+      __auditClose.addEventListener("click", (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        openAuditModal(false);
+      });
+    }
+    const bd=document.getElementById("auditBackdrop");
+    if(bd && bd.dataset.cwsAuditBound!=="1"){
+      bd.dataset.cwsAuditBound="1";
+      bd.addEventListener("click", (e)=>{
+        if(e.target===bd) openAuditModal(false);
+      });
+    }
+    const q=document.getElementById("auditQ");
+    if(q && q.dataset.cwsAuditBound!=="1"){
+      q.dataset.cwsAuditBound="1";
+      q.addEventListener("input", renderAudit);
+    }
+  }
+
   function openAuditModal(open){
+    bindAuditModalControls();
     const bd=document.getElementById("auditBackdrop");
     if(!bd) return;
     const shouldOpen = !!open;
@@ -2238,13 +2263,8 @@ let editCtx = { mode:"new", sec:"", id:"" };
     rightsCtx.activeId='planner'; renderRoleList(); renderRoleEditor();
   });
 
-  // Audit modal bindings (fixed)
-  const __auditClose=document.getElementById('auditClose');
-  if(__auditClose) __auditClose.addEventListener('click', (e)=>{ e.preventDefault(); openAuditModal(false); });
-  const __auditBackdrop=document.getElementById('auditBackdrop');
-  if(__auditBackdrop) __auditBackdrop.addEventListener('click',(e)=>{ if(e.target.id==='auditBackdrop') openAuditModal(false); });
-  const __auditQ=document.getElementById('auditQ');
-  if(__auditQ) __auditQ.addEventListener('input', renderAudit);
+  // Audit modal bindings are also resolved lazily because the modal markup lives below this script.
+  bindAuditModalControls();
   const __auditExport=document.getElementById('auditExport');
   if(__auditExport) __auditExport.addEventListener('click', ()=>{
     const rows=(CWS.getState().auditLog||[]).map(e=>({ ts:e.ts, user:e.user, role:e.role, action:e.action, meta:JSON.stringify(e.meta||{}) }));

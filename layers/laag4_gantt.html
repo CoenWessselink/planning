@@ -2956,7 +2956,25 @@ var CWS = window.CWS;</script>
         if(UI.revisionId||row.type==="summary"||row.locked) return;
         bar.addEventListener("pointerdown",e=>{
           if(e.button != null && e.button !== 0) return;
-          if(e.detail>=2){ e.preventDefault(); return; }
+          const now=Date.now();
+          const lastTap=UI._barTap;
+          if(lastTap && lastTap.id===id && now-lastTap.at<420 && Math.abs((lastTap.x||0)-e.clientX)<8 && Math.abs((lastTap.y||0)-e.clientY)<8){
+            UI._barTap=null;
+            e.preventDefault();
+            e.stopPropagation();
+            selectRow(model,id,e);
+            openEdit(id);
+            return;
+          }
+          if(e.detail>=2){
+            UI._barTap=null;
+            e.preventDefault();
+            e.stopPropagation();
+            selectRow(model,id,e);
+            openEdit(id);
+            return;
+          }
+          UI._barTap={ id, at:now, x:e.clientX, y:e.clientY };
           const handle=e.target.classList.contains("left")?"left":e.target.classList.contains("right")?"right":"move";
           if(e.pointerType==="touch" && window.matchMedia?.("(max-width: 767px)")?.matches && handle==="move") return;
           const rowIndex=model.rows.findIndex(r=>r.id===id);
@@ -3090,7 +3108,7 @@ var CWS = window.CWS;</script>
         }
         saved=true;
         ganttDebug("save", { rowId:drag.rowId, ok:true, action });
-        toast(drag.handle==="move"?"Taak verplaatst":"Taakduur aangepast");
+        toast(drag.handle==="move" ? "Taak verplaatst. Capaciteit opnieuw berekend. D1 opslag ingepland." : "Taak aangepast. Uren opnieuw verdeeld over werkbare dagen. Capaciteit bijgewerkt.");
       }finally{
         if(suppressClick) UI._lastDragClickSuppressUntil=Date.now()+350;
         UI._suppressSubscriberRender=false;

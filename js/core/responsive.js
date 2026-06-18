@@ -8,24 +8,32 @@ const CWS_Responsive = (() => {
     {id:"apps", label:"Menu", icon:"☰"},
   ];
 
-  const viewport = () => window.CWS_MobileAdapter?.profile?.().family || (window.innerWidth <= 767 ? "mobile" : (window.innerWidth <= 1199 ? "tablet" : "desktop"));
-  const activeApp = () => (window.Router?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "projecten");
-  const mobileNavItems = [
-    {id:"dashboard", label:"Dashboard", icon:"D"},
-    {id:"projecten", label:"Projecten", icon:"P"},
-    {id:"gantt", label:"Gantt", icon:"G", primary:true},
-    {id:"capaciteit", label:"Capaciteit", icon:"C"},
-    {id:"more", label:"Meer", icon:"..."},
-  ];
+  navItems.splice(0, navItems.length,
+    {id:"dashboard", label:"Dashboard", icon:"⌂"},
+    {id:"projecten", label:"Projecten", icon:"▤"},
+    {id:"gantt", label:"Gantt", icon:"▰", primary:true},
+    {id:"capaciteit", label:"Capaciteit", icon:"▦"},
+    {id:"more", label:"Meer", icon:"☰"}
+  );
   const moreItems = [
-    {id:"projectoverzicht", label:"Projectoverzicht"},
-    {id:"planbord", label:"Planbord"},
-    {id:"rapporten", label:"Rapporten"},
-    {id:"importexport", label:"Import / Export"},
-    {id:"instellingen", label:"Instellingen"},
-    {id:"audit", label:"Auditlog"},
-    {id:"preflight", label:"Self-test / Preflight"},
+    {id:"projectoverzicht", label:"Projectoverzicht", icon:"PO"},
+    {id:"planbord", label:"Planbord", icon:"PL"},
+    {id:"rapporten", label:"Rapporten", icon:"RA"},
+    {id:"importexport", label:"Import / Export", icon:"IO"},
+    {id:"instellingen", label:"Instellingen", icon:"IN"},
+    {id:"audit", label:"Auditlog", icon:"AU"},
+    {id:"preflight", label:"Self-test / Preflight", icon:"PF"},
   ];
+  let moreBound = false;
+
+  const routerApi = () => window.Router || (typeof Router !== "undefined" ? Router : null);
+  const appsMenuApi = () => window.AppsMenu || (typeof AppsMenu !== "undefined" ? AppsMenu : null);
+  const viewport = () => window.CWS_MobileAdapter?.profile?.().family || (window.innerWidth <= 767 ? "mobile" : (window.innerWidth <= 1199 ? "tablet" : "desktop"));
+  const isMobileViewport = () => {
+    const vp = viewport();
+    return vp === "mobile" || vp === "is-mobile" || vp === "mobile-small" || window.innerWidth <= 760;
+  };
+  const activeApp = () => (routerApi()?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "projecten");
 
   function applyViewport(){
     window.CWS_MobileAdapter?.apply?.();
@@ -44,59 +52,86 @@ const CWS_Responsive = (() => {
       nav.setAttribute("aria-label","Mobiele snelnavigatie");
       document.body.appendChild(nav);
     }
-    nav.innerHTML = mobileNavItems.map(item => `<button type="button" class="${item.primary ? "mobile-nav-primary" : ""}" data-mobile-app="${item.id}" aria-label="${item.label}"><span>${item.icon}</span><span>${item.label}</span></button>`).join("");
-    nav.querySelectorAll("button").forEach(btn=>{
-      btn.addEventListener("click",()=>{
-        const id=btn.dataset.mobileApp;
-        if(id==="more") return openMoreSheet();
-        window.Router?.loadApp?.(id);
+    nav.innerHTML = navItems.map(item => `<button type="button" class="${item.primary ? "mobile-nav-primary" : ""}" data-mobile-app="${item.id}" aria-label="${item.label}"><span>${item.icon}</span><span>${item.label}</span></button>`).join("");
+    if(nav.dataset.cwsPremiumNavBound !== "true"){
+      nav.dataset.cwsPremiumNavBound = "true";
+      nav.addEventListener("click", event => {
+        const btn = event.target?.closest?.("[data-mobile-app]");
+        if(!btn || !nav.contains(btn)) return;
+        const id = btn.dataset.mobileApp;
+        if(id === "more") return showMobileMore();
+        routerApi()?.loadApp?.(id);
       });
-    });
+    }
+    ensureMobileMoreSheet();
     markActive();
   }
 
   function markActive(){
     const app=activeApp();
-    const moreActive = moreItems.some(item=>item.id===app);
+    const moreActive = moreItems.some(item => item.id === app);
     document.querySelectorAll("[data-mobile-app]").forEach(btn=>{
-      const id=btn.dataset.mobileApp;
-      btn.classList.toggle("active", id===app || (id==="more" && moreActive));
+      const id = btn.dataset.mobileApp;
+      const active = id === app || (id === "more" && moreActive);
+      btn.classList.toggle("active", active);
+      if(active) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
     });
   }
 
-  function ensureMoreSheet(){
-    let sheet=document.getElementById("mobileMoreSheet");
-    if(sheet) return sheet;
-    sheet=document.createElement("div");
-    sheet.id="mobileMoreSheet";
-    sheet.className="mobile-more-backdrop";
-    sheet.setAttribute("aria-hidden","true");
-    sheet.innerHTML=`<div class="mobile-more-sheet" role="dialog" aria-modal="true" aria-label="Meer menu">
-      <div class="mobile-more-handle"></div>
-      <div class="mobile-more-head"><strong>Meer</strong><button type="button" data-mobile-more-close aria-label="Sluiten">X</button></div>
-      <div class="mobile-more-list">${moreItems.map(item=>`<button type="button" data-mobile-more-app="${item.id}">${item.label}<span>&rsaquo;</span></button>`).join("")}</div>
-    </div>`;
-    document.body.appendChild(sheet);
-    sheet.addEventListener("click",event=>{
-      if(event.target===sheet || event.target.closest("[data-mobile-more-close]")) closeMoreSheet();
-      const btn=event.target.closest("[data-mobile-more-app]");
-      if(btn){ closeMoreSheet(); window.Router?.loadApp?.(btn.dataset.mobileMoreApp); }
-    });
-    window.addEventListener("keydown",event=>{ if(event.key==="Escape") closeMoreSheet(); });
-    return sheet;
+  function ensureMobileMoreSheet(){
+    let sheet = document.getElementById("mobileMoreSheet");
+    if(!sheet){
+      sheet = document.createElement("div");
+      sheet.id = "mobileMoreSheet";
+      sheet.className = "mobile-more-sheet";
+      sheet.setAttribute("aria-hidden", "true");
+      sheet.innerHTML = `
+        <div class="mobile-more-panel" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle">
+          <div class="mobile-more-head">
+            <div><b id="mobileMoreTitle">Meer modules</b><span>Alle bestaande CWS Planning onderdelen</span></div>
+            <button type="button" class="mobile-more-close" aria-label="Meer-menu sluiten">X</button>
+          </div>
+          <div class="mobile-more-grid"></div>
+        </div>`;
+      document.body.appendChild(sheet);
+      sheet.querySelector(".mobile-more-close")?.addEventListener("click", hideMobileMore);
+      sheet.addEventListener("click", event => { if(event.target === sheet) hideMobileMore(); });
+    }
+    const grid = sheet.querySelector(".mobile-more-grid");
+    if(grid){
+      grid.innerHTML = moreItems.map(item => `<button type="button" data-more-app="${item.id}"><span>${item.icon}</span><b>${item.label}</b></button>`).join("");
+      grid.querySelectorAll("[data-more-app]").forEach(button => {
+        button.addEventListener("click", () => {
+          hideMobileMore();
+          routerApi()?.loadApp?.(button.dataset.moreApp);
+        });
+      });
+    }
+    if(!moreBound){
+      moreBound = true;
+      document.addEventListener("keydown", event => {
+        if(event.key === "Escape") hideMobileMore();
+      });
+    }
   }
 
-  function openMoreSheet(){
-    const sheet=ensureMoreSheet();
+  function showMobileMore(){
+    ensureMobileMoreSheet();
+    const sheet = document.getElementById("mobileMoreSheet");
+    if(!sheet) return appsMenuApi()?.show?.();
     sheet.classList.add("show");
-    sheet.setAttribute("aria-hidden","false");
+    sheet.removeAttribute("aria-hidden");
+    document.body.classList.add("mobile-more-open");
+    setTimeout(() => sheet.querySelector("[data-more-app]")?.focus(), 0);
   }
 
-  function closeMoreSheet(){
-    const sheet=document.getElementById("mobileMoreSheet");
+  function hideMobileMore(){
+    const sheet = document.getElementById("mobileMoreSheet");
     if(!sheet) return;
     sheet.classList.remove("show");
-    sheet.setAttribute("aria-hidden","true");
+    sheet.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("mobile-more-open");
   }
 
   function enhanceFrame(){
@@ -140,7 +175,7 @@ const CWS_Responsive = (() => {
   }
 
   function addMobileToolbar(doc){
-    if(viewport() === "mobile"){
+    if(isMobileViewport()){
       doc.getElementById("cwsMobileToolbar")?.remove();
       return;
     }
@@ -152,7 +187,7 @@ const CWS_Responsive = (() => {
     doc.body.prepend(bar);
     bar.querySelector('[data-act="top"]').addEventListener("click",()=>doc.scrollingElement?.scrollTo({top:0,behavior:"smooth"}));
     bar.querySelector('[data-act="fit"]').addEventListener("click",()=>doc.body.classList.toggle("cws-compact-mode"));
-    bar.querySelector('[data-act="menu"]').addEventListener("click",()=>window.AppsMenu?.show?.());
+    bar.querySelector('[data-act="menu"]').addEventListener("click",()=>appsMenuApi()?.show?.());
   }
 
   function labelTables(doc){
@@ -180,9 +215,8 @@ const CWS_Responsive = (() => {
   }
 
   function addMobileActionDock(doc){
-    const vp = viewport();
     let dock = doc.getElementById("cwsV37MobileActionDock");
-    if(vp !== "mobile" || doc.querySelector(".cws-mobile-page,.mobile-projects-view,.mobile-gantt-workbar,.mobile-capacity-workbar,.mobile-dashboard")){
+    if(!isMobileViewport()){
       if(dock) dock.remove();
       return;
     }
@@ -193,7 +227,7 @@ const CWS_Responsive = (() => {
       doc.body.appendChild(dock);
     }
     const title = (document.getElementById("moduleTitle")?.textContent || "").toLowerCase();
-    const route = window.Router?.getActiveApp?.() || "";
+    const route = routerApi()?.getActiveApp?.() || "";
     const actions = [];
     const add = (label, selector, fallback) => actions.push({label, selector, fallback});
     if(route === "projecten" || title.includes("projecten")){
@@ -219,7 +253,7 @@ const CWS_Responsive = (() => {
     }else{
       add("Boven", "#cwsMobileToolbar [data-act='top']", null);
       add("Compact", "#cwsMobileToolbar [data-act='fit']", null);
-      add("Menu", null, "window.parent?.AppsMenu?.show?.() || window.AppsMenu?.show?.()");
+      add("Menu", null, "window.parent?.postMessage?.({type:'cws_apps_menu'}, '*')");
     }
     dock.innerHTML = actions.map((a,i)=>`<button type="button" data-v37-action="${i}">${a.label}</button>`).join("");
     actions.forEach((a,i)=>{
@@ -266,7 +300,6 @@ const CWS_Responsive = (() => {
   function bind(){
     viewportHeightFix();
     ensureBottomNav();
-    ensureMoreSheet();
     applyViewport();
     window.addEventListener("resize",()=>requestAnimationFrame(()=>{ viewportHeightFix(); applyViewport(); }));
     document.addEventListener("cws:appchange",()=>{ markActive(); setTimeout(enhanceFrame,80); });

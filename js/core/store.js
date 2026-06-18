@@ -985,6 +985,9 @@ window.CWS = window.CWS || {};
     lastSuccessfulD1LoadAt:null,
     remoteSaveInFlight:false,
     remoteSaveQueued:false,
+    conflictActionRequired:false,
+    conflictCurrentVersion:null,
+    conflictAt:null,
     remoteSaveRetryScheduled:false,
     remoteSaveRetryAttempt:0,
     remoteSaveRetryAt:null,
@@ -1266,6 +1269,9 @@ window.CWS = window.CWS || {};
     }else if(error.status === 409){
       clearRemoteSaveRetry();
       storageStatus.label = "D1 conflict - herladen nodig";
+      storageStatus.conflictActionRequired = true;
+      storageStatus.conflictCurrentVersion = error.currentVersion || null;
+      storageStatus.conflictAt = new Date().toISOString();
       storageAdapter.audit("d1_conflict", { message:error.message, currentVersion:error.currentVersion || null });
       try{ window.UI?.toast?.("Data is gewijzigd door een andere gebruiker. Herlaad om overschrijven te voorkomen."); }catch(_){}
     }else if(isTransientRemoteSaveError(error) && storageStatus.mode === "api" && storageStatus.stateSource === "remote-d1"){
@@ -1370,6 +1376,23 @@ window.CWS = window.CWS || {};
       flushRemoteSaveQueue(reason);
     }, 350);
     return true;
+  };
+
+  const retryRemoteSave = (reason="manual-conflict-retry") => {
+    if(storageStatus.stateSource !== "remote-d1"){
+      try{ window.UI?.toast?.("Opnieuw opslaan kan alleen wanneer D1 actief is."); }catch(_){}
+      return false;
+    }
+    storageStatus.conflictActionRequired = false;
+    storageStatus.label = "Opslaan opnieuw proberen...";
+    notify();
+    return flushRemoteSaveQueue(reason);
+  };
+
+  const loadServerVersion = () => {
+    storageStatus.conflictActionRequired = false;
+    notify();
+    try{ window.location.reload(); }catch(_){}
   };
 
   const validateState = (candidate=state) => {
@@ -1524,6 +1547,9 @@ window.CWS = window.CWS || {};
     storageStatus.lastError = null;
     storageStatus.lastSuccessfulRemoteVersion = remoteVersion;
     storageStatus.lastSuccessfulSaveAt = new Date().toISOString();
+    storageStatus.conflictActionRequired = false;
+    storageStatus.conflictCurrentVersion = null;
+    storageStatus.conflictAt = null;
     state.meta.dirty = false;
     state.meta.lastSuccessfulRemoteVersion = remoteVersion;
     state.meta.lastSuccessfulSaveAt = storageStatus.lastSuccessfulSaveAt;
@@ -3177,6 +3203,8 @@ window.CWS = window.CWS || {};
     storage: storageAdapter,
     storageStatus,
     getRemoteVersion: () => remoteVersion,
+    retryRemoteSave,
+    loadServerVersion,
     getRuntimeInfo: runtimeInfo,
     appBootMarker: V78_PRODUCTION_BOOT_DATA_HYDRATION_FIX,
     isStateReady: () => storageStatus.bootReady && storageStatus.bootPhase === "app-ready",
