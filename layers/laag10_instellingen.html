@@ -10,6 +10,14 @@
 .logo-preview-box{display:flex;align-items:center;justify-content:center;min-height:120px;border:1px dashed #cbd5e1;border-radius:14px;background:#f8fafc;padding:12px;margin-top:8px}
 .logo-preview-box img{max-width:260px;max-height:110px;object-fit:contain}
 .logo-meta{font-size:12px;color:#64748b;margin-top:6px;line-height:1.4}
+.admin-data-grid{display:grid;gap:12px}
+.admin-data-card{border:1px solid #dbe3ef;border-radius:16px;background:#fff;padding:14px;display:grid;gap:8px}
+.admin-data-card strong{font-size:15px;color:#0f172a}
+.admin-data-card p{margin:0;color:#475569;line-height:1.45}
+.admin-data-card.danger{border-color:#fecaca;background:#fff7f7}
+.admin-data-card.warn{border-color:#fed7aa;background:#fffaf2}
+.admin-data-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.admin-data-note{border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:14px;padding:10px 12px;line-height:1.45;font-weight:750}
 </style>
 <style id="v40-template-css">
 .tpl-pred-cell{display:flex;align-items:center;gap:6px;min-width:150px}.tpl-pred-nos{font-weight:900;color:#0f172a;min-width:24px}.tpl-pred-pick{height:30px;border:1px solid #d7dee8;border-radius:8px;background:#fff;color:#1d4ed8;font-weight:800;padding:0 8px;cursor:pointer}.tpl-pred-pick:hover{background:#eff6ff;border-color:#93c5fd}.tpl-rowno{font-weight:950;text-align:center;color:#0f172a}.tpl-pred-select{min-height:260px;width:100%;border:1px solid #d7dee8;border-radius:10px;padding:8px}.tpl-pred-help{font-size:12px;color:#64748b;margin-top:7px;line-height:1.4}
@@ -50,8 +58,6 @@
       <button class="btn" id="quickLogo" type="button">Logo uploaden</button>
     </div>
     <div class="panel-tools">
-      <button class="btn" id="resetBtn">Reset demo</button>
-      <button class="btn" id="genDemo">Genereer demo</button>
     </div>
   </div>
 
@@ -265,6 +271,10 @@ var CWS = window.CWS;</script>
       const merged = Object.assign({}, seed, prev);
       if(!Array.isArray(prev.sections) || prev.sections.length===0) merged.sections = seed.sections;
       if(!prev.activeSection) merged.activeSection = seed.activeSection;
+      const sys = (merged.sections || []).find(sec => sec.name === "Systeem & Data");
+      if(sys && !sys.items.some(item => item.id === "databeheer")){
+        sys.items.unshift({ id:"databeheer", title:"Data beheer", desc:"Import Excel, demo data en data leegmaken met waarschuwingen.", icon:"!" });
+      }
       s.settings = merged;
       return s;
     });
@@ -1605,6 +1615,52 @@ let editCtx = { mode:"new", sec:"", id:"" };
     }
   }
 
+  function triggerAdminDataAction(action){
+    try{
+      const api = window.parent && window.parent !== window ? window.parent.CWS_AdminDataActions : window.CWS_AdminDataActions;
+      if(action === "import" && api?.importExcel) return api.importExcel();
+      if(action === "demo" && api?.demoData) return api.demoData();
+      if(action === "clear" && api?.clearData) return api.clearData();
+    }catch(_e){}
+    const type = action === "import" ? "cws_admin_import_excel" : action === "demo" ? "cws_admin_demo_data" : "cws_admin_clear_data";
+    try{ window.parent?.postMessage?.({ type }, "*"); }catch(_e){}
+  }
+
+  function openDataManagementModal(){
+    const metrics = CWS.getStateMetrics?.() || {};
+    const root = document.createElement("div");
+    root.className = "admin-data-grid";
+    root.innerHTML = `
+      <div class="admin-data-note">
+        Data beheer is bewust verplaatst naar Instellingen. Importeren, demo data laden en data leegmaken zijn beheeracties. Demo data en data leegmaken vragen altijd om een exacte tekstbevestiging voordat er iets wordt toegepast.
+      </div>
+      <div class="admin-data-card">
+        <strong>Import Excel</strong>
+        <p>Importeer projecten vanuit Excel. Je krijgt eerst een preview; pas na de importknop in de preview worden projecten toegevoegd of bijgewerkt.</p>
+        <div class="admin-data-actions"><button class="btn primary" type="button" data-admin-data="import">Excel import openen</button></div>
+      </div>
+      <div class="admin-data-card warn">
+        <strong>Demo data laden</strong>
+        <p>Vervangt de huidige planning (${Number(metrics.projectCount || 0)} projecten). Vooraf wordt automatisch een recovery snapshot gemaakt. Toepassen kan alleen door exact <b>DEMO OVERSCHRIJVEN</b> te typen.</p>
+        <div class="admin-data-actions"><button class="btn" type="button" data-admin-data="demo">Demo data laden</button></div>
+      </div>
+      <div class="admin-data-card danger">
+        <strong>Data leegmaken</strong>
+        <p>Verwijdert alle CWS Planning-data. Vooraf wordt automatisch een recovery snapshot gemaakt. Toepassen kan alleen door exact <b>DATA LEEGMAKEN</b> te typen en daarna nogmaals te bevestigen.</p>
+        <div class="admin-data-actions"><button class="btn danger" type="button" data-admin-data="clear">Data leegmaken</button></div>
+      </div>
+    `;
+    root.querySelectorAll("[data-admin-data]").forEach(btn=>{
+      btn.addEventListener("click", ()=>triggerAdminDataAction(btn.dataset.adminData));
+    });
+    UI.openModal({
+      title: "Data beheer",
+      subtitle: "Import, demo data en veilig leegmaken",
+      contentEl: root,
+      actions: [ { label:"Sluiten", primary:true } ]
+    });
+  }
+
   function openModule(moduleId){
     // Instellingen must always keep the underlying tables visible.
     // Dedicated SSOT screens are opened via an explicit button in the table manager.
@@ -1642,6 +1698,7 @@ let editCtx = { mode:"new", sec:"", id:"" };
       return;
     }
     if(moduleId==="fasen" || moduleId==="taken") return openTplModal(true);
+    if(moduleId==="databeheer") return openDataManagementModal();
     if(moduleId==="rechten") return openRightsModal(true);
     if(moduleId==="rollenrechten") return openRightsModal(true);
     if(moduleId==="audit") return openAuditModal(true);
@@ -2130,22 +2187,6 @@ let editCtx = { mode:"new", sec:"", id:"" };
 
   // Toolbar bindings (fixed)
   const __addBtn=document.getElementById("addBtn"); if(__addBtn) __addBtn.addEventListener("click", startNew);
-  const __resetBtn=document.getElementById("resetBtn"); if(__resetBtn) __resetBtn.addEventListener("click", ()=>{
-    CWS.setState(s=>{ delete s.settings; return s; });
-    ensureSettings();
-    CWS.audit?.("settings_reset");
-    UI.toast("Demo instellingen hersteld");
-    render();
-  });
-
-  const __genDemo=document.getElementById("genDemo");
-  if(__genDemo) __genDemo.addEventListener("click", ()=>{
-    CWS.loadDemo?.();
-    CWS.audit?.("demo_loaded");
-    UI.toast("Demo data gegenereerd");
-    render();
-  });
-
   // Template manager bindings
   const __tplClose = document.getElementById("tplClose");
   if(__tplClose) __tplClose.onclick = ()=> openTplModal(false);
