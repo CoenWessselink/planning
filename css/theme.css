@@ -1652,9 +1652,11 @@ body{
     padding:0 10px calc(10px + env(safe-area-inset-bottom));
     backdrop-filter:blur(8px);
   }
+  body.mobile-more-open{overflow:hidden!important;}
   .mobile-more-sheet.show{display:flex;}
   .mobile-more-panel{
-    width:min(520px,100%);
+    width:min(420px,calc(100vw - 20px));
+    max-width:calc(100vw - 20px);
     max-height:76dvh;
     overflow:hidden;
     display:flex;
@@ -1685,13 +1687,14 @@ body{
   }
   .mobile-more-grid{
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
     padding:14px;
     overflow:auto;
     -webkit-overflow-scrolling:touch;
   }
   .mobile-more-grid button{
+    min-width:0;
     min-height:72px;
     border:1px solid var(--cws-line);
     border-radius:18px;
@@ -1702,6 +1705,15 @@ body{
     gap:10px;
     padding:12px;
     text-align:left;
+    overflow:hidden;
+  }
+  .mobile-more-grid b{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:normal;
+    line-height:1.16;
+    font-size:14px;
   }
   .mobile-more-grid span{
     width:34px;
@@ -1729,6 +1741,12 @@ body{
   .apps-grid{grid-template-columns:1fr!important;}
   .app-card{min-height:112px;border-radius:16px;padding:14px 48px 14px 14px;}
   .app-icon{width:40px;height:40px;border-radius:14px;margin-bottom:10px;}
+}
+
+@media (max-width:430px){
+  .mobile-more-panel{max-height:82dvh;}
+  .mobile-more-grid{grid-template-columns:minmax(0,1fr);}
+  .mobile-more-grid button{min-height:62px;}
 }
 
 /* Premium module surfaces loaded inside iframes. Kept additive and print-safe. */
@@ -1803,6 +1821,49 @@ body:not(.printing) .gantt-shell .badge{
   box-shadow:0 8px 18px rgba(15,23,42,.05)!important;
 }
 @media (max-width:760px){
+  .v37-mobile-optimized.cws-mobile-native-actions{
+    padding-bottom:10px!important;
+    overflow-x:hidden!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .v37-mobile-action-dock{
+    display:none!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .tablewrap,
+  .v37-mobile-optimized.cws-mobile-native-actions .table-wrap,
+  .v37-mobile-optimized.cws-mobile-native-actions .matrix-wrap,
+  .v37-mobile-optimized.cws-mobile-native-actions .heatmap-wrap,
+  .v37-mobile-optimized.cws-mobile-native-actions .board-wrap{
+    max-width:calc(100vw - 20px)!important;
+    margin-left:10px!important;
+    margin-right:10px!important;
+    overflow:auto!important;
+    overscroll-behavior:contain!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .mobile-card-table table{
+    min-width:0!important;
+    width:100%!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .mobile-card-table tr{
+    width:100%!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .mobile-card-table td{
+    min-width:0!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .gantt-shell .board-wrap{
+    max-height:calc(100dvh - 285px)!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .gantt-shell .table-pane{
+    max-height:38dvh!important;
+    width:100%!important;
+    max-width:100%!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .cap-shell .heatmap-wrap{
+    max-height:32dvh!important;
+  }
+  .v37-mobile-optimized.cws-mobile-native-actions .cap-shell .matrix-wrap,
+  .v37-mobile-optimized.cws-mobile-native-actions #projectOverviewTableWrap{
+    max-height:calc(100dvh - 360px)!important;
+  }
   body:not(.printing) .gantt-shell .toolbar,
   body:not(.cap-printing) .cap-shell .toolbar{
     border-radius:0!important;

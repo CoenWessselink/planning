@@ -9,7 +9,7 @@ const gantt = read("layers/laag4_gantt.html");
 const capacity = read("layers/laag5_capaciteit.html");
 const settings = read("layers/laag10_instellingen.html");
 add(index.includes("setTimeout(()=>Router.loadApp(\"projecten\")"), "Demo data forceert herladen Projecten");
-add(store.includes("localStorage.setItem(KEY_TENANT"), "Tenant/global localStorage blijven gesynchroniseerd");
+add(store.includes("safeSetLocalItem(KEY_TENANT") && store.includes("safeSetLocalItem(KEY_GLOBAL"), "Tenant snapshot is leidend met global best-effort localStorage");
 add(store.includes("V33: seed full Gantt V2"), "Demo seed bevat echte Gantt V2-modellen");
 add(store.includes("st.ganttV2.byProject[\"P-1001\"]"), "Demo bevat P-1001 met Gantt-taken");
 add(store.includes("st.settings.sections = ["), "Demo bevat zichtbare instellingen-secties");

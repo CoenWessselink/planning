@@ -16,6 +16,9 @@ Verwerkt:
 - Mobiel dashboard met echte project-, taak- en capaciteit-KPI's.
 - Responsive Gantt behoudt bestaande planning, drag/resize, print en D1-state.
 - Responsive Capaciteit behoudt Gantt-uren als SSOT, heatmap, matrix en A0-print.
+- Lokale snapshot-opslag is quota-safe gemaakt zodat `QuotaExceededError` geen console-spam of werkschermfout meer veroorzaakt.
+- Mobiele brede modules gebruiken hun eigen werkbalk/scrollgedrag; de oude iframe-actiedock overlapt Gantt, Projectoverzicht en Capaciteit niet meer.
+- Mobiele Meer-sheet blijft binnen de viewport en schakelt op smalle schermen naar een veilige layout.
 
 ## Belangrijke Bestanden
 
@@ -23,6 +26,7 @@ Verwerkt:
 - `css/theme.css` - visuele tokens, Apps menu, header, mobiele navigatie en responsive oppervlakken.
 - `js/core/apps_menu.js` - 10 hoofdmodules plus compacte beheer-extra's.
 - `js/core/responsive.js` - mobiele bottom navigation en Meer-sheet.
+- `js/core/store.js` - quota-veilige lokale herstelcache naast D1 als leidende bron.
 - `layers/laag9_dashboard.html` - mobiel dashboard/cockpit.
 - `layers/laag4_gantt.html` - responsive Gantt en print/drag/resize behoud.
 - `layers/laag5_capaciteit.html` - responsive Capaciteit op basis van Gantt-uren.
@@ -37,6 +41,7 @@ Aanbevolen checks voor deze branch:
 - `npm run preflight:v90`
 - `npm run preflight:v91`
 - `npm run test:e2e`
+- `npm run build`
 
 De E2E-check bevat expliciet 1920 desktop en mobiele breedtes 375, 414 en 430, naast bestaande tablet/desktop varianten.
 

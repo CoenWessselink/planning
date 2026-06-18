@@ -203,8 +203,9 @@ const CWS_Responsive = (() => {
           });
         });
         table.dataset.cwsResponsiveLabels="1";
-        const wrap=table.closest(".table-wrap,.matrix-wrap,.rep-right,.assign-right");
-        if(wrap) wrap.classList.add("mobile-card-table");
+        const wrap=table.closest(".table-wrap,.tablewrap,.matrix-wrap,.heatmap-wrap,.board-wrap,.rep-right,.assign-right");
+        const wideDataTable = table.classList.contains("matrix") || table.closest(".matrix-wrap,.heatmap-wrap,.board-wrap,.cap-shell");
+        if(wrap && !wideDataTable) wrap.classList.add("mobile-card-table");
       }
     });
   }
@@ -217,19 +218,27 @@ const CWS_Responsive = (() => {
   }
 
   function addMobileActionDock(doc){
+    const title = (document.getElementById("moduleTitle")?.textContent || "").toLowerCase();
+    const route = routerApi()?.getActiveApp?.() || "";
     let dock = doc.getElementById("cwsV37MobileActionDock");
     if(!isMobileViewport()){
       if(dock) dock.remove();
       return;
     }
+    const nativeMobileControls = Boolean(doc.querySelector(".mobile-gantt-workbar,.mobile-capacity-workbar"));
+    const wideDataModule = route === "gantt" || route === "capaciteit" || route === "projectoverzicht" || title.includes("gantt") || title.includes("capaciteit") || title.includes("projectoverzicht");
+    if(nativeMobileControls || wideDataModule){
+      if(dock) dock.remove();
+      doc.body.classList.add("cws-mobile-native-actions");
+      return;
+    }
+    doc.body.classList.remove("cws-mobile-native-actions");
     if(!dock){
       dock = doc.createElement("div");
       dock.id = "cwsV37MobileActionDock";
       dock.className = "v37-mobile-action-dock responsive-only";
       doc.body.appendChild(dock);
     }
-    const title = (document.getElementById("moduleTitle")?.textContent || "").toLowerCase();
-    const route = routerApi()?.getActiveApp?.() || "";
     const actions = [];
     const add = (label, selector, fallback) => actions.push({label, selector, fallback});
     if(route === "projecten" || title.includes("projecten")){
@@ -293,7 +302,7 @@ const CWS_Responsive = (() => {
   }
 
   function makeWideAreasScrollable(doc){
-    doc.querySelectorAll(".board-wrap,.matrix-wrap,.heatmap-wrap,.table-wrap,.rep-right,.assign-right,.pb-right,.modal-body").forEach(el=>{
+    doc.querySelectorAll(".board-wrap,.matrix-wrap,.heatmap-wrap,.table-wrap,.tablewrap,.rep-right,.assign-right,.pb-right,.modal-body").forEach(el=>{
       el.style.webkitOverflowScrolling="touch";
       el.setAttribute("data-cws-scroll","x");
     });

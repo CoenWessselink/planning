@@ -418,14 +418,81 @@ window.CWS = window.CWS || {};
     }
   };
 
+  let localSnapshotQuotaWarned = false;
+  const isQuotaExceeded = (error) => {
+    const text = `${error?.name || ""} ${error?.message || ""}`.toLowerCase();
+    return text.includes("quota") || text.includes("storage") || error?.code === 22 || error?.code === 1014;
+  };
+  const releaseLocalSnapshotPressure = () => {
+    [KEY_BACKUP, ...LEGACY_STATE_KEYS].forEach(key => {
+      try{ localStorage.removeItem(key); }catch(_){}
+    });
+  };
+  const safeSetLocalItem = (key, raw) => {
+    try{
+      localStorage.setItem(key, raw);
+      return { ok:true };
+    }catch(error){
+      return { ok:false, error };
+    }
+  };
   const writeLocalSnapshot = (snapshot) => {
     try{
-      const raw = JSON.stringify(snapshot);
-      localStorage.setItem(KEY_GLOBAL, raw);
-      localStorage.setItem(KEY_TENANT, raw);
-      localStorage.setItem(KEY_BACKUP, raw);
+      const projected = createRemoteSaveSnapshot(snapshot);
+      const raw = JSON.stringify(projected);
+      const bytes = remoteSnapshotBytes(projected);
+      const tenant = safeSetLocalItem(KEY_TENANT, raw);
+      let global = { ok:false };
+      let backup = { ok:false };
+
+      if(!tenant.ok && isQuotaExceeded(tenant.error)){
+        releaseLocalSnapshotPressure();
+        const retry = safeSetLocalItem(KEY_TENANT, raw);
+        if(!retry.ok){
+          storageStatus.lastLocalSnapshotError = retry.error?.message || String(retry.error || "localStorage quota");
+          storageStatus.lastLocalSnapshotBytes = bytes;
+          storageStatus.localSnapshotQuotaExceeded = true;
+          if(!localSnapshotQuotaWarned){
+            localSnapshotQuotaWarned = true;
+            console.warn("CWS lokale herstelcache is te groot voor browseropslag; D1 blijft leidend.", { bytes });
+          }
+          return false;
+        }
+      }else if(!tenant.ok){
+        storageStatus.lastLocalSnapshotError = tenant.error?.message || String(tenant.error || "localStorage");
+        if(!localSnapshotQuotaWarned){
+          localSnapshotQuotaWarned = true;
+          console.warn("CWS lokale herstelcache kon niet worden bijgewerkt.", tenant.error);
+        }
+        return false;
+      }
+
+      global = safeSetLocalItem(KEY_GLOBAL, raw);
+      if(!global.ok && isQuotaExceeded(global.error)){
+        releaseLocalSnapshotPressure();
+        global = safeSetLocalItem(KEY_GLOBAL, raw);
+      }
+      if(bytes < 1_500_000){
+        backup = safeSetLocalItem(KEY_BACKUP, raw);
+      }
+
+      storageStatus.lastLocalSnapshotBytes = bytes;
+      storageStatus.lastLocalSnapshotAt = new Date().toISOString();
+      storageStatus.lastLocalSnapshotError = null;
+      storageStatus.localSnapshotQuotaExceeded = false;
+      storageStatus.localSnapshotKeys = {
+        tenant:true,
+        global:!!global.ok,
+        backup:!!backup.ok
+      };
+      return true;
     }catch(error){
-      console.error("CWS local snapshot save failed", error);
+      storageStatus.lastLocalSnapshotError = error?.message || String(error || "localStorage");
+      if(!localSnapshotQuotaWarned){
+        localSnapshotQuotaWarned = true;
+        console.warn("CWS lokale herstelcache kon niet worden bijgewerkt.", error);
+      }
+      return false;
     }
   };
 
@@ -992,6 +1059,11 @@ window.CWS = window.CWS || {};
     remoteSaveRetryAttempt:0,
     remoteSaveRetryAt:null,
     remoteSaveLastTransientError:null,
+    lastLocalSnapshotAt:null,
+    lastLocalSnapshotBytes:0,
+    lastLocalSnapshotError:null,
+    localSnapshotQuotaExceeded:false,
+    localSnapshotKeys:null,
     setStateCallsDuringBoot:0,
     rendersDuringBoot:0,
     savesBlockedDuringBoot:0,
@@ -2944,22 +3016,19 @@ window.CWS = window.CWS || {};
     bootSnapshotTimer = setTimeout(() => {
       scheduleIdle(() => {
         try{
-          const raw = JSON.stringify(snapshot);
           const createdAt = new Date().toISOString();
           const metrics = stateMetrics(snapshot);
-          localStorage.setItem(KEY_TENANT, raw);
-          setTimeout(() => {
-            try{ localStorage.setItem(KEY_GLOBAL, raw); }catch(_){}
-          }, 250);
-          setTimeout(() => {
-            try{ localStorage.setItem(KEY_BACKUP, raw); }catch(_){}
-          }, 500);
+          const projected = createRemoteSaveSnapshot(snapshot);
+          const raw = JSON.stringify(projected);
+          writeLocalSnapshot(projected);
           if(Number(metrics.projectCount || 0) >= 20){
             setTimeout(() => {
               try{
                 const prefix = JSON.stringify({ label, createdAt, metrics }).slice(0, -1);
                 localStorage.setItem(V67_LAST_GOOD_KEY, `${prefix},"state":${raw}}`);
-              }catch(_){}
+              }catch(error){
+                if(isQuotaExceeded(error)) releaseLocalSnapshotPressure();
+              }
             }, 750);
           }
         }catch(error){

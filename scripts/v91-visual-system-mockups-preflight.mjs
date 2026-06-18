@@ -24,6 +24,8 @@ refs.forEach(file => ok(`Mockup-reference aanwezig: ${file}`, fs.existsSync(file
 const index = read("index.html");
 const appsMenu = read("js/core/apps_menu.js");
 const responsive = read("js/core/responsive.js");
+const store = read("js/core/store.js");
+const theme = read("css/theme.css");
 const dashboard = read("layers/laag9_dashboard.html");
 const gantt = read("layers/laag4_gantt.html");
 const capacity = read("layers/laag5_capaciteit.html");
@@ -38,17 +40,21 @@ ok("Technische routes blijven compact bereikbaar", ["preflight","projectplanning
 ok("Mobiele Meer-sheet behoudt extra routes", ["preflight","projectplanning","transport"].every(id => responsive.includes(`id:"${id}"`)));
 
 ok("Mobiele bottom navigation bevat referentie-items", ["Dashboard","Projecten","Gantt","Capaciteit","Meer"].every(label => responsive.includes(`label:"${label}"`)) && responsive.includes("primary:true"));
+ok("Mobiele More-sheet heeft viewport-safe gridregels", theme.includes("mobile-more-panel") && theme.includes("calc(100vw - 20px)") && theme.includes("repeat(2,minmax(0,1fr))") && theme.includes("@media (max-width:430px)"));
+ok("Mobiele iframe-actiedock wordt niet boven brede modules gelegd", responsive.includes("nativeMobileControls") && responsive.includes("wideDataModule") && responsive.includes("cws-mobile-native-actions") && theme.includes(".v37-mobile-optimized.cws-mobile-native-actions .v37-mobile-action-dock"));
 ok("Dashboard mobile gebruikt echte capaciteithelpers", dashboard.includes("mobileCapacitySnapshot") && dashboard.includes("computePlannedWeekByDept") && dashboard.includes("computeDeptCapacityForWeek"));
 ok("Gantt responsive blijft echte module met drag/resize", gantt.includes("pointerdown") && gantt.includes("setPointerCapture") && gantt.includes("data-testid=\"gantt-root\""));
 ok("Capaciteit responsive blijft echte module met SSOT Gantt-bron", capacity.includes("gantt?.sourcesByDay") && capacity.includes("matrix-wrap") && capacity.includes("heatmap-wrap"));
+ok("Local snapshot opslag is quota-safe zonder console error spam", store.includes("isQuotaExceeded") && store.includes("releaseLocalSnapshotPressure") && store.includes("localSnapshotQuotaExceeded") && !store.includes("console.error(\"CWS local snapshot save failed"));
 
 ok("E2E dekt desktop 1920 en mobiele referentiebreedtes", ["[1920, 1080]","[375, 812]","[414, 896]","[430, 932]"].every(token => e2e.includes(token)));
 ok("E2E bewaakt Apps Menu 10-tegelcontract", e2e.includes("Desktop Apps Menu toont exact 10 hoofdmodules") && e2e.includes("beheer-extra"));
 ok("E2E bewaakt mobiel dashboard", e2e.includes("Mobiel dashboard toont cockpit volgens referentie") && e2e.includes("mobileCapacityPct"));
+ok("E2E bewaakt mobiele overflow en overlaydock", e2e.includes("Meer-sheet past binnen viewport") && e2e.includes("geen overlappende iframe-actiedock") && e2e.includes("bodyOverflow"));
 
 const appCode = [
   index,
-  read("css/theme.css"),
+  theme,
   responsive,
   appsMenu,
   dashboard,

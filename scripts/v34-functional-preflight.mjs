@@ -22,7 +22,7 @@ add(settings.includes('CWS_PARENT_BRIDGED') && settings.includes('../js/core/sto
 add(preflight.includes('CWS_PARENT_BRIDGED') && preflight.includes('../js/core/store.js'), 'Preflight heeft standalone/file fallback voor CWS-store');
 add(project.includes('TABS.includes(st.ui.lastTab) ? st.ui.lastTab : "Alle"'), 'Projecten corrigeert ongeldige active tab naar Alle');
 add(index.includes('CWS.resetDemo();') && index.includes('Router.loadApp("projecten")'), 'Demo-knop herlaadt Projecten na reset');
-add(store.includes('localStorage.setItem(KEY_TENANT') && store.includes('localStorage.setItem(KEY_GLOBAL'), 'State save synchroniseert tenant en global localStorage');
+add(store.includes('safeSetLocalItem(KEY_TENANT') && store.includes('safeSetLocalItem(KEY_GLOBAL'), 'State save gebruikt tenant leidend en global best-effort localStorage');
 add(store.includes('st.ganttV2.byProject["P-1001"]') && store.includes('st.projects.order.push(p.id)'), 'Demo seed bevat projecten en Gantt taken');
 add(settings.includes('id="quickCompany"') && settings.includes('id="quickLogo"'), 'Instellingen Bedrijf/logo direct bereikbaar');
 add(cap.includes('Beschikbare capaciteit') && cap.includes('Benodigde capaciteit') && cap.includes('Resterende capaciteit'), 'Capaciteit bevat afdelingsrijen beschikbaar/benodigd/resterend');

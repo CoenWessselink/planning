@@ -324,16 +324,22 @@ try {
       const more = await evaluate(`(()=> {
         document.querySelector('[data-mobile-app="more"]')?.click();
         const sheet = document.querySelector("#mobileMoreSheet");
+        const panel = sheet?.querySelector(".mobile-more-panel");
+        const grid = sheet?.querySelector(".mobile-more-grid");
+        const rect = panel?.getBoundingClientRect?.();
         const labels = Array.from(document.querySelectorAll("[data-more-app]")).map(btn => btn.textContent.trim());
         const open = sheet?.classList.contains("show");
+        const fits = rect ? rect.left >= -1 && rect.right <= window.innerWidth + 1 : false;
+        const gridOverflow = grid ? Math.max(0, grid.scrollWidth - grid.clientWidth) : 0;
         document.querySelector(".mobile-more-close")?.click();
         const closedByX = !sheet?.classList.contains("show");
         document.querySelector('[data-mobile-app="more"]')?.click();
         document.dispatchEvent(new KeyboardEvent("keydown", { key:"Escape" }));
         const closedByEsc = !sheet?.classList.contains("show");
-        return { open, labels, closedByX, closedByEsc };
+        return { open, labels, closedByX, closedByEsc, fits, gridOverflow };
       })()`);
       check(`Viewport ${width}x${height} Meer-sheet opent en bevat extra modules`, more.open && more.labels.some(text => text.includes("Projectoverzicht")) && more.labels.some(text => text.includes("Instellingen")));
+      check(`Viewport ${width}x${height} Meer-sheet past binnen viewport`, more.fits && more.gridOverflow <= 2, JSON.stringify(more));
       check(`Viewport ${width}x${height} Meer-sheet sluit via X en Escape`, more.closedByX && more.closedByEsc);
     }
   }
@@ -355,17 +361,54 @@ try {
   check("Mobiel dashboard toont echte capaciteit-KPI", /%$/.test(dashboardMobile.capacityText) && /%$/.test(dashboardMobile.capacityWidth), JSON.stringify(dashboardMobile));
 
   await openShell(390, 844);
+  await loadModule("gantt");
+  const ganttMobileFit = await frameEval(`(()=> {
+    const dock = document.querySelector("#cwsV37MobileActionDock");
+    const wrap = document.querySelector("#boardWrap");
+    return {
+      noDock:!dock,
+      native:document.body.classList.contains("cws-mobile-native-actions"),
+      bodyOverflow:Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      wrapFits:wrap ? wrap.getBoundingClientRect().right <= window.innerWidth + 1 : false,
+      scrollable:wrap ? wrap.scrollWidth > wrap.clientWidth : false,
+    };
+  })()`);
+  check("Gantt mobiel heeft geen overlappende iframe-actiedock", ganttMobileFit.noDock && ganttMobileFit.native, JSON.stringify(ganttMobileFit));
+  check("Gantt mobiel blijft binnen viewport en horizontaal scrollbaar", ganttMobileFit.bodyOverflow <= 2 && ganttMobileFit.wrapFits && ganttMobileFit.scrollable, JSON.stringify(ganttMobileFit));
+
+  await loadModule("projectoverzicht");
+  const overviewMobileFit = await frameEval(`(()=> {
+    const dock = document.querySelector("#cwsV37MobileActionDock");
+    const wrap = document.querySelector("#projectOverviewTableWrap");
+    return {
+      noDock:!dock,
+      native:document.body.classList.contains("cws-mobile-native-actions"),
+      bodyOverflow:Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      wrapFits:wrap ? wrap.getBoundingClientRect().right <= window.innerWidth + 1 : false,
+      tableCard:wrap?.classList.contains("mobile-card-table") || false,
+    };
+  })()`);
+  check("Projectoverzicht mobiel heeft geen overlappende iframe-actiedock", overviewMobileFit.noDock && overviewMobileFit.native, JSON.stringify(overviewMobileFit));
+  check("Projectoverzicht mobiel blijft binnen viewport", overviewMobileFit.bodyOverflow <= 2 && overviewMobileFit.wrapFits, JSON.stringify(overviewMobileFit));
+
+  await openShell(390, 844);
   await loadModule("capaciteit");
   const capacityMobile = await frameEval(`(()=> {
     const matrix = document.querySelector("#matrixWrap");
     const heatmap = document.querySelector("#heatmapWrap");
     return {
+      noDock:!document.querySelector("#cwsV37MobileActionDock"),
+      native:document.body.classList.contains("cws-mobile-native-actions"),
+      bodyOverflow:Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      matrixFits:matrix ? matrix.getBoundingClientRect().right <= window.innerWidth + 1 : false,
       matrixScroll:matrix && matrix.scrollWidth > matrix.clientWidth,
       heatmap:!!heatmap,
       why:[...document.querySelectorAll(".why,.hm-cell")].length > 0,
       print:[...document.querySelectorAll("button")].some(btn => /Afdrukken A0/i.test(btn.textContent)),
     };
   })()`);
+  check("Capaciteit mobiel heeft geen overlappende iframe-actiedock", capacityMobile.noDock && capacityMobile.native, JSON.stringify(capacityMobile));
+  check("Capaciteit mobiel blijft binnen viewport", capacityMobile.bodyOverflow <= 2 && capacityMobile.matrixFits, JSON.stringify(capacityMobile));
   check("Capaciteit mobiel heeft scrollbare matrix en heatmap", capacityMobile.matrixScroll && capacityMobile.heatmap);
   check("Capaciteit mobiel behoudt WHY/detail en printactie", capacityMobile.why && capacityMobile.print);
 
