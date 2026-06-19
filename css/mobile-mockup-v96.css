@@ -1,0 +1,113 @@
+/* CWS Planning V96 - structural mobile mockup fit.
+   Only visual/layout rules. No storage, calculation, save, print or drag logic changes. */
+@media(max-width:767px){
+  body.cws-v96-structural-fit .headerbar{height:66px!important;min-height:66px!important;max-height:66px!important}
+  body.cws-v96-structural-fit .app-shell{height:calc(100dvh - 66px)!important;overflow:hidden!important;background:#f3f7fc!important}
+  body.cws-v96-structural-fit #appFrame{height:calc(100dvh - 66px)!important;min-height:calc(100dvh - 66px)!important;max-height:calc(100dvh - 66px)!important}
+  body.cws-v96-structural-fit .mobile-bottom-nav{height:76px!important;min-height:76px!important;max-height:76px!important}
+}
+
+body.cws-responsive-frame.cws-v96-structural-fit{
+  height:calc(100dvh - 0px)!important;
+  min-height:0!important;
+  max-height:100dvh!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  background:#f3f7fc!important;
+  padding:0!important;
+}
+
+@media(max-width:767px){
+  body.cws-responsive-frame.cws-v96-structural-fit :where(.mobile-toolbar,#cwsMobileToolbar,#cwsV37MobileActionDock,.v37-mobile-action-dock){display:none!important}
+
+  /* Dashboard mockup: first screen must not be cut by an artificial iframe crop. */
+  body.cws-responsive-frame.cws-v96-structural-fit .mobile-dashboard{
+    padding:28px 16px 112px!important;
+    min-height:auto!important;
+    height:auto!important;
+  }
+  body.cws-responsive-frame.cws-v96-structural-fit .mobile-welcome h1{font-size:31px!important;line-height:1.06!important;margin:4px 0 20px!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .mobile-kpis{grid-auto-columns:112px!important;min-height:146px!important;max-height:none!important;margin-bottom:16px!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .mobile-kpi{min-height:136px!important}
+
+  /* Projecten is currently close: only avoid right clipping on status tabs. */
+  body.cws-responsive-frame.cws-v96-structural-fit .projects-infinite-panel{padding:28px 16px 112px!important;overflow-x:hidden!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .projects-infinite-panel :where(.filters,.tabs,.status-tabs,.project-tabs){overflow-x:auto!important;scrollbar-width:none!important;padding-right:22px!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .projects-infinite-panel :where(.filters,.tabs,.status-tabs,.project-tabs)::-webkit-scrollbar{display:none!important}
+
+  /* Gantt: remove the old secondary desktop control block and keep a compact mockup toolbar. */
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell{padding:0 0 112px!important;overflow:visible!important;background:#f3f7fc!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .module-head{padding:24px 16px 10px!important;background:#f3f7fc!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .module-head h1{font-size:25px!important;line-height:1.12!important;margin:0 0 8px!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .module-head p{font-size:15px!important;line-height:1.3!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar{
+    display:grid!important;
+    grid-template-columns:1fr auto!important;
+    gap:10px!important;
+    padding:10px 16px 12px!important;
+    position:static!important;
+    top:auto!important;
+    background:#f3f7fc!important;
+    overflow:hidden!important;
+  }
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar-group{display:contents!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar-group:nth-of-type(n+5){display:none!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar :where(#resourceSelect,.resource-select,[name*="resource" i],select[aria-label*="resource" i]){display:none!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar :where(#templateSelect,#generatePhasesBtn,[data-action*="generate" i],[data-action*="template" i]){display:none!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar :where(.project-picker,.select.project){grid-column:1/2!important;min-width:0!important;width:100%!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar :where(.project-search,.select,.input,button,.btn){height:44px!important;min-height:44px!important;border-radius:18px!important;font-size:14px!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .toolbar .btn.primary{grid-column:2/3!important;background:#0b5cac!important;color:#fff!important;min-width:82px!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .context,
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .notice.hidden,
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .v73-gantt-mobile-hint{display:none!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .meta-line{font-size:12px!important;padding:6px 16px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .gantt-shell .board-wrap{
+    height:calc(100dvh - 318px)!important;
+    min-height:260px!important;
+    max-height:none!important;
+    margin:8px 16px 20px!important;
+    overflow:auto!important;
+    border-radius:22px!important;
+  }
+
+  /* Capacity: make the top match the mockup: title first, compact controls, no old sticky/desktop strip. */
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell{display:flex!important;flex-direction:column!important;min-height:auto!important;height:auto!important;overflow:visible!important;padding:0 0 112px!important;background:#f3f7fc!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .head,
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .module-head,
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .panel-head{
+    order:1!important;
+    padding:22px 16px 10px!important;
+    margin:0!important;
+    background:#fff!important;
+    border:0!important;
+    border-radius:24px 24px 0 0!important;
+  }
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .head h1,
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .module-head h1,
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .panel-head h1{font-size:24px!important;line-height:1.12!important;margin:0 0 6px!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .head p{font-size:15px!important;line-height:1.32!important;margin:0!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .toolbar{
+    order:0!important;
+    position:static!important;
+    top:auto!important;
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:10px!important;
+    padding:12px 16px 18px!important;
+    margin:0!important;
+    background:#f3f7fc!important;
+    border:0!important;
+    overflow:hidden!important;
+  }
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .toolbar .left,
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .toolbar .right{display:contents!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .toolbar :where(select,input,button,.btn,.select){height:44px!important;min-height:44px!important;border-radius:18px!important;font-size:14px!important;min-width:0!important;width:100%!important;background:#fff!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .toolbar :where(.active,.primary){background:#0b5cac!important;color:#fff!important;border-color:#0b5cac!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .toolbar :where(.pill,.weekLabel,.progress){display:none!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .legend{display:none!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .heatmap-wrap{order:2!important;margin:10px 16px 14px!important;border-radius:22px!important;max-height:258px!important;overflow:auto!important;background:#fff!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .matrix-wrap{order:3!important;margin:10px 16px 20px!important;border-radius:22px!important;max-height:260px!important;overflow:auto!important;background:#fff!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .matrix{min-width:760px!important;width:max(760px,100%)!important}
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .scrollbar-dock,
+  body.cws-responsive-frame.cws-v96-structural-fit .cap-shell .scrollbar-proxy{display:none!important}
+}
