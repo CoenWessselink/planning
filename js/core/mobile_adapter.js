@@ -1,8 +1,7 @@
 const CWS_MobileAdapter = (() => {
   const DEVICE_CLASSES = ["is-mobile", "is-tablet", "is-desktop", "is-touch"];
   const RESPONSIVE_STYLESHEETS = [
-    { marker:"v73", href:"css/responsive-v73.css", attr:"cwsV73Responsive" },
-    { marker:"v92", href:"css/visual-system-v92.css", attr:"cwsV92VisualSystem" },
+    { marker:"v100", href:"css/cws-visual-system-v100.css", attr:"cwsV100VisualSystem" }
   ];
   let resizeQueued = false;
   let frameObserver = null;
@@ -16,10 +15,7 @@ const CWS_MobileAdapter = (() => {
   }
 
   function isTouchDevice(targetWindow = window) {
-    return Boolean(
-      targetWindow.matchMedia?.("(pointer: coarse)")?.matches ||
-      targetWindow.navigator?.maxTouchPoints > 0
-    );
+    return Boolean(targetWindow.matchMedia?.("(pointer: coarse)")?.matches || targetWindow.navigator?.maxTouchPoints > 0);
   }
 
   function applyClasses(doc, width = window.innerWidth, touch = isTouchDevice()) {
@@ -29,9 +25,8 @@ const CWS_MobileAdapter = (() => {
       node.classList.remove(...DEVICE_CLASSES);
       node.classList.add(`is-${current.family}`);
       if (touch) node.classList.add("is-touch");
-      node.dataset.cwsV73Viewport = current.viewport;
-      node.dataset.cwsV73Responsive = "true";
-      node.dataset.cwsV92VisualSystem = "true";
+      node.dataset.cwsViewport = current.viewport;
+      node.dataset.cwsV100VisualSystem = "true";
     });
   }
 
@@ -66,18 +61,7 @@ const CWS_MobileAdapter = (() => {
       ".table-wrap", ".tablewrap", ".matrix-wrap", ".heatmap-wrap",
       ".board-wrap", ".rep-right", ".assign-right", ".pb-right",
       ".tabs", ".tabs360", ".toolbar", ".buttonbar", ".filterbar"
-    ].join(",")).forEach(element => element.classList.add("v73-scroll-container"));
-  }
-
-  function ensureGanttFallback(doc) {
-    const shell = doc.querySelector(".gantt-shell");
-    if (!shell || shell.querySelector(".v73-gantt-mobile-hint")) return;
-    const hint = doc.createElement("div");
-    hint.className = "v73-gantt-mobile-hint";
-    hint.setAttribute("role", "note");
-    hint.textContent = "Op mobiel: tik een taak aan om datums en duur te wijzigen. Sleep het diagram horizontaal om de planning te bekijken.";
-    const toolbar = shell.querySelector(".toolbar");
-    toolbar?.insertAdjacentElement("afterend", hint);
+    ].join(",")).forEach(element => element.classList.add("v100-scroll-container"));
   }
 
   function enhanceDocument(doc, width = window.innerWidth) {
@@ -86,7 +70,7 @@ const CWS_MobileAdapter = (() => {
     applyClasses(doc, width, isTouchDevice());
     markScrollContainers(doc);
     improveAccessibility(doc);
-    ensureGanttFallback(doc);
+    doc.body.classList.add("cws-responsive-frame");
   }
 
   function enhanceFrame() {
