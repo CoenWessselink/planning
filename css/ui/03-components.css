@@ -1,0 +1,13 @@
+/* CWS Planning clean UI rebuild - 03 shared components. */
+body.cws-responsive-frame :where(.panelx,.card,.tile,.rep-card,.pitem,.panel,.cap-shell,.gantt-shell,.projects-infinite-panel,.mobile-section,.mobile-kpi){border-color:var(--cws-border)!important;border-radius:var(--cws-radius);box-shadow:var(--cws-shadow-soft)}
+body.cws-responsive-frame :where(select,input,textarea){border-color:var(--cws-border);border-radius:14px;background:#fff;min-height:var(--cws-touch)}
+body.cws-responsive-frame :where(button,.btn){min-height:var(--cws-touch);border-radius:16px;font-weight:850}
+body.cws-responsive-frame :where(.btn.primary,button.primary,.active){border-color:var(--cws-blue);}
+body.cws-responsive-frame :where(.table-wrap,.tablewrap,.matrix-wrap,.heatmap-wrap,.board-wrap){background:#fff;border:1px solid var(--cws-border);border-radius:var(--cws-radius);box-shadow:var(--cws-shadow-soft)}
+body.cws-responsive-frame :where(.modal,.dialog,.drawer,.cws-modal){border-radius:var(--cws-radius-lg);box-shadow:0 28px 80px rgba(8,27,53,.25)}
+@media(max-width:767px){
+  body.cws-responsive-frame :where(input,select,textarea){font-size:16px!important}
+  body.cws-responsive-frame :where(.toolbar,.filterbar,.buttonbar){gap:10px!important;overflow-x:auto!important;scrollbar-width:none!important}
+  body.cws-responsive-frame :where(.toolbar,.filterbar,.buttonbar)::-webkit-scrollbar{display:none!important}
+  body.cws-responsive-frame :where(.modal,.dialog,.drawer,.cws-modal){position:fixed!important;left:10px!important;right:10px!important;bottom:calc(var(--cws-mobile-nav-h) + 18px + env(safe-area-inset-bottom,0px))!important;top:auto!important;max-height:calc(100dvh - var(--cws-mobile-header-h) - var(--cws-mobile-nav-h) - 42px)!important;border-radius:28px!important;overflow:auto!important}
+}
