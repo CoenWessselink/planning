@@ -6,9 +6,16 @@
   <title>CWS Planning - Interne testversie</title>
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/responsive-v73.css">
-  <link rel="stylesheet" href="css/cws-visual-system-v100.css">
+  <link rel="stylesheet" href="css/ui/00-tokens.css">
+  <link rel="stylesheet" href="css/ui/01-reset.css">
+  <link rel="stylesheet" href="css/ui/02-shell-apps.css">
+  <link rel="stylesheet" href="css/ui/03-components.css">
+  <link rel="stylesheet" href="css/ui/04-mobile-nav.css">
+  <link rel="stylesheet" href="css/ui/05-mobile-dashboard-projects.css">
+  <link rel="stylesheet" href="css/ui/06-mobile-gantt-capacity.css">
+  <link rel="stylesheet" href="css/ui/10-print.css">
 </head>
-<body data-cws-build="CWS_VISUAL_SYSTEM_V100_CONSOLIDATED" data-cws-previous-build="MOBILE_NAV_V97_PROJECT_FILTER_EMPTY_STRICT" data-cws-legacy-builds="V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+<body data-cws-build="CWS_UI_REBUILD_V101_CLEAN_PRESENTATION" data-cws-previous-build="CWS_VISUAL_SYSTEM_V100_CONSOLIDATED" data-cws-legacy-builds="V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
   <div class="headerbar">
     <div class="left">
       <div class="cws-brand" aria-label="CWS Planning">
@@ -82,7 +89,7 @@
   <script>
     (async()=>{
       try{
-        document.body.dataset.cwsBuild = "CWS_VISUAL_SYSTEM_V100_CONSOLIDATED";
+        document.body.dataset.cwsBuild = "CWS_UI_REBUILD_V101_CLEAN_PRESENTATION";
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
