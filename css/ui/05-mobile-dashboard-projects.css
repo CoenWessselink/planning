@@ -1,0 +1,27 @@
+/* CWS Planning clean UI rebuild - 05 mobile Dashboard and Projects. */
+@media(max-width:767px){
+  body.cws-responsive-frame .dash>.panelx,body.cws-responsive-frame .dash>.grid{display:none!important}
+  body.cws-responsive-frame .mobile-dashboard{display:block!important;padding:28px 16px calc(var(--cws-mobile-nav-h) + 36px)!important;min-height:auto!important;background:var(--cws-bg)!important;overflow:visible!important}
+  body.cws-responsive-frame .mobile-welcome{margin:0 0 18px!important}
+  body.cws-responsive-frame .mobile-welcome span{font-size:15px!important;color:var(--cws-muted)!important;font-weight:850!important}
+  body.cws-responsive-frame .mobile-welcome h1{margin:4px 0 20px!important;font-size:31px!important;line-height:1.06!important;letter-spacing:-.04em!important;color:var(--cws-text)!important;max-width:350px!important}
+  body.cws-responsive-frame .mobile-dash-controls{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;margin:0 0 18px!important}
+  body.cws-responsive-frame .mobile-dash-controls button{height:48px!important;min-width:0!important;border-radius:24px!important;padding:0 16px!important;border:1px solid var(--cws-border)!important;background:#fff!important;font-size:15px!important;font-weight:950!important;box-shadow:0 8px 18px rgba(8,27,53,.05)!important}
+  body.cws-responsive-frame .mobile-kpis{display:grid!important;grid-auto-flow:column!important;grid-auto-columns:112px!important;grid-template-columns:none!important;gap:12px!important;overflow-x:auto!important;overflow-y:visible!important;min-height:146px!important;margin:0 0 16px!important;padding:0 0 8px!important;scrollbar-width:none!important}
+  body.cws-responsive-frame .mobile-kpis::-webkit-scrollbar{display:none!important}
+  body.cws-responsive-frame .mobile-kpi{min-width:112px!important;min-height:136px!important;border-radius:18px!important;padding:14px 12px!important;background:#fff!important;border:1px solid var(--cws-border)!important;box-shadow:0 10px 24px rgba(8,27,53,.06)!important}
+  body.cws-responsive-frame .mobile-kpi i{width:42px!important;height:42px!important;border-radius:18px!important;margin-bottom:14px!important;background:#eaf3ff!important;color:#0b5cac!important}
+  body.cws-responsive-frame .mobile-kpi b{font-size:30px!important;line-height:1!important;color:var(--cws-text)!important}
+  body.cws-responsive-frame .mobile-kpi span{font-size:12px!important;color:var(--cws-muted)!important;line-height:1.18!important}
+  body.cws-responsive-frame .mobile-section{margin-top:16px!important;border-radius:22px!important;padding:16px!important;background:#fff!important;border:1px solid var(--cws-border)!important;box-shadow:0 10px 24px rgba(8,27,53,.06)!important}
+  body.cws-responsive-frame .mobile-section-head h2{font-size:18px!important;color:var(--cws-text)!important}
+
+  body.cws-responsive-frame .projects-infinite-panel{padding:28px 16px calc(var(--cws-mobile-nav-h) + 36px)!important;overflow-x:hidden!important}
+  body.cws-responsive-frame .projects-infinite-panel :where(.filters,.tabs,.status-tabs,.project-tabs){overflow-x:auto!important;scrollbar-width:none!important;padding-right:24px!important}
+  body.cws-responsive-frame .projects-infinite-panel :where(.filters,.tabs,.status-tabs,.project-tabs)::-webkit-scrollbar{display:none!important}
+  body.cws-responsive-frame .projects-infinite-panel :where(.project-card,.mobile-project-card){border-radius:24px!important;box-shadow:0 10px 24px rgba(8,27,53,.06)!important;background:#fff!important;border:1px solid var(--cws-border)!important}
+  body.cws-responsive-frame .projects-infinite-panel :where(.project-card-actions,.card-actions){gap:10px!important}
+  body.cws-responsive-frame .projects-infinite-panel :where(.project-card-actions button,.card-actions button){min-height:44px!important;border-radius:16px!important;font-size:15px!important}
+  body.cws-responsive-frame .projects-infinite-panel :where(input[type="search"],input[type="text"]){background:#fff!important;border:1px solid var(--cws-border)!important;border-radius:20px!important;height:48px!important}
+}
+@media(max-width:390px){body.cws-responsive-frame .mobile-welcome h1{font-size:28px!important}body.cws-responsive-frame .mobile-kpis{grid-auto-columns:108px!important}body.cws-responsive-frame .mobile-kpi{min-width:108px!important}}
