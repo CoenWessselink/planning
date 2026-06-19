@@ -1,5 +1,5 @@
 const CWS_MobileMockupV93 = (() => {
-  const STYLE_HREFS = ["css/mobile-mockup-v93.css", "css/mobile-mockup-v94.css", "css/mobile-mockup-v95.css"];
+  const STYLE_HREFS = ["css/mobile-mockup-v93.css", "css/mobile-mockup-v94.css", "css/mobile-mockup-v95.css", "css/mobile-mockup-v96.css"];
   let observer = null;
   let lastRoute = "";
 
@@ -30,11 +30,13 @@ const CWS_MobileMockupV93 = (() => {
     doc.documentElement.dataset.cwsV93MobileMockup = "true";
     doc.documentElement.dataset.cwsV94ScreenshotFix = "true";
     doc.documentElement.dataset.cwsV95FinalFit = "true";
+    doc.documentElement.dataset.cwsV96StructuralFit = "true";
     doc.body.dataset.cwsV93MobileMockup = "true";
     doc.body.dataset.cwsV94ScreenshotFix = "true";
     doc.body.dataset.cwsV95FinalFit = "true";
+    doc.body.dataset.cwsV96StructuralFit = "true";
     doc.body.dataset.cwsActiveModule = route;
-    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup", "cws-v94-screenshot-fix", "cws-v95-final-fit");
+    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit");
     return route;
   }
 
@@ -57,12 +59,12 @@ const CWS_MobileMockupV93 = (() => {
       frame.style.minHeight = `${available}px`;
       frame.style.maxHeight = `${available}px`;
       document.documentElement.style.setProperty("--cws-vh", `${window.innerHeight}px`);
-      document.body.classList.add("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit");
+      document.body.classList.add("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit");
     } else {
       frame.style.height = "calc(100vh - 140px)";
       frame.style.minHeight = "";
       frame.style.maxHeight = "";
-      document.body.classList.remove("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit");
+      document.body.classList.remove("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit");
     }
   }
 
