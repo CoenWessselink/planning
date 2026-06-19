@@ -24,23 +24,25 @@ const CWS_DefaultEmptyProjectFilter = (() => {
     const active = activeModule(doc);
     if (!["gantt", "capaciteit"].includes(active)) return;
     try {
-      const st = window.CWS?.getState?.();
-      const ui = st?.ui || {};
-      if (!ui.activeProjectId && !ui.lastProjectId && !ui.projectId && !ui.selectedProjectId) return;
-      window.CWS.setState(s => {
+      window.CWS?.setState?.(s => {
         s.ui = s.ui || {};
         s.ui.activeProjectId = "";
         s.ui.lastProjectId = "";
         s.ui.projectId = "";
         s.ui.selectedProjectId = "";
+        s.ui.globalSearchTarget = null;
+        s.ganttV2 = s.ganttV2 || { byProject:{}, ui:{} };
+        s.ganttV2.ui = s.ganttV2.ui || {};
+        s.ganttV2.ui.projectId = "";
+        s.ganttV2.ui.selectedProjectId = "";
         return s;
       });
     } catch (_e) {}
   }
 
-  function fireSilentSelectChange(select) {
-    select.dispatchEvent(new Event("input", { bubbles:true }));
-    select.dispatchEvent(new Event("change", { bubbles:true }));
+  function fireSilentChange(el) {
+    el.dispatchEvent(new Event("input", { bubbles:true }));
+    el.dispatchEvent(new Event("change", { bubbles:true }));
   }
 
   function clearTextProjectFilters(doc) {
@@ -48,13 +50,18 @@ const CWS_DefaultEmptyProjectFilter = (() => {
     const active = activeModule(doc);
     const selectors = active === "projecten"
       ? ["#search", "#mobileProjectSearch", "#fuzzyQ", 'input[type="search"]']
-      : ['input[type="search"][id*="project" i]', 'input[type="text"][id*="project" i]', 'input[placeholder*="project" i]'];
+      : ['#projectSearch', 'input[type="search"][id*="project" i]', 'input[type="text"][id*="project" i]', 'input[placeholder*="project" i]'];
     doc.querySelectorAll(selectors.join(",")).forEach(input => {
       input.autocomplete = "off";
-      if (String(input.value || "").trim()) {
+      if (input.dataset.cwsUserTouched !== "true") {
+        input.addEventListener("pointerdown", () => { userTouched = true; input.dataset.cwsUserTouched = "true"; }, { once:true });
+        input.addEventListener("keydown", () => { userTouched = true; input.dataset.cwsUserTouched = "true"; }, { once:true });
+      }
+      if (!userTouched && String(input.value || "").trim()) {
         input.value = "";
-        input.dispatchEvent(new Event("input", { bubbles:true }));
-        input.dispatchEvent(new Event("change", { bubbles:true }));
+        input.title = "Alle projecten";
+        input.placeholder = input.id === "projectSearch" ? "Alle projecten" : (input.placeholder || "");
+        fireSilentChange(input);
       }
     });
   }
@@ -86,13 +93,15 @@ const CWS_DefaultEmptyProjectFilter = (() => {
     if (!hasExplicitProjectIntent() && !userTouched && select.value !== "") {
       select.value = "";
       select.selectedIndex = 0;
-      fireSilentSelectChange(select);
+      fireSilentChange(select);
     }
   }
 
   function clearProjectSelects(doc) {
     if (!doc?.body) return;
     doc.querySelectorAll([
+      "#mobileProjectSel",
+      "#projectSel",
       "select.project",
       'select[id*="project" i]',
       'select[name*="project" i]',
@@ -101,24 +110,40 @@ const CWS_DefaultEmptyProjectFilter = (() => {
     ].join(",")).forEach(ensureBlankProjectSelect);
   }
 
+  function patchGanttVisualDefaults(doc) {
+    if (!doc?.body || hasExplicitProjectIntent() || userTouched) return;
+    if (activeModule(doc) !== "gantt") return;
+    const input = doc.querySelector("#projectSearch");
+    if (input) {
+      input.value = "";
+      input.placeholder = "Alle projecten";
+      input.title = "Alle projecten";
+    }
+    const mobile = doc.querySelector("#mobileProjectSel");
+    if (mobile) ensureBlankProjectSelect(mobile);
+    const native = doc.querySelector("#projectSel");
+    if (native) ensureBlankProjectSelect(native);
+  }
+
   function applyToDocument(doc) {
     try {
       clearStateProjectSelection(doc);
       clearTextProjectFilters(doc);
       clearProjectSelects(doc);
+      patchGanttVisualDefaults(doc);
     } catch (_e) {}
   }
 
   function forceForAWhile(doc) {
     if (forceTimer) clearInterval(forceTimer);
-    forceUntil = Date.now() + 3500;
+    forceUntil = Date.now() + 15000;
     forceTimer = setInterval(() => {
       applyToDocument(doc);
       if (Date.now() > forceUntil || userTouched) {
         clearInterval(forceTimer);
         forceTimer = null;
       }
-    }, 120);
+    }, 80);
   }
 
   function enhanceFrame() {
@@ -136,8 +161,8 @@ const CWS_DefaultEmptyProjectFilter = (() => {
   }
 
   function bind() {
-    document.getElementById("appFrame")?.addEventListener("load", () => setTimeout(enhanceFrame, 120));
-    document.addEventListener("cws:appchange", () => setTimeout(enhanceFrame, 160));
+    document.getElementById("appFrame")?.addEventListener("load", () => setTimeout(enhanceFrame, 80));
+    document.addEventListener("cws:appchange", () => setTimeout(enhanceFrame, 120));
     setTimeout(enhanceFrame, 200);
   }
 
