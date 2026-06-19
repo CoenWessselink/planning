@@ -1,46 +1,46 @@
-
 const CWS_Responsive = (() => {
-  const navItems = [
-    {id:"dashboard", label:"Dashboard", icon:"⌂"},
-    {id:"projectoverzicht", label:"Overzicht", icon:"◎"},
-    {id:"gantt", label:"Gantt", icon:"▰"},
-    {id:"capaciteit", label:"Capaciteit", icon:"▦"},
-    {id:"apps", label:"Menu", icon:"☰"},
-  ];
+  const icon = {
+    dashboard:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5v7.8c0 .9-.7 1.7-1.7 1.7H15v-6H9v6H4.7c-.9 0-1.7-.7-1.7-1.7v-7.8Z"/></svg>',
+    projecten:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v3H4V4Zm0 5h16v3H4V9Zm0 5h16v3H4v-3Zm0 5h16v1.5H4V19Z"/></svg>',
+    gantt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h12a2 2 0 1 1 0 4H4V7Zm5 6h11a2 2 0 1 1 0 4H9v-4Z"/></svg>',
+    capaciteit:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4Zm2 2v3h3V6H6Zm5 0v3h3V6h-3Zm5 0v3h2V6h-2ZM6 11v3h3v-3H6Zm5 0v3h3v-3h-3Zm5 0v3h2v-3h-2ZM6 16v2h3v-2H6Zm5 0v2h3v-2h-3Zm5 0v2h2v-2h-2Z"/></svg>',
+    more:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14v2.5H5V7Zm0 4.75h14v2.5H5v-2.5ZM5 16.5h14V19H5v-2.5Z"/></svg>',
+    overview:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5V4Zm2 3v2h10V7H7Zm0 4v2h10v-2H7Zm0 4v2h6v-2H7Z"/></svg>',
+    board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v6H4V5Zm9 0h7v10h-7V5ZM4 13h7v6H4v-6Zm9 4h7v2h-7v-2Z"/></svg>',
+    reports:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V4h3v16H5Zm5 0V9h3v11h-3Zm5 0V6h3v14h-3Z"/></svg>',
+    importexport:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v5h3l-8 8-8-8h3V4Zm-2 15h14v2H5v-2Z"/></svg>',
+    settings:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13.5c.1-.5.1-1 .1-1.5s0-1-.1-1.5l2-1.5-2-3.5-2.4 1a8 8 0 0 0-2.6-1.5L14 2h-4l-.4 2.5A8 8 0 0 0 7 6L4.6 5l-2 3.5 2 1.5A8 8 0 0 0 4.5 12c0 .5 0 1 .1 1.5l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 2.6 1.5L10 22h4l.4-2.5A8 8 0 0 0 17 18l2.4 1 2-3.5-2-1.5ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z"/></svg>',
+    audit:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6V3Zm2 4v2h8V7H8Zm0 4v2h8v-2H8Zm0 4v2h5v-2H8Z"/></svg>'
+  };
 
-  navItems.splice(0, navItems.length,
-    {id:"dashboard", label:"Dashboard", icon:"⌂"},
-    {id:"projecten", label:"Projecten", icon:"▤"},
-    {id:"gantt", label:"Gantt", icon:"▰", primary:true},
-    {id:"capaciteit", label:"Capaciteit", icon:"▦"},
-    {id:"more", label:"Meer", icon:"☰"}
-  );
+  const navItems = [
+    {id:"dashboard", label:"Dashboard", icon:icon.dashboard},
+    {id:"projecten", label:"Projecten", icon:icon.projecten},
+    {id:"gantt", label:"Gantt", icon:icon.gantt, primary:true},
+    {id:"capaciteit", label:"Capaciteit", icon:icon.capaciteit},
+    {id:"more", label:"Meer", icon:icon.more}
+  ];
   const moreItems = [
-    {id:"projectoverzicht", label:"Projectoverzicht", icon:"PO"},
-    {id:"planbord", label:"Planbord", icon:"PL"},
-    {id:"rapporten", label:"Rapporten", icon:"RA"},
-    {id:"importexport", label:"Import / Export", icon:"IO"},
-    {id:"instellingen", label:"Instellingen", icon:"IN"},
-    {id:"audit", label:"Auditlog", icon:"AU"},
-    {id:"preflight", label:"Self-test / Preflight", icon:"PF"},
-    {id:"projectplanning", label:"Projectplanning", icon:"PP"},
-    {id:"transport", label:"Transportplanning", icon:"TR"},
+    {id:"projectoverzicht", label:"Projectoverzicht", icon:icon.overview},
+    {id:"planbord", label:"Planbord", icon:icon.board},
+    {id:"rapporten", label:"Rapporten", icon:icon.reports},
+    {id:"importexport", label:"Import / Export", icon:icon.importexport},
+    {id:"instellingen", label:"Instellingen", icon:icon.settings},
+    {id:"audit", label:"Auditlog", icon:icon.audit}
   ];
   let moreBound = false;
 
   const routerApi = () => window.Router || (typeof Router !== "undefined" ? Router : null);
   const appsMenuApi = () => window.AppsMenu || (typeof AppsMenu !== "undefined" ? AppsMenu : null);
   const viewport = () => window.CWS_MobileAdapter?.profile?.().family || (window.innerWidth <= 767 ? "mobile" : (window.innerWidth <= 1199 ? "tablet" : "desktop"));
-  const isMobileViewport = () => {
-    const vp = viewport();
-    return vp === "mobile" || vp === "is-mobile" || vp === "mobile-small" || window.innerWidth <= 760;
-  };
   const activeApp = () => (routerApi()?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "projecten");
 
   function applyViewport(){
     window.CWS_MobileAdapter?.apply?.();
-    document.body.dataset.cwsViewport = viewport();
-    document.documentElement.dataset.cwsViewport = viewport();
+    const vp = viewport();
+    document.body.dataset.cwsViewport = vp;
+    document.documentElement.dataset.cwsViewport = vp;
+    ensureBottomNav();
     markActive();
     enhanceFrame();
   }
@@ -54,7 +54,7 @@ const CWS_Responsive = (() => {
       nav.setAttribute("aria-label","Mobiele snelnavigatie");
       document.body.appendChild(nav);
     }
-    nav.innerHTML = navItems.map(item => `<button type="button" class="${item.primary ? "mobile-nav-primary" : ""}" data-mobile-app="${item.id}" aria-label="${item.label}"><span>${item.icon}</span><span>${item.label}</span></button>`).join("");
+    nav.innerHTML = navItems.map(item => `<button type="button" class="${item.primary ? "mobile-nav-primary" : ""}" data-mobile-app="${item.id}" aria-label="${item.label}"><span class="nav-icon">${item.icon}</span><span class="nav-label">${item.label}</span></button>`).join("");
     if(nav.dataset.cwsPremiumNavBound !== "true"){
       nav.dataset.cwsPremiumNavBound = "true";
       nav.addEventListener("click", event => {
@@ -92,7 +92,7 @@ const CWS_Responsive = (() => {
         <div class="mobile-more-panel" role="dialog" aria-modal="true" aria-labelledby="mobileMoreTitle">
           <div class="mobile-more-head">
             <div><b id="mobileMoreTitle">Meer modules</b><span>Alle bestaande CWS Planning onderdelen</span></div>
-            <button type="button" class="mobile-more-close" aria-label="Meer-menu sluiten">X</button>
+            <button type="button" class="mobile-more-close" aria-label="Meer-menu sluiten">×</button>
           </div>
           <div class="mobile-more-grid"></div>
         </div>`;
@@ -102,7 +102,7 @@ const CWS_Responsive = (() => {
     }
     const grid = sheet.querySelector(".mobile-more-grid");
     if(grid){
-      grid.innerHTML = moreItems.map(item => `<button type="button" data-more-app="${item.id}"><span>${item.icon}</span><b>${item.label}</b></button>`).join("");
+      grid.innerHTML = moreItems.map(item => `<button type="button" data-more-app="${item.id}"><span class="more-icon">${item.icon}</span><b>${item.label}</b></button>`).join("");
       grid.querySelectorAll("[data-more-app]").forEach(button => {
         button.addEventListener("click", () => {
           hideMobileMore();
@@ -112,9 +112,7 @@ const CWS_Responsive = (() => {
     }
     if(!moreBound){
       moreBound = true;
-      document.addEventListener("keydown", event => {
-        if(event.key === "Escape") hideMobileMore();
-      });
+      document.addEventListener("keydown", event => { if(event.key === "Escape") hideMobileMore(); });
     }
   }
 
@@ -127,7 +125,6 @@ const CWS_Responsive = (() => {
     document.body.classList.add("mobile-more-open");
     setTimeout(() => sheet.querySelector("[data-more-app]")?.focus(), 0);
   }
-
   function hideMobileMore(){
     const sheet = document.getElementById("mobileMoreSheet");
     if(!sheet) return;
@@ -149,19 +146,16 @@ const CWS_Responsive = (() => {
     doc.documentElement.dataset.cwsViewport=vp;
     doc.body.dataset.cwsViewport=vp;
     doc.body.classList.add("cws-responsive-frame");
-    markOptimized(doc);
-    addMobileToolbar(doc);
     labelTables(doc);
     makeWideAreasScrollable(doc);
     installMobileInputFocusGuard(doc);
-    addMobileActionDock(doc);
     observeDynamicContent(doc);
   }
 
   function observeDynamicContent(doc){
     if(!doc?.documentElement || !doc?.body) return;
-    if(doc.documentElement.dataset.v72ResponsiveObserver === "true") return;
-    doc.documentElement.dataset.v72ResponsiveObserver = "true";
+    if(doc.documentElement.dataset.v100ResponsiveObserver === "true") return;
+    doc.documentElement.dataset.v100ResponsiveObserver = "true";
     let queued=false;
     const observer=new MutationObserver(()=>{
       if(queued) return;
@@ -173,23 +167,7 @@ const CWS_Responsive = (() => {
         installMobileInputFocusGuard(doc);
       });
     });
-    if(doc.body?.nodeType === 1) observer.observe(doc.body,{childList:true,subtree:true});
-  }
-
-  function addMobileToolbar(doc){
-    if(isMobileViewport()){
-      doc.getElementById("cwsMobileToolbar")?.remove();
-      return;
-    }
-    if(doc.getElementById("cwsMobileToolbar")) return;
-    const bar=doc.createElement("div");
-    bar.id="cwsMobileToolbar";
-    bar.className="mobile-toolbar responsive-only";
-    bar.innerHTML=`<button type="button" data-act="top">Boven</button><button type="button" data-act="fit">Compact</button><button type="button" data-act="menu">Menu</button>`;
-    doc.body.prepend(bar);
-    bar.querySelector('[data-act="top"]').addEventListener("click",()=>doc.scrollingElement?.scrollTo({top:0,behavior:"smooth"}));
-    bar.querySelector('[data-act="fit"]').addEventListener("click",()=>doc.body.classList.toggle("cws-compact-mode"));
-    bar.querySelector('[data-act="menu"]').addEventListener("click",()=>appsMenuApi()?.show?.());
+    observer.observe(doc.body,{childList:true,subtree:true});
   }
 
   function labelTables(doc){
@@ -198,125 +176,45 @@ const CWS_Responsive = (() => {
       const headers=Array.from(table.querySelectorAll("thead th")).map(th=>th.textContent.trim().replace(/\s+/g," "));
       if(headers.length){
         table.querySelectorAll("tbody tr").forEach(tr=>{
-          Array.from(tr.children).forEach((td,i)=>{
-            if(!td.hasAttribute("data-label")) td.setAttribute("data-label", headers[i] || "");
-          });
+          Array.from(tr.children).forEach((td,i)=>{ if(!td.hasAttribute("data-label")) td.setAttribute("data-label", headers[i] || ""); });
         });
         table.dataset.cwsResponsiveLabels="1";
-        const wrap=table.closest(".table-wrap,.tablewrap,.matrix-wrap,.heatmap-wrap,.board-wrap,.rep-right,.assign-right");
-        const wideDataTable = table.classList.contains("matrix") || table.closest(".matrix-wrap,.heatmap-wrap,.board-wrap,.cap-shell");
-        if(wrap && !wideDataTable) wrap.classList.add("mobile-card-table");
       }
     });
   }
 
-
-
-  function viewportHeightFix(){
-    const h = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
-    if(h) document.documentElement.style.setProperty("--cws-vh", `${h}px`);
-  }
-
-  function addMobileActionDock(doc){
-    const title = (document.getElementById("moduleTitle")?.textContent || "").toLowerCase();
-    const route = routerApi()?.getActiveApp?.() || "";
-    let dock = doc.getElementById("cwsV37MobileActionDock");
-    if(!isMobileViewport()){
-      if(dock) dock.remove();
-      return;
-    }
-    const nativeMobileControls = Boolean(doc.querySelector(".mobile-gantt-workbar,.mobile-capacity-workbar"));
-    const wideDataModule = route === "gantt" || route === "capaciteit" || route === "projectoverzicht" || title.includes("gantt") || title.includes("capaciteit") || title.includes("projectoverzicht");
-    if(nativeMobileControls || wideDataModule){
-      if(dock) dock.remove();
-      doc.body.classList.add("cws-mobile-native-actions");
-      return;
-    }
-    doc.body.classList.remove("cws-mobile-native-actions");
-    if(!dock){
-      dock = doc.createElement("div");
-      dock.id = "cwsV37MobileActionDock";
-      dock.className = "v37-mobile-action-dock responsive-only";
-      doc.body.appendChild(dock);
-    }
-    const actions = [];
-    const add = (label, selector, fallback) => actions.push({label, selector, fallback});
-    if(route === "projecten" || title.includes("projecten")){
-      add("Nieuw", "#newProjectBtn,[data-action='new-project']", "window.CWS_Projecten_OpenNew?.()");
-      add("Zoek", ".search,#projectSearch,input[type='search']", null);
-      add("Filters", "#filterBtn,.filtersBtn", null);
-    }else if(route === "gantt" || title.includes("gantt")){
-      add("Taak", "#addTaskBtn,[data-action='add-task']", null);
-      add("Diagram", "#viewDiagram,.btn[data-view='diagram']", null);
-      add("Beide", "#viewBoth,.btn[data-view='both']", null);
-    }else if(route === "capaciteit" || title.includes("capaciteit")){
-      add("Vandaag", "#todayBtn", null);
-      add("6 weken", "[data-weeks='6']", null);
-      add("A0", "#printBtn", null);
-    }else if(route === "instellingen" || title.includes("instellingen")){
-      add("Bedrijf", "#quickCompany", null);
-      add("Logo", "#quickLogo", null);
-      add("Nieuw", "#newItemBtn", null);
-    }else if(route === "projectoverzicht" || title.includes("projectoverzicht")){
-      add("Zoek", "#searchInput,.search,input[type='search']", null);
-      add("Print", "#printBtn", null);
-      add("Export", "#exportBtn", null);
-    }else{
-      add("Boven", "#cwsMobileToolbar [data-act='top']", null);
-      add("Compact", "#cwsMobileToolbar [data-act='fit']", null);
-      add("Menu", null, "window.parent?.postMessage?.({type:'cws_apps_menu'}, '*')");
-    }
-    dock.innerHTML = actions.map((a,i)=>`<button type="button" data-v37-action="${i}">${a.label}</button>`).join("");
-    actions.forEach((a,i)=>{
-      const btn = dock.querySelector(`[data-v37-action="${i}"]`);
-      btn?.addEventListener("click",()=>{
-        if(a.selector){
-          const target = doc.querySelector(a.selector);
-          if(target){
-            if(target.tagName === "INPUT" || target.tagName === "TEXTAREA") target.focus();
-            else target.click();
-            return;
-          }
-        }
-        if(a.fallback){ try{ Function(a.fallback)(); }catch(_e){} }
-      });
+  function makeWideAreasScrollable(doc){
+    doc.querySelectorAll(".table-wrap,.tablewrap,.matrix-wrap,.heatmap-wrap,.board-wrap,.rep-right,.assign-right,.pb-right").forEach(wrap=>{
+      wrap.classList.add("v100-scroll-container");
+      wrap.style.overflowX = wrap.style.overflowX || "auto";
+      wrap.style.webkitOverflowScrolling = "touch";
     });
   }
 
   function installMobileInputFocusGuard(doc){
     doc.querySelectorAll("input,select,textarea,button").forEach(el=>{
       el.style.touchAction = "manipulation";
-      if((el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") && !el.dataset.v37FontGuard){
-        el.dataset.v37FontGuard = "1";
+      if((el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") && !el.dataset.v100FontGuard){
+        el.dataset.v100FontGuard = "1";
         el.style.fontSize = "16px";
       }
     });
   }
 
-  function markOptimized(doc){
-    doc.documentElement.dataset.v37MobileOptimized = "true";
-    doc.documentElement.dataset.v72MobileHardened = "true";
-    doc.body.dataset.v37MobileOptimized = "true";
-    doc.body.dataset.v72MobileHardened = "true";
-    doc.body.classList.add("v37-mobile-optimized","v72-mobile-hardened");
-  }
-
-  function makeWideAreasScrollable(doc){
-    doc.querySelectorAll(".board-wrap,.matrix-wrap,.heatmap-wrap,.table-wrap,.tablewrap,.rep-right,.assign-right,.pb-right,.modal-body").forEach(el=>{
-      el.style.webkitOverflowScrolling="touch";
-      el.setAttribute("data-cws-scroll","x");
-    });
+  function viewportHeightFix(){
+    const h = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+    if(h) document.documentElement.style.setProperty("--cws-vh", `${h}px`);
   }
 
   function bind(){
     viewportHeightFix();
-    ensureBottomNav();
     applyViewport();
-    window.addEventListener("resize",()=>requestAnimationFrame(()=>{ viewportHeightFix(); applyViewport(); }));
-    document.addEventListener("cws:appchange",()=>{ markActive(); setTimeout(enhanceFrame,80); });
+    ensureBottomNav();
+    window.addEventListener("resize",()=>{ viewportHeightFix(); applyViewport(); },{passive:true});
+    window.addEventListener("orientationchange",()=>setTimeout(()=>{ viewportHeightFix(); applyViewport(); },120),{passive:true});
     document.getElementById("appFrame")?.addEventListener("load",()=>setTimeout(enhanceFrame,40));
-    window.addEventListener("orientationchange",()=>setTimeout(()=>{ viewportHeightFix(); applyViewport(); },200));
+    document.addEventListener("cws:appchange",()=>setTimeout(()=>{ markActive(); enhanceFrame(); },80));
   }
 
-  return { bind, applyViewport, enhanceFrame };
+  return { bind, applyViewport, enhanceDocument, ensureBottomNav, markActive };
 })();
