@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="css/mobile-mockup-v95.css">
   <link rel="stylesheet" href="css/mobile-mockup-v96.css">
 </head>
-<body data-cws-build="MOBILE_STRUCTURAL_FIT_V96" data-cws-previous-build="MOBILE_FINAL_FIT_V95" data-cws-legacy-builds="V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+<body data-cws-build="MOBILE_STRUCTURAL_FIT_V96_PROJECT_FILTER_EMPTY" data-cws-previous-build="MOBILE_STRUCTURAL_FIT_V96" data-cws-legacy-builds="V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
   <div class="headerbar">
     <div class="left">
       <div class="cws-brand" aria-label="CWS Planning">
@@ -79,6 +79,7 @@
   <script src="js/core/mobile_adapter.js"></script>
   <script src="js/core/responsive.js"></script>
   <script src="js/core/mobile_mockup_v93.js"></script>
+  <script src="js/core/default_empty_project_filter.js"></script>
   <script src="js/core/apps_menu.js"></script>
   <script src="js/core/global_search.js"></script>
   <script src="js/core/export.js"></script>
@@ -86,7 +87,7 @@
   <script>
     (async()=>{
       try{
-        document.body.dataset.cwsBuild = "MOBILE_STRUCTURAL_FIT_V96";
+        document.body.dataset.cwsBuild = "MOBILE_STRUCTURAL_FIT_V96_PROJECT_FILTER_EMPTY";
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
@@ -95,6 +96,7 @@
         Router.boot();
         CWS_Responsive.bind();
         CWS_MobileMockupV93.bind();
+        CWS_DefaultEmptyProjectFilter.bind();
         document.body.dataset.cwsShellReady = "true";
 
         await CWS.init();
