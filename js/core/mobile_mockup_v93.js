@@ -1,5 +1,5 @@
 const CWS_MobileMockupV93 = (() => {
-  const STYLE_HREFS = ["css/mobile-mockup-v93.css", "css/mobile-mockup-v94.css", "css/mobile-mockup-v95.css", "css/mobile-mockup-v96.css"];
+  const STYLE_HREFS = ["css/mobile-mockup-v93.css", "css/mobile-mockup-v94.css", "css/mobile-mockup-v95.css", "css/mobile-mockup-v96.css", "css/mobile-nav-v97.css"];
   let observer = null;
   let lastRoute = "";
 
@@ -8,7 +8,7 @@ const CWS_MobileMockupV93 = (() => {
   function injectStylesheet(doc) {
     if (!doc?.head) return;
     STYLE_HREFS.forEach((href, index) => {
-      const key = `cwsV9${3 + index}MobileMockup`;
+      const key = `cwsV${93 + index}MobileMockup`;
       if (doc.querySelector(`link[data-${key.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}="true"]`)) return;
       const link = doc.createElement("link");
       link.rel = "stylesheet";
@@ -31,12 +31,14 @@ const CWS_MobileMockupV93 = (() => {
     doc.documentElement.dataset.cwsV94ScreenshotFix = "true";
     doc.documentElement.dataset.cwsV95FinalFit = "true";
     doc.documentElement.dataset.cwsV96StructuralFit = "true";
+    doc.documentElement.dataset.cwsV97MobileNav = "true";
     doc.body.dataset.cwsV93MobileMockup = "true";
     doc.body.dataset.cwsV94ScreenshotFix = "true";
     doc.body.dataset.cwsV95FinalFit = "true";
     doc.body.dataset.cwsV96StructuralFit = "true";
+    doc.body.dataset.cwsV97MobileNav = "true";
     doc.body.dataset.cwsActiveModule = route;
-    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit");
+    doc.body.classList.add("cws-responsive-frame", "cws-v93-mobile-mockup", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit", "cws-v97-mobile-nav");
     return route;
   }
 
@@ -59,12 +61,12 @@ const CWS_MobileMockupV93 = (() => {
       frame.style.minHeight = `${available}px`;
       frame.style.maxHeight = `${available}px`;
       document.documentElement.style.setProperty("--cws-vh", `${window.innerHeight}px`);
-      document.body.classList.add("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit");
+      document.body.classList.add("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit", "cws-v97-mobile-nav");
     } else {
       frame.style.height = "calc(100vh - 140px)";
       frame.style.minHeight = "";
       frame.style.maxHeight = "";
-      document.body.classList.remove("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit");
+      document.body.classList.remove("cws-v93-mobile-shell", "cws-v94-screenshot-fix", "cws-v95-final-fit", "cws-v96-structural-fit", "cws-v97-mobile-nav");
     }
   }
 
