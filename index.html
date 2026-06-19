@@ -6,14 +6,9 @@
   <title>CWS Planning - Interne testversie</title>
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/responsive-v73.css">
-  <link rel="stylesheet" href="css/visual-system-v92.css">
-  <link rel="stylesheet" href="css/mobile-mockup-v93.css">
-  <link rel="stylesheet" href="css/mobile-mockup-v94.css">
-  <link rel="stylesheet" href="css/mobile-mockup-v95.css">
-  <link rel="stylesheet" href="css/mobile-mockup-v96.css">
-  <link rel="stylesheet" href="css/mobile-nav-v97.css">
+  <link rel="stylesheet" href="css/cws-visual-system-v100.css">
 </head>
-<body data-cws-build="MOBILE_NAV_V97_PROJECT_FILTER_EMPTY_STRICT" data-cws-previous-build="MOBILE_STRUCTURAL_FIT_V96_PROJECT_FILTER_EMPTY" data-cws-legacy-builds="V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+<body data-cws-build="CWS_VISUAL_SYSTEM_V100_CONSOLIDATED" data-cws-previous-build="MOBILE_NAV_V97_PROJECT_FILTER_EMPTY_STRICT" data-cws-legacy-builds="V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
   <div class="headerbar">
     <div class="left">
       <div class="cws-brand" aria-label="CWS Planning">
@@ -79,7 +74,6 @@
   <script src="js/core/router.js"></script>
   <script src="js/core/mobile_adapter.js"></script>
   <script src="js/core/responsive.js"></script>
-  <script src="js/core/mobile_mockup_v93.js"></script>
   <script src="js/core/default_empty_project_filter.js"></script>
   <script src="js/core/apps_menu.js"></script>
   <script src="js/core/global_search.js"></script>
@@ -88,7 +82,7 @@
   <script>
     (async()=>{
       try{
-        document.body.dataset.cwsBuild = "MOBILE_NAV_V97_PROJECT_FILTER_EMPTY_STRICT";
+        document.body.dataset.cwsBuild = "CWS_VISUAL_SYSTEM_V100_CONSOLIDATED";
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
@@ -96,7 +90,6 @@
         CWS_MobileAdapter.bind();
         Router.boot();
         CWS_Responsive.bind();
-        CWS_MobileMockupV93.bind();
         CWS_DefaultEmptyProjectFilter.bind();
         document.body.dataset.cwsShellReady = "true";
 
