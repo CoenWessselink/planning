@@ -61,6 +61,9 @@ window.CWS = window.CWS || {};
     delete snapshot.meta.lastExportPreview;
     delete snapshot.meta.dragPreview;
     if(snapshot.ui){
+      // Global search targets are one-shot navigation hints. Persisting them makes
+      // later sessions reopen with an old project filter/selection.
+      delete snapshot.ui.globalSearchTarget;
       delete snapshot.ui.scroll;
       delete snapshot.ui.modal;
       delete snapshot.ui.contextMenu;
@@ -452,18 +455,12 @@ window.CWS = window.CWS || {};
           storageStatus.lastLocalSnapshotError = retry.error?.message || String(retry.error || "localStorage quota");
           storageStatus.lastLocalSnapshotBytes = bytes;
           storageStatus.localSnapshotQuotaExceeded = true;
-          if(!localSnapshotQuotaWarned){
-            localSnapshotQuotaWarned = true;
-            console.warn("CWS lokale herstelcache is te groot voor browseropslag; D1 blijft leidend.", { bytes });
-          }
+          localSnapshotQuotaWarned = true;
           return false;
         }
       }else if(!tenant.ok){
         storageStatus.lastLocalSnapshotError = tenant.error?.message || String(tenant.error || "localStorage");
-        if(!localSnapshotQuotaWarned){
-          localSnapshotQuotaWarned = true;
-          console.warn("CWS lokale herstelcache kon niet worden bijgewerkt.", tenant.error);
-        }
+        localSnapshotQuotaWarned = true;
         return false;
       }
 
@@ -488,10 +485,7 @@ window.CWS = window.CWS || {};
       return true;
     }catch(error){
       storageStatus.lastLocalSnapshotError = error?.message || String(error || "localStorage");
-      if(!localSnapshotQuotaWarned){
-        localSnapshotQuotaWarned = true;
-        console.warn("CWS lokale herstelcache kon niet worden bijgewerkt.", error);
-      }
+      localSnapshotQuotaWarned = true;
       return false;
     }
   };
@@ -1729,7 +1723,7 @@ window.CWS = window.CWS || {};
       state.meta = state.meta || {};
       state.meta.updatedAt = new Date().toISOString();
       state.meta.v77UiOnlyFastPath = true;
-      if(storageStatus.bootReady) {
+      if(storageStatus.bootReady && options.persistLocal !== false) {
         try{ writeLocalSnapshot(state); }catch(_){}
       }
       notify();

@@ -1949,12 +1949,29 @@ var CWS = window.CWS;</script>
       if(!projectId) return false;
       return selectableProjects(st).some(p => String(p?.id) === String(projectId));
     }
+    function isFreshGlobalSearchTarget(target){
+      if(!target?.module || !target?.projectId) return false;
+      const ts = Date.parse(target.expiresAt || target.openedAt || "");
+      if(!Number.isFinite(ts)) return false;
+      return Date.now() <= (target.expiresAt ? ts : ts + 120000);
+    }
+    function clearGlobalProjectTarget(){
+      try{ sessionStorage.removeItem("cws.globalSearchTarget"); }catch(_){}
+      try{
+        CWS?.setState?.(draft => {
+          draft.ui = draft.ui || {};
+          draft.ui.globalSearchTarget = null;
+          return draft;
+        }, { userAction:false, reason:"gantt-user-project-selection", persistLocal:false });
+      }catch(_){}
+    }
     function currentProjectId(st=state()){
       const list = selectableProjects(st);
       const ids = new Set(list.map(p => String(p?.id || "")).filter(Boolean));
       const uiId = UI.projectId ? String(UI.projectId) : "";
       const domId = $("#projectSel")?.value ? String($("#projectSel").value) : "";
-      const searchId = st.ui?.globalSearchTarget?.projectId ? String(st.ui.globalSearchTarget.projectId) : "";
+      const target = st.ui?.globalSearchTarget;
+      const searchId = isFreshGlobalSearchTarget(target) ? String(target.projectId || "") : "";
       if(uiId && ids.has(uiId)) return uiId;
       if(domId && ids.has(domId)) return domId;
       if(searchId && ids.has(searchId)) return searchId;
@@ -1991,6 +2008,7 @@ var CWS = window.CWS;</script>
       const id=String(projectId||"");
       if(!projectExists(id)) return;
       UI.projectId=id;
+      clearGlobalProjectTarget();
       const sel=$("#projectSel");
       if(sel) sel.value=id;
       closeProjectResults();
@@ -3556,9 +3574,9 @@ var CWS = window.CWS;</script>
       updateBulkUi();
     }
     function bind(){
-      $("#projectSel").onchange=e=>{UI.projectId=e.target.value; syncProjectSearchInput(e.target.value); render();};
+      $("#projectSel").onchange=e=>{UI.projectId=e.target.value; clearGlobalProjectTarget(); syncProjectSearchInput(e.target.value); render();};
       const mobileProject=$("#mobileProjectSel");
-      if(mobileProject) mobileProject.onchange=e=>{ UI.projectId=e.target.value; const sel=$("#projectSel"); if(sel) sel.value=e.target.value; syncProjectSearchInput(e.target.value); render(); };
+      if(mobileProject) mobileProject.onchange=e=>{ UI.projectId=e.target.value; clearGlobalProjectTarget(); const sel=$("#projectSel"); if(sel) sel.value=e.target.value; syncProjectSearchInput(e.target.value); render(); };
       const projectSearch=$("#projectSearch");
       if(projectSearch){
         projectSearch.addEventListener("focus",()=>{ UI.projectSearchIndex=0; renderProjectResults(projectSearch.value); });

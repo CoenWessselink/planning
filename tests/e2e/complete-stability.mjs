@@ -360,9 +360,10 @@ try {
     const shell = await evaluate(`(()=> ({
       ready:document.body.dataset.cwsReady === "true",
       menu:document.querySelector("#openApps")?.getBoundingClientRect().width > 0,
+      bottomNav:document.querySelector("#mobileBottomNav")?.getBoundingClientRect().width > 0,
       overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth
     }))()`);
-    check(`${label}: shell/menu bruikbaar`, shell.ready && shell.menu && shell.overflow <= 2, JSON.stringify(shell));
+    check(`${label}: shell/menu bruikbaar`, shell.ready && (shell.menu || shell.bottomNav) && shell.overflow <= 2, JSON.stringify(shell));
     for (const app of ["projecten", "gantt", "capaciteit", "projectoverzicht", "instellingen"]) {
       await loadModule(app);
       const moduleResult = await frameEval(`(()=> ({

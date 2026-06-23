@@ -211,6 +211,7 @@ const CWS_GlobalSearch = (() => {
       date:result.date || "",
       weekLabel:result.weekLabel || "",
       openedAt:new Date().toISOString(),
+      expiresAt:new Date(Date.now() + 120000).toISOString(),
       source:"global-search",
     };
     try{ sessionStorage.setItem("cws.globalSearchTarget", JSON.stringify(payload)); }catch(_){}
@@ -223,7 +224,7 @@ const CWS_GlobalSearch = (() => {
           draft.ui.lastProjectId = payload.projectId;
         }
         return draft;
-      }, { userAction:false, reason:"global-search-target" });
+      }, { userAction:false, reason:"global-search-target", persistLocal:false });
     }catch(_){}
     return payload;
   }

@@ -51,7 +51,14 @@ ok("Globale zoekactie bewaart target voor modules", globalSearch.includes("globa
 ok("Globale zoek-overlay is responsive gestyled", theme.includes(".global-search-backdrop") && theme.includes(".global-search-result") && theme.includes("global-search-actions"));
 ok("Projecten consumeert globale projectzoek-target", projectsLayer.includes("applyGlobalSearchProjectTarget") && projectsLayer.includes('target.module !== "projecten"'));
 ok("Gantt consumeert globale projectzoek-target", gantt.includes("globalSearchTarget") && gantt.includes("searchId && ids.has(searchId)"));
-ok("Capaciteit consumeert globale afdeling/week-target", capacity.includes("applyGlobalSearchTarget") && capacity.includes('target.module!=="capaciteit"') && capacity.includes("isoWeekFromDate"));
+ok(
+  "Capaciteit consumeert globale afdeling/week-target",
+  capacity.includes("applyGlobalSearchTarget") &&
+    capacity.includes("readGlobalSearchTarget") &&
+    capacity.includes('target?.module==="capaciteit"') &&
+    capacity.includes("isFreshGlobalSearchTarget") &&
+    capacity.includes("isoWeekFromDate")
+);
 ok("Projectoverzicht opent Project 360 vanuit globale zoek-target", projectOverview.includes("openGlobalSearchTarget360") && projectOverview.includes('target.module !== "project360"'));
 
 ok("Premium design tokens aanwezig", ["--cws-navy", "--cws-blue", "--cws-bg", "--cws-card", "--cws-line"].every(token => theme.includes(token)));

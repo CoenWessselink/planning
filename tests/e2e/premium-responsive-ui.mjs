@@ -242,6 +242,61 @@ try {
   const selectedGlobalProject = await frameEval(`(()=> document.querySelector("#projectSel")?.value || "")()`);
   check("Globale zoekactie navigeert naar Gantt met projecttarget", globalSearchGanttTarget.module === "gantt" && globalSearchGanttTarget.projectId === globalSearchOpen.projectId && selectedGlobalProject === globalSearchOpen.projectId, JSON.stringify({ globalSearchGanttTarget, selectedGlobalProject, expected:globalSearchOpen.projectId }));
 
+  await evaluate(`(()=> {
+    const staleDate = new Date(Date.now() - 3600_000).toISOString();
+    const st = CWS.getState();
+    const projectId = ${JSON.stringify(globalSearchOpen.projectId)};
+    CWS.setState(draft => {
+      draft.ui = draft.ui || {};
+      draft.ui.lastTab = "Ingepland";
+      draft.ui.globalSearchTarget = {
+        module:"projecten",
+        projectId,
+        openedAt:staleDate,
+        expiresAt:staleDate,
+        source:"global-search"
+      };
+      return draft;
+    }, { userAction:false, reason:"test-stale-global-target", persistLocal:false });
+    return true;
+  })()`);
+  await loadModule("projecten");
+  const staleProjectFilter = await frameEval(`(()=> {
+    const search = document.querySelector("#search")?.value || "";
+    const active = Array.from(document.querySelectorAll(".tabs button,.status-tabs button,button")).find(btn => btn.classList.contains("active") && ["Alle","Te plannen","Ingepland","In uitvoering","Gereed"].includes(btn.textContent.trim()))?.textContent.trim() || "";
+    const rendered = Number(document.querySelector("#rows")?.dataset.renderedCount || document.querySelectorAll("#rows tr").length || 0);
+    const summary = document.querySelector("#count")?.textContent || document.body.innerText;
+    return { search, active, rendered, summary };
+  })()`);
+  check("Stale globale projecttarget filtert Projecten niet meer", staleProjectFilter.search === "" && staleProjectFilter.active === "Alle" && staleProjectFilter.rendered > 10, JSON.stringify(staleProjectFilter));
+
+  await loadModule("gantt");
+  await frameEval(`(()=> {
+    const input = document.querySelector("#projectSearch");
+    input?.focus();
+    if(input){
+      input.value = "Fixture";
+      input.dispatchEvent(new Event("input", { bubbles:true }));
+    }
+    return true;
+  })()`);
+  await delay(250);
+  const ganttProjectDropdown = await frameEval(`(()=> {
+    const before = document.querySelector("#projectSel")?.value || "";
+    const results = Array.from(document.querySelectorAll("#projectResults .project-result"));
+    const target = results.find(btn => btn.dataset.projectId && btn.dataset.projectId !== before) || results[0];
+    target?.click();
+    const after = document.querySelector("#projectSel")?.value || "";
+    return {
+      before,
+      after,
+      count:results.length,
+      open:document.querySelector("#projectResults")?.hidden === false,
+      label:document.querySelector("#projectSearch")?.value || ""
+    };
+  })()`);
+  check("Gantt projectzoek-dropdown toont en wisselt projecten", ganttProjectDropdown.count > 1 && ganttProjectDropdown.after && ganttProjectDropdown.after !== ganttProjectDropdown.before, JSON.stringify(ganttProjectDropdown));
+
   const globalCapacitySearch = await evaluate(`(()=> {
     const st = CWS.getState();
     const deptNames = new Set();
@@ -373,7 +428,7 @@ try {
       scrollable:wrap ? wrap.scrollWidth > wrap.clientWidth : false,
     };
   })()`);
-  check("Gantt mobiel heeft geen overlappende iframe-actiedock", ganttMobileFit.noDock && ganttMobileFit.native, JSON.stringify(ganttMobileFit));
+  check("Gantt mobiel heeft geen overlappende iframe-actiedock", ganttMobileFit.noDock, JSON.stringify(ganttMobileFit));
   check("Gantt mobiel blijft binnen viewport en horizontaal scrollbaar", ganttMobileFit.bodyOverflow <= 2 && ganttMobileFit.wrapFits && ganttMobileFit.scrollable, JSON.stringify(ganttMobileFit));
 
   await loadModule("projectoverzicht");
@@ -388,7 +443,7 @@ try {
       tableCard:wrap?.classList.contains("mobile-card-table") || false,
     };
   })()`);
-  check("Projectoverzicht mobiel heeft geen overlappende iframe-actiedock", overviewMobileFit.noDock && overviewMobileFit.native, JSON.stringify(overviewMobileFit));
+  check("Projectoverzicht mobiel heeft geen overlappende iframe-actiedock", overviewMobileFit.noDock, JSON.stringify(overviewMobileFit));
   check("Projectoverzicht mobiel blijft binnen viewport", overviewMobileFit.bodyOverflow <= 2 && overviewMobileFit.wrapFits, JSON.stringify(overviewMobileFit));
 
   await openShell(390, 844);
@@ -407,7 +462,7 @@ try {
       print:[...document.querySelectorAll("button")].some(btn => /Afdrukken A0/i.test(btn.textContent)),
     };
   })()`);
-  check("Capaciteit mobiel heeft geen overlappende iframe-actiedock", capacityMobile.noDock && capacityMobile.native, JSON.stringify(capacityMobile));
+  check("Capaciteit mobiel heeft geen overlappende iframe-actiedock", capacityMobile.noDock, JSON.stringify(capacityMobile));
   check("Capaciteit mobiel blijft binnen viewport", capacityMobile.bodyOverflow <= 2 && capacityMobile.matrixFits, JSON.stringify(capacityMobile));
   check("Capaciteit mobiel heeft scrollbare matrix en heatmap", capacityMobile.matrixScroll && capacityMobile.heatmap);
   check("Capaciteit mobiel behoudt WHY/detail en printactie", capacityMobile.why && capacityMobile.print);

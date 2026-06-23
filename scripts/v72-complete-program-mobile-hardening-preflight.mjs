@@ -11,6 +11,7 @@ const overview = read("layers/laag6_projectoverzicht.html");
 const io = read("layers/laag11_io.html");
 const responsive = read("js/core/responsive.js");
 const patches = read("css/patches.css");
+const uiReset = read("css/ui/01-reset.css");
 const health = read("functions/api/health.js");
 const localServer = read("playwright/server.js");
 const stateFunction = read("functions/api/state.js");
@@ -52,7 +53,14 @@ check("continue Gantt-geometrie", gantt.includes("function continuousBarGeometry
 check("drag/resize immutable ref en rollback", gantt.includes("immutableRef=Object.freeze") && gantt.includes("finishPointerMutation") && gantt.includes("releasePointerCapture") && gantt.includes("gantt_task_resized"));
 check("client/server state shrink guard", store.includes("v72-state-shrink-guard") && stateFunction.includes("v72-state-shrink-guard") && stateFunction.includes("inkomende state zou planning verkleinen"));
 check("State Doctor en live readiness", store.includes("buildStateDoctorReport") && store.includes("buildLiveReadinessReport") && store.includes("lastStateDoctorAt"));
-check("V72 responsive hooks", responsive.includes("v72MobileHardened") && responsive.includes("observeDynamicContent") && patches.includes("v72-mobile-hardened"));
+check(
+  "V72 responsive hooks",
+  responsive.includes("dataset.cwsViewport") &&
+    responsive.includes("observeDynamicContent") &&
+    responsive.includes("mobileBottomNav") &&
+    responsive.includes("makeWideAreasScrollable") &&
+    uiReset.includes("#cwsV37MobileActionDock")
+);
 check("Capaciteit scrollbar en WHY bron", capacity.includes('id="matrixScrollProxy"') && capacity.includes("Auto / projecturen") && capacity.includes("Handmatig"));
 check("Projectoverzicht scrollbar en statuskleuren", overview.includes("scrollbar-proxy") && overview.includes("task-done") && overview.includes("task-late"));
 check("printkleurbehoud", [gantt, capacity, overview, patches].every(text => text.includes("print-color-adjust")));

@@ -82,7 +82,7 @@ const Router = (() => {
     CWS.setState(s => {
       s.ui.lastApp = app;
       return s;
-    }, { userAction:false, reason:"router-ui-only" });
+    }, { userAction:false, reason:"router-ui-only", persistLocal:false });
   };
 
   const renderApp = (app) => {

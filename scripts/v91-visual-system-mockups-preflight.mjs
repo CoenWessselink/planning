@@ -34,18 +34,20 @@ const report = read("docs/visual-system-mockups-report.md");
 
 const mainIds = idsFromBlock(appsMenu, "items");
 const utilityIds = idsFromBlock(appsMenu, "utilityItems");
+const mobileMoreIds = idsFromBlock(responsive, "moreItems");
 const expectedMain = ["dashboard","projecten","gantt","capaciteit","projectoverzicht","planbord","rapporten","importexport","instellingen","audit"];
 ok("Apps Menu hoofdgrid heeft exact 10 mockup-modules", mainIds.length === 10 && expectedMain.every(id => mainIds.includes(id)), JSON.stringify(mainIds));
 ok("Technische routes blijven compact bereikbaar", ["preflight","projectplanning","transport"].every(id => utilityIds.includes(id)) && index.includes("appsUtility"));
-ok("Mobiele Meer-sheet behoudt extra routes", ["preflight","projectplanning","transport"].every(id => responsive.includes(`id:"${id}"`)));
+ok("Mobiele Meer-sheet toont secundaire modules en technische routes blijven utility", ["projectoverzicht","planbord","rapporten","importexport","instellingen","audit"].every(id => mobileMoreIds.includes(id)) && ["preflight","projectplanning","transport"].every(id => utilityIds.includes(id)) && responsive.includes("mobileMoreSheet"), JSON.stringify(mobileMoreIds));
 
 ok("Mobiele bottom navigation bevat referentie-items", ["Dashboard","Projecten","Gantt","Capaciteit","Meer"].every(label => responsive.includes(`label:"${label}"`)) && responsive.includes("primary:true"));
 ok("Mobiele More-sheet heeft viewport-safe gridregels", theme.includes("mobile-more-panel") && theme.includes("calc(100vw - 20px)") && theme.includes("repeat(2,minmax(0,1fr))") && theme.includes("@media (max-width:430px)"));
-ok("Mobiele iframe-actiedock wordt niet boven brede modules gelegd", responsive.includes("nativeMobileControls") && responsive.includes("wideDataModule") && responsive.includes("cws-mobile-native-actions") && theme.includes(".v37-mobile-optimized.cws-mobile-native-actions .v37-mobile-action-dock"));
+ok("Mobiele Gantt/Capaciteit gebruiken module-eigen werkbalken zonder oud overlaydock", responsive.includes("makeWideAreasScrollable") && gantt.includes('data-testid="mobile-gantt-workbar"') && capacity.includes('data-testid="mobile-capacity-workbar"') && !responsive.includes("cwsV37MobileActionDock"));
 ok("Dashboard mobile gebruikt echte capaciteithelpers", dashboard.includes("mobileCapacitySnapshot") && dashboard.includes("computePlannedWeekByDept") && dashboard.includes("computeDeptCapacityForWeek"));
 ok("Gantt responsive blijft echte module met drag/resize", gantt.includes("pointerdown") && gantt.includes("setPointerCapture") && gantt.includes("data-testid=\"gantt-root\""));
 ok("Capaciteit responsive blijft echte module met SSOT Gantt-bron", capacity.includes("gantt?.sourcesByDay") && capacity.includes("matrix-wrap") && capacity.includes("heatmap-wrap"));
 ok("Local snapshot opslag is quota-safe zonder console error spam", store.includes("isQuotaExceeded") && store.includes("releaseLocalSnapshotPressure") && store.includes("localSnapshotQuotaExceeded") && !store.includes("console.error(\"CWS local snapshot save failed"));
+ok("Stale globale projecttarget wordt tijdelijk en niet-lokaal verwerkt", store.includes("delete snapshot.ui.globalSearchTarget") && read("js/core/global_search.js").includes("expiresAt") && read("js/core/default_empty_project_filter.js").includes("clearStaleGlobalSearchTarget") && e2e.includes("Stale globale projecttarget filtert Projecten niet meer"));
 
 ok("E2E dekt desktop 1920 en mobiele referentiebreedtes", ["[1920, 1080]","[375, 812]","[414, 896]","[430, 932]"].every(token => e2e.includes(token)));
 ok("E2E bewaakt Apps Menu 10-tegelcontract", e2e.includes("Desktop Apps Menu toont exact 10 hoofdmodules") && e2e.includes("beheer-extra"));
