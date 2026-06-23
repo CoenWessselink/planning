@@ -1,8 +1,6 @@
 const CWS_DefaultEmptyProjectFilter = (() => {
-  let frameObserver = null;
-  let forceTimer = null;
-  let forceUntil = 0;
   let userTouched = false;
+  const TARGET_TTL_MS = 120000;
 
   function activeModule(doc) {
     return String(doc?.body?.dataset?.cwsActiveModule || window.Router?.getActiveApp?.() || window.CWS?.getState?.()?.ui?.lastApp || "").toLowerCase();
@@ -12,11 +10,32 @@ const CWS_DefaultEmptyProjectFilter = (() => {
     try {
       const st = window.CWS?.getState?.();
       const target = st?.ui?.globalSearchTarget;
-      if (target?.module && target?.projectId) return true;
+      if (isFreshGlobalSearchTarget(target)) return true;
       const qs = new URLSearchParams(window.location.search || "");
       if (qs.get("project") || qs.get("projectId")) return true;
     } catch (_e) {}
     return false;
+  }
+
+  function isFreshGlobalSearchTarget(target) {
+    if (!target?.module || !target?.projectId) return false;
+    const ts = Date.parse(target.expiresAt || target.openedAt || "");
+    if (!Number.isFinite(ts)) return false;
+    const deadline = target.expiresAt ? ts : (ts + TARGET_TTL_MS);
+    return Date.now() <= deadline;
+  }
+
+  function clearStaleGlobalSearchTarget() {
+    try {
+      const target = window.CWS?.getState?.()?.ui?.globalSearchTarget;
+      if (!target || isFreshGlobalSearchTarget(target)) return;
+      try{ sessionStorage.removeItem("cws.globalSearchTarget"); }catch(_){}
+      window.CWS?.setState?.(s => {
+        s.ui = s.ui || {};
+        s.ui.globalSearchTarget = null;
+        return s;
+      }, { userAction:false, reason:"clear-stale-global-search-target", persistLocal:false });
+    } catch (_e) {}
   }
 
   function clearStateProjectSelection(doc) {
@@ -36,7 +55,19 @@ const CWS_DefaultEmptyProjectFilter = (() => {
         s.ganttV2.ui.projectId = "";
         s.ganttV2.ui.selectedProjectId = "";
         return s;
-      });
+      }, { userAction:false, reason:"default-empty-project-selection", persistLocal:false });
+    } catch (_e) {}
+  }
+
+  function clearProjectenTab(doc) {
+    if (!doc?.body || hasExplicitProjectIntent() || userTouched) return;
+    if (activeModule(doc) !== "projecten") return;
+    try {
+      window.CWS?.setState?.(s => {
+        s.ui = s.ui || {};
+        s.ui.lastTab = "Alle";
+        return s;
+      }, { userAction:false, reason:"default-projecten-tab-all", persistLocal:false });
     } catch (_e) {}
   }
 
@@ -48,6 +79,7 @@ const CWS_DefaultEmptyProjectFilter = (() => {
   function clearTextProjectFilters(doc) {
     if (!doc?.body || hasExplicitProjectIntent() || userTouched) return;
     const active = activeModule(doc);
+    if (active !== "projecten") return;
     const selectors = active === "projecten"
       ? ["#search", "#mobileProjectSearch", "#fuzzyQ", 'input[type="search"]']
       : ['#projectSearch', 'input[type="search"][id*="project" i]', 'input[type="text"][id*="project" i]', 'input[placeholder*="project" i]'];
@@ -99,6 +131,7 @@ const CWS_DefaultEmptyProjectFilter = (() => {
 
   function clearProjectSelects(doc) {
     if (!doc?.body) return;
+    if (activeModule(doc) === "gantt") return;
     doc.querySelectorAll([
       "#mobileProjectSel",
       "#projectSel",
@@ -111,39 +144,20 @@ const CWS_DefaultEmptyProjectFilter = (() => {
   }
 
   function patchGanttVisualDefaults(doc) {
-    if (!doc?.body || hasExplicitProjectIntent() || userTouched) return;
-    if (activeModule(doc) !== "gantt") return;
+    if (!doc?.body || activeModule(doc) !== "gantt") return;
     const input = doc.querySelector("#projectSearch");
-    if (input) {
-      input.value = "";
-      input.placeholder = "Alle projecten";
-      input.title = "Alle projecten";
-    }
-    const mobile = doc.querySelector("#mobileProjectSel");
-    if (mobile) ensureBlankProjectSelect(mobile);
-    const native = doc.querySelector("#projectSel");
-    if (native) ensureBlankProjectSelect(native);
+    if (input && !input.placeholder) input.placeholder = "Zoek projectnummer, naam of opdrachtgever...";
   }
 
   function applyToDocument(doc) {
     try {
+      clearStaleGlobalSearchTarget();
       clearStateProjectSelection(doc);
+      clearProjectenTab(doc);
       clearTextProjectFilters(doc);
       clearProjectSelects(doc);
       patchGanttVisualDefaults(doc);
     } catch (_e) {}
-  }
-
-  function forceForAWhile(doc) {
-    if (forceTimer) clearInterval(forceTimer);
-    forceUntil = Date.now() + 15000;
-    forceTimer = setInterval(() => {
-      applyToDocument(doc);
-      if (Date.now() > forceUntil || userTouched) {
-        clearInterval(forceTimer);
-        forceTimer = null;
-      }
-    }, 80);
   }
 
   function enhanceFrame() {
@@ -152,12 +166,6 @@ const CWS_DefaultEmptyProjectFilter = (() => {
     const doc = frame.contentDocument;
     userTouched = false;
     applyToDocument(doc);
-    forceForAWhile(doc);
-    if (frameObserver) frameObserver.disconnect();
-    try {
-      frameObserver = new MutationObserver(() => applyToDocument(doc));
-      if (doc.body) frameObserver.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["value", "selected", "data-cws-active-module"] });
-    } catch (_e) {}
   }
 
   function bind() {

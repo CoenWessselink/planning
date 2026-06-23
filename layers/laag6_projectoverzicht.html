@@ -358,7 +358,9 @@ var CWS = window.CWS;</script>
     }
     function openGlobalSearchTarget360(){
       const target = CWS.getState()?.ui?.globalSearchTarget;
-      if(!target || target.module !== "project360" || !target.projectId || target.openedAt === globalSearch360OpenedAt) return;
+      const ts = Date.parse(target?.expiresAt || target?.openedAt || "");
+      const fresh = Number.isFinite(ts) && Date.now() <= (target.expiresAt ? ts : ts + 120000);
+      if(!target || target.module !== "project360" || !target.projectId || !fresh || target.openedAt === globalSearch360OpenedAt) return;
       if(!CWS.getState()?.projects?.byId?.[target.projectId]) return;
       globalSearch360OpenedAt = target.openedAt;
       setTimeout(()=>open360(target.projectId), 60);

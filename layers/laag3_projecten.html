@@ -652,9 +652,15 @@ function bindNP(){
   }
 
   let globalSearchProjectAppliedAt = "";
+  function isFreshGlobalSearchProjectTarget(target){
+    if(!target || target.module !== "projecten" || !target.projectId) return false;
+    const ts = Date.parse(target.expiresAt || target.openedAt || "");
+    if(!Number.isFinite(ts)) return false;
+    return Date.now() <= (target.expiresAt ? ts : ts + 120000);
+  }
   function applyGlobalSearchProjectTarget(st){
     const target = st.ui?.globalSearchTarget;
-    if(!target || target.module !== "projecten" || !target.projectId || target.openedAt === globalSearchProjectAppliedAt) return;
+    if(!isFreshGlobalSearchProjectTarget(target) || target.openedAt === globalSearchProjectAppliedAt) return;
     const p = st.projects?.byId?.[target.projectId];
     if(!p) return;
     const value = String(p.nr || p.code || p.name || target.projectId || "").trim();

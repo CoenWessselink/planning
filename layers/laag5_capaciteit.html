@@ -153,16 +153,35 @@ var CWS = window.CWS;</script>
     // V43 compatibility markers retained for old preflight only:
     // addWeeks(tw.year,tw.week,-1) and (Number(UI.weeks)||6)+2.
     function capacityPrintWeeks(){ const tw=todayWeek(); const start=addWeeks(tw.year,tw.week,-3); const latest=latestPlanningIso(); const lastWeek=latest ? isoWeekFromDate(new Date(latest+"T00:00:00Z")) : addWeeks(tw.year,tw.week,8); const end=latest ? addWeeks(lastWeek.year,lastWeek.week,3) : addWeeks(tw.year,tw.week,8); return Array.from({length:weeksBetweenInclusive(start,end)},(_,i)=>addWeeks(start.year,start.week,i)); }
-    function setUiWeek(y,w){ UI.year=y; UI.week=w; try{ sessionStorage.setItem("cws.capacity.period.v28", JSON.stringify({year:y,week:w,weeks:UI.weeks})); }catch(e){} try{ CWS.setState?.(st=>{ st.ui=st.ui||{}; st.ui.capacity=st.ui.capacity||{}; st.ui.capacity.period={year:y,week:w,weeks:UI.weeks}; return st; }); }catch(e){} }
+    function setUiWeek(y,w){ UI.year=y; UI.week=w; try{ sessionStorage.setItem("cws.capacity.period.v28", JSON.stringify({year:y,week:w,weeks:UI.weeks})); }catch(e){} try{ CWS.setState?.(st=>{ st.ui=st.ui||{}; st.ui.capacity=st.ui.capacity||{}; st.ui.capacity.period={year:y,week:w,weeks:UI.weeks}; return st; }, { userAction:false, reason:"capacity-period-ui-only", persistLocal:false }); }catch(e){} }
     function loadUiWeek(){ try{ const fromState=state().ui?.capacity?.period; if(fromState?.year&&fromState?.week){ UI.year=fromState.year; UI.week=fromState.week; UI.weeks=fromState.weeks||UI.weeks; } }catch(e){} try{ const raw=JSON.parse(sessionStorage.getItem("cws.capacity.period.v28")||sessionStorage.getItem("cws.capacity.period.v27")||"null"); if(raw?.year&&raw?.week){ UI.year=raw.year; UI.week=raw.week; UI.weeks=raw.weeks||UI.weeks; } }catch(e){} }
     function deptList(st=state()){ const set=new Set(); (st.departments?.order||[]).forEach(id=>{ const d=st.departments.byId[id]; if(d?.name) set.add(d.name); else set.add(id); }); (st.resources?.order||[]).forEach(id=>{ const d=st.resources.byId[id]?.dept; if(d) set.add(d); }); Object.values(st.gantt?.hoursByDay||{}).forEach(byDept=>Object.keys(byDept||{}).forEach(d=>set.add(d))); (st.projects?.deptHours||[]).forEach(r=>{ if(r.deptId) set.add(r.deptId); }); return [...set].filter(Boolean).sort(); }
+    function isFreshGlobalSearchTarget(target){ if(!target?.module) return false; const ts=Date.parse(target.expiresAt||target.openedAt||""); if(!Number.isFinite(ts)) return false; return Date.now() <= (target.expiresAt ? ts : ts + 120000); }
+    function readGlobalSearchTarget(st){
+      const stateTarget=st.ui?.globalSearchTarget;
+      if(stateTarget?.module==="capaciteit" && isFreshGlobalSearchTarget(stateTarget)) return stateTarget;
+      const stores=[];
+      try{ stores.push(sessionStorage); }catch(_e){}
+      try{ if(window.parent && window.parent!==window && window.parent.sessionStorage) stores.push(window.parent.sessionStorage); }catch(_e){}
+      for(const store of stores){
+        try{
+          const target=JSON.parse(store.getItem("cws.globalSearchTarget")||"null");
+          if(target?.module==="capaciteit" && isFreshGlobalSearchTarget(target)) return target;
+        }catch(_e){}
+      }
+      return null;
+    }
+    let appliedGlobalSearchTargetKey = "";
     function applyGlobalSearchTarget(){
       const st=state();
-      const target=st.ui?.globalSearchTarget;
-      if(!target || target.module!=="capaciteit") return;
+      const target=readGlobalSearchTarget(st);
+      if(!target) return;
+      const targetKey=[target.module,target.dept||"",target.resourceId||"",target.date||"",target.openedAt||"",target.expiresAt||""].join("|");
+      if(targetKey && targetKey===appliedGlobalSearchTargetKey) return;
+      let applied=false;
       const resourceDept=target.resourceId ? st.resources?.byId?.[target.resourceId]?.dept : "";
       const wantedDept=String(target.dept || resourceDept || "").trim();
-      if(wantedDept && deptList(st).includes(wantedDept)) UI.dept=wantedDept;
+      if(wantedDept && deptList(st).includes(wantedDept)){ UI.dept=wantedDept; applied=true; }
       if(target.date){
         const d=new Date(String(target.date).slice(0,10)+"T00:00:00Z");
         if(Number.isFinite(d.getTime())){
@@ -170,8 +189,10 @@ var CWS = window.CWS;</script>
           UI.year=wk.year;
           UI.week=wk.week;
           UI.weeks=Math.max(6,Number(UI.weeks)||6);
+          applied=true;
         }
       }
+      if(applied) appliedGlobalSearchTargetKey=targetKey;
     }
     function projects(st=state()){ return (st.projects?.order||[]).map(id=>st.projects.byId[id]).filter(Boolean).filter(p=>UI.status==="Alle"||String(p.status||"")===UI.status); }
     function availabilityOverride(st,dept,dateIso){ return st.capacity?.availabilityOverrides?.[dept]?.[dateIso] || null; }
@@ -374,6 +395,7 @@ var CWS = window.CWS;</script>
           return;
         }
         const st=state();
+        applyGlobalSearchTarget();
         const depts=deptList(st);
         $("#deptSel").innerHTML='<option value="">Alle afdelingen</option>'+depts.map(d=>`<option value="${esc(d)}" ${UI.dept===d?"selected":""}>${esc(d)}</option>`).join("");
         $("#statusSel").value=UI.status;
@@ -429,7 +451,7 @@ var CWS = window.CWS;</script>
     }
     function printA0(){ document.body.classList.add("cap-printing"); const oldTitle=document.title; const ws=capacityPrintWeeks(); document.title=capacityPrintTitle(); updatePrintHeader(ws); renderA0DayPrint(ws); requestAnimationFrame(()=>setTimeout(()=>window.print(),120)); const restore=()=>{ window.removeEventListener("afterprint",restore); document.body.classList.remove("cap-printing"); document.title=oldTitle; render(); }; window.addEventListener("afterprint",restore); setTimeout(()=>{ if(document.body.classList.contains("cap-printing")) restore(); },8000); }
     const syncMatrixScrollDock = initMatrixScrollDock();
-    function bind(){ const st=state(); const savedPeriod=readSavedCapacityPeriod(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } loadUiWeek(); const activePeriod={year:UI.year,week:UI.week,weeks:UI.weeks}; if(!savedPeriod || !savedCapacityPeriodIsRelevant(activePeriod)) applyDefaultCapacityRange(); applyGlobalSearchTarget(); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',Number(x.dataset.weeks)===UI.weeks)); $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); setUiWeek(x.year,x.week); render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); setUiWeek(x.year,x.week); render(); }; $("#back26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-26); setUiWeek(x.year,x.week); render(); }; $("#forward26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,26); setUiWeek(x.year,x.week); render(); }; $("#todayBtn").onclick=()=>{ const x=todayWeek(); setUiWeek(x.year,x.week); render(); }; $("#mobileCapToday").onclick=()=>$("#todayBtn").click(); $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); setUiWeek(UI.year,UI.week); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $$('[data-mobile-cap-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.mobileCapWeeks); setUiWeek(UI.year,UI.week); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#mobileCapStatus").onchange=e=>{UI.status=e.target.value; $("#statusSel").value=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#mobileCapDept").onchange=e=>{UI.dept=e.target.value; $("#deptSel").value=e.target.value; render();}; $("#mobileCapMore").onclick=()=>{ if(confirm("Export CSV openen? Annuleren = Afdrukken A0.")) $("#exportBtn").click(); else $("#printBtn").click(); }; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=printA0; $("#modalClose").onclick=()=>{$("#modalBack").classList.remove("show");$("#modalBox").classList.remove("wide");$("#modalOk").textContent="OK";$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show");}; $("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>scheduleRender()); }
+    function bind(){ const st=state(); const savedPeriod=readSavedCapacityPeriod(); if(st.ui?.week){ UI.year=st.ui.week.year||UI.year; UI.week=st.ui.week.week||UI.week; } loadUiWeek(); const activePeriod={year:UI.year,week:UI.week,weeks:UI.weeks}; if(!savedPeriod || !savedCapacityPeriodIsRelevant(activePeriod)) applyDefaultCapacityRange(); applyGlobalSearchTarget(); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',Number(x.dataset.weeks)===UI.weeks)); $("#prevBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-1); setUiWeek(x.year,x.week); render(); }; $("#nextBtn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,1); setUiWeek(x.year,x.week); render(); }; $("#back26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,-26); setUiWeek(x.year,x.week); render(); }; $("#forward26Btn").onclick=()=>{ const x=addWeeks(UI.year,UI.week,26); setUiWeek(x.year,x.week); render(); }; $("#todayBtn").onclick=()=>{ const x=todayWeek(); setUiWeek(x.year,x.week); render(); }; $("#mobileCapToday").onclick=()=>$("#todayBtn").click(); $$('[data-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.weeks); setUiWeek(UI.year,UI.week); $$('[data-weeks]').forEach(x=>x.classList.toggle('active',x===b)); render();}); $$('[data-mobile-cap-weeks]').forEach(b=>b.onclick=()=>{UI.weeks=Number(b.dataset.mobileCapWeeks); setUiWeek(UI.year,UI.week); render();}); $("#statusSel").onchange=e=>{UI.status=e.target.value; render();}; $("#mobileCapStatus").onchange=e=>{UI.status=e.target.value; $("#statusSel").value=e.target.value; render();}; $("#deptSel").onchange=e=>{UI.dept=e.target.value; render();}; $("#mobileCapDept").onchange=e=>{UI.dept=e.target.value; $("#deptSel").value=e.target.value; render();}; $("#mobileCapMore").onclick=()=>{ if(confirm("Export CSV openen? Annuleren = Afdrukken A0.")) $("#exportBtn").click(); else $("#printBtn").click(); }; $("#exportBtn").onclick=exportCsv; $("#printBtn").onclick=printA0; $("#modalClose").onclick=()=>{$("#modalBack").classList.remove("show");$("#modalBox").classList.remove("wide");$("#modalOk").textContent="OK";$("#modalOk").onclick=()=>$("#modalBack").classList.remove("show");}; $("#modalOk").onclick=()=>$("#modalBack").classList.remove("show"); $("#modalBack").onclick=e=>{ if(e.target.id==="modalBack") $("#modalBack").classList.remove("show"); }; if(CWS?.subscribe) CWS.subscribe(()=>{ applyGlobalSearchTarget(); scheduleRender(); }); }
     try{ bind(); render(); }catch(error){ showError(error); }
   })();
   </script>
