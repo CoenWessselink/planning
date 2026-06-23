@@ -257,6 +257,20 @@ try {
   })()`);
   check("Gantt projectzoeker filtert en selecteert project", projectSearch.ok, JSON.stringify(projectSearch));
   check("Gantt brede continue balk zichtbaar", await evaluate("Array.from(document.querySelectorAll('.bar:not(.summary)')).some(el => el.getBoundingClientRect().width > 60)"));
+  const ganttRowAlignment = await evaluate(`(()=>{
+    const rows=Array.from(document.querySelectorAll('#tableRows tr'));
+    const lanes=Array.from(document.querySelectorAll('#lanes .lane'));
+    const count=Math.min(rows.length,lanes.length,24);
+    let maxTopDelta=0,maxHeightDelta=0;
+    for(let i=0;i<count;i+=1){
+      const tr=rows[i].getBoundingClientRect();
+      const lane=lanes[i].getBoundingClientRect();
+      maxTopDelta=Math.max(maxTopDelta,Math.abs(tr.top-lane.top));
+      maxHeightDelta=Math.max(maxHeightDelta,Math.abs(tr.height-lane.height));
+    }
+    return {ok:count>0 && maxTopDelta<=1.5 && maxHeightDelta<=1.5,count,maxTopDelta:Number(maxTopDelta.toFixed(2)),maxHeightDelta:Number(maxHeightDelta.toFixed(2))};
+  })()`);
+  check("Gantt tabelrijen en diagramtaken blijven verticaal uitgelijnd", ganttRowAlignment.ok, JSON.stringify(ganttRowAlignment));
   check("Gantt tabel bedekt de balken niet", await evaluate(`(()=>{const table=document.querySelector('.table-pane');const bar=document.querySelector('.bar:not(.summary):not(.locked)');if(!table||!bar)return false;const t=table.getBoundingClientRect(),r=bar.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return t.right<=r.left && !!hit?.closest('.bar');})()`));
   await evaluate("document.querySelector('#boardWrap').scrollLeft=0");
   await delay(150);
