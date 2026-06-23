@@ -1344,6 +1344,7 @@
       z-index:1!important;
       overflow:hidden!important;
       contain:paint!important;
+      box-sizing:border-box!important;
     }
     body:not(.printing) .day-grid-line,
     body:not(.printing) .nonwork-shade{z-index:0!important;}
@@ -1351,6 +1352,9 @@
     body:not(.printing) .bar,
     body:not(.printing) .bar.bar-continuous-task{z-index:6!important;}
     body:not(.printing) .bar.summary{z-index:5!important;}
+    body:not(.printing) .bar.summary:before{top:var(--summary-line-top,17px)!important;}
+    body:not(.printing) .bar.summary:after{top:var(--summary-line-thin-top,24px)!important;}
+    body:not(.printing) .bar.summary .bar-label{top:var(--summary-label-top,3px)!important;}
     body:not(.printing) .bar-text-before,
     body:not(.printing) .bar-text-after{
       z-index:7!important;
@@ -2458,6 +2462,72 @@ var CWS = window.CWS;</script>
       sel.innerHTML=sets.length?sets.map(t=>`<option value="${esc(t.id)}">Template: ${esc(t.name||t.id)}</option>`).join(""):'<option value="">Template: Standaard</option>';
       if(active && sets.some(t=>String(t.id)===active)) sel.value=active;
     }
+    function baseGanttRowHeight(){
+      const raw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rowH"));
+      if(Number.isFinite(raw)&&raw>0) return raw;
+      return UI.printMode?22:(window.innerWidth>900?38:44);
+    }
+    function measureGanttRowMetrics(rowCount){
+      const fallback=baseGanttRowHeight();
+      const lanes=$$("#lanes .lane");
+      let total=0;
+      const heights=[];
+      const centers=[];
+      for(let i=0;i<rowCount;i+=1){
+        const rect=lanes[i]?.getBoundingClientRect?.();
+        const height=Math.max(1, rect?.height || fallback);
+        heights[i]=height;
+        centers[i]=total + height/2;
+        total += height;
+      }
+      if(total<=0) total=rowCount*fallback;
+      return { fallback, heights, centers, totalHeight:total };
+    }
+    function syncGanttRowHeights(rowCount){
+      if(UI.printMode) return measureGanttRowMetrics(rowCount);
+      const fallback=baseGanttRowHeight();
+      const tableRows=$$("#tableRows tr");
+      const lanes=$$("#lanes .lane");
+      let total=0;
+      const heights=[];
+      const centers=[];
+      lanes.forEach((lane,i)=>{
+        const tr=tableRows[i];
+        const measured=tr?.getBoundingClientRect?.().height || lane.getBoundingClientRect?.().height || fallback;
+        const height=Math.max(fallback, Math.ceil(measured));
+        heights[i]=height;
+        centers[i]=total + height/2;
+        total += height;
+        lane.style.setProperty("height", `${height}px`, "important");
+        lane.style.setProperty("min-height", `${height}px`, "important");
+        lane.style.setProperty("max-height", `${height}px`, "important");
+        const taskBar=lane.querySelector(".bar.bar-continuous-task");
+        if(taskBar){
+          const barH=Math.max(18, Math.min(34, height-8));
+          const barTop=Math.max(2, Math.round((height-barH)/2));
+          taskBar.style.setProperty("top", `${barTop}px`, "important");
+          taskBar.style.setProperty("height", `${barH}px`, "important");
+          taskBar.style.setProperty("min-height", `${barH}px`, "important");
+          taskBar.style.setProperty("max-height", `${barH}px`, "important");
+          taskBar.style.setProperty("line-height", `${barH}px`, "important");
+          taskBar.querySelector(".bar-label")?.style.setProperty("line-height", `${barH}px`, "important");
+          const feedbackDot=taskBar.querySelector(".bar-feedback-dot");
+          if(feedbackDot) feedbackDot.style.setProperty("top", `${Math.max(3, Math.round((height-14)/2))}px`, "important");
+        }
+        const summaryBar=lane.querySelector(".bar.summary");
+        if(summaryBar){
+          summaryBar.style.setProperty("top", "0px", "important");
+          summaryBar.style.setProperty("height", `${height}px`, "important");
+          summaryBar.style.setProperty("--summary-line-top", `${Math.max(8, Math.round(height/2-2))}px`);
+          summaryBar.style.setProperty("--summary-line-thin-top", `${Math.max(11, Math.round(height/2+5))}px`);
+          summaryBar.style.setProperty("--summary-label-top", `${Math.max(2, Math.round(height/2-16))}px`);
+        }
+        const labelTop=Math.max(2, Math.round((height-18)/2));
+        lane.querySelectorAll(".bar-text-before,.bar-text-after").forEach(label=>label.style.setProperty("top", `${labelTop}px`, "important"));
+      });
+      $("#lanes")?.style.setProperty("height", `${total}px`);
+      return { fallback, heights, centers, totalHeight:total || rowCount*fallback };
+    }
     function render(){
       if(!CWS?.getState){ setNotice("CWS Store is niet geladen.","bad"); return; }
       const st=state();
@@ -2532,9 +2602,10 @@ var CWS = window.CWS;</script>
         }
         return `<div class="lane ${row.type==="summary"?"summary-lane":""}" data-id="${esc(row.id)}">${dayGridLineHtml}${nonWorkShadeHtml}${base}${beforeHtml}${barHtml}${afterHtml}</div>`;
       }).join("");
+      const rowMetrics=syncGanttRowHeights(rows.length);
       const today=toIso(new Date()), todayX=xFor(today,range);
       const tl=$("#todayLine");
-      if(tl){ tl.style.display=(todayX>=0&&todayX<=chartW)?"block":"none"; tl.style.left=todayX+"px"; tl.style.height=`calc(var(--headH) + ${rows.length*(UI.printMode?22:(window.innerWidth>900?38:44))}px)`; }
+      if(tl){ tl.style.display=(todayX>=0&&todayX<=chartW)?"block":"none"; tl.style.left=todayX+"px"; tl.style.height=`calc(var(--headH) + ${rowMetrics.totalHeight}px)`; }
       $("#board").className="board "+(UI.view==="table"?"table-only":UI.view==="diagram"?"diagram-only":"");
       const revMeta=model._revision ? ` | revisie ${model._revision.revNo||""} | revisiedatum ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"} | status ${model._revision.status||"—"}${model._revision.description?` | ${model._revision.description}`:""}` : " | live planning";
       $("#metaLine").innerHTML=`${rows.length} regels | zoom ${UI.zoom}${UI.printMode?" | printbereik: 1 week vóór eerste taak t/m 1 week na laatste taak":""} | urenbron: Projecturen per afdeling | planning: werkbare dagen + PDF-balkweergave + V66 geometrie | dagen: ${days.length}${esc(revMeta)}${model._revision?` <span class="revision-pill">Alleen lezen</span>`:""}`;
@@ -2543,7 +2614,7 @@ var CWS = window.CWS;</script>
       syncSelectionClasses();
       updateBulkUi();
       wireColumnDrag();
-      wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range); renderContext(model);
+      wireRows(model,pid); wireBars(model,pid,range); drawDeps(model,rows,range,rowMetrics); renderContext(model);
       if(model._revision) setNotice(`Je bekijkt revisie ${model._revision.revNo||""} van ${toNL(model._revision.revisionDate)||model._revision.revisionDate||"—"}. Deze snapshot is alleen-lezen en verandert niet mee met de live planning.`,"warn");
       else setNotice(CWS.storageStatus?.mode==="api"?"":"Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.","warn");
       updateButtons();
@@ -3146,18 +3217,16 @@ var CWS = window.CWS;</script>
     // v75PointerLifecycleFix subscriber suppression voorkomt DOM rebuild tijdens pointerup/saveModel
     // const geom=continuousBarGeometry(row,sc,{start:UI.originStart,days:9999},st)
     // bar.dataset.tmpStart; saveModel(pid,model,"Balk bijgewerkt op werkbare dagen")
-    function drawDeps(model,rows,range){
+    function drawDeps(model,rows,range,rowMetrics=null){
       const svg=$("#depSvg"); svg.innerHTML="";
       if(!UI.showDeps) return;
-      const rowH=UI.printMode?24:(window.innerWidth>900?38:44);
-      const barTop=UI.printMode?4:2;
-      const barH=UI.printMode?15:45;
+      const metrics=rowMetrics||measureGanttRowMetrics(rows.length);
       const rowIndex=new Map(rows.map((x,i)=>[x.row.id,i]));
       const w=pxPerDay();
       const width=Math.max(900,(range.days*w));
       svg.setAttribute("width",width);
-      svg.setAttribute("height",rows.length*rowH);
-      svg.setAttribute("viewBox",`0 0 ${width} ${rows.length*rowH}`);
+      svg.setAttribute("height",metrics.totalHeight);
+      svg.setAttribute("viewBox",`0 0 ${width} ${metrics.totalHeight}`);
       svg.style.zIndex="14";
       const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
       const marker=document.createElementNS("http://www.w3.org/2000/svg","marker");
@@ -3186,8 +3255,8 @@ var CWS = window.CWS;</script>
           const predLeft=xFor(predSc.start||predSc.end,range);
           const predRight=xFor(predSc.end||predSc.start,range) + w;
           const targetLeft=xFor(sc.start,range);
-          const y1=pi*rowH + barTop + barH/2;
-          const y2=i*rowH + barTop + barH/2;
+          const y1=metrics.centers[pi] ?? (pi*metrics.fallback + metrics.fallback/2);
+          const y2=metrics.centers[i] ?? (i*metrics.fallback + metrics.fallback/2);
           const x1=Math.min(width-2, predRight + sourceGap);
           const xEnd=Math.max(2, targetLeft - targetGap*.25);
           // V47: route to a clean landing point just before the target bar; avoid drawing behind the bar/label.
