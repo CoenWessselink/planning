@@ -24,6 +24,12 @@ mustContain('functions/api/_middleware.js', 'chunkManifestWanted', 'Chunked mani
 mustContain('functions/api/_middleware.js', 'X-CWS-Chunked-Manifest', 'Chunked manifest header wordt gezet');
 mustContain('functions/api/_middleware.js', '/api/state-journal', 'State-journal inspectie endpoint aanwezig');
 mustContain('functions/api/_middleware.js', 'state lijkt leeg/demo', 'Lege/demo overwrite guard aanwezig');
+mustContain('functions/api/_middleware.js', 'app_revisions', 'Duurzame app_revisions-tabel aanwezig');
+mustContain('functions/api/_middleware.js', 'syncRevisionsFromState', 'Revisies worden uit state naar D1 gesynchroniseerd');
+mustContain('functions/api/_middleware.js', 'mergeRevisionsIntoRaw', 'Duurzame revisies worden bij state-load terug gemerged');
+mustContain('functions/api/_middleware.js', '/api/revisions', 'Revisies inspectie endpoint aanwezig');
+mustContain('functions/api/_middleware.js', 'JOURNAL_MAX', 'Journal size-guard aanwezig');
+mustContain('functions/api/_middleware.js', 'X-CWS-Journal-Skipped', 'Journal size fallback-header aanwezig');
 
 if (/target_version\|\|0\)>=Number\(row\?\.version\|\|0\)/.test(middleware) || middleware.includes('target_version||0)>=Number(row?.version||0)')) {
   fail('Journal wordt nog met >= app_state gekozen; dit kan chunked load omzeilen. Gebruik stricte recovery-regel.');
@@ -47,7 +53,7 @@ if (!gantt.includes('Planning opslaan als revisie') || !gantt.includes('revision
 }
 
 if (process.exitCode) {
-  console.error('\nV102 preflight: NIET akkoord. Los bovenstaande punten op voordat productie als stabiel wordt beschouwd.');
+  console.error('\nV102/V103 preflight: NIET akkoord. Los bovenstaande punten op voordat productie als stabiel wordt beschouwd.');
   process.exit(process.exitCode);
 }
-console.log('\nV102 preflight: akkoord. Durable journal + chunked load + revisie-savepad zijn statisch geborgd.');
+console.log('\nV102/V103 preflight: akkoord. Durable journal + chunked load + duurzame revisie-opslag zijn statisch geborgd.');
