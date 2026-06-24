@@ -30,6 +30,11 @@ mustContain('functions/api/_middleware.js', 'mergeRevisionsIntoRaw', 'Duurzame r
 mustContain('functions/api/_middleware.js', '/api/revisions', 'Revisies inspectie endpoint aanwezig');
 mustContain('functions/api/_middleware.js', 'JOURNAL_MAX', 'Journal size-guard aanwezig');
 mustContain('functions/api/_middleware.js', 'X-CWS-Journal-Skipped', 'Journal size fallback-header aanwezig');
+mustContain('functions/api/_middleware.js', 'stripDerivedCapacityFromRevisionSnapshot', 'Revisie-snapshots strippen afgeleide capaciteit');
+mustContain('functions/api/_middleware.js', 'capacityRevisionIsolation', 'Capaciteit/revisie-isolatie marker aanwezig');
+mustContain('functions/api/_middleware.js', 'delete clean.capacity', 'Revision snapshot capaciteit wordt verwijderd');
+mustContain('functions/api/_middleware.js', 'delete clean.gantt', 'Revision snapshot Gantt-derived data wordt verwijderd');
+mustContain('functions/api/_middleware.js', 'sanitizeStateRevisionSnapshotsRaw', 'State-save wordt gesaneerd tegen capaciteit in revisies');
 
 if (/target_version\|\|0\)>=Number\(row\?\.version\|\|0\)/.test(middleware) || middleware.includes('target_version||0)>=Number(row?.version||0)')) {
   fail('Journal wordt nog met >= app_state gekozen; dit kan chunked load omzeilen. Gebruik stricte recovery-regel.');
@@ -46,6 +51,9 @@ else pass('Lokale snapshot en last-good bescherming aanwezig');
 if (!store.includes('scheduleRemoteSave') || !store.includes('stateSource !== "remote-d1"')) fail('D1 fallback/boot save guard ontbreekt.');
 else pass('D1 save guards aanwezig');
 
+if (!store.includes('rebuildGanttHoursByDay') || !store.includes('sourcesByDay')) fail('Capaciteit uit Gantt hoursByDay/sourcesByDay is niet herkenbaar.');
+else pass('Capaciteit blijft gekoppeld aan live Gantt hoursByDay/sourcesByDay');
+
 if (!gantt.includes('Planning opslaan als revisie') || !gantt.includes('revisionSnapshot') || !gantt.includes('saveModel(pid,model,`Revisie')) {
   fail('Revisie flow in Gantt is niet volledig herkenbaar.');
 } else {
@@ -53,7 +61,7 @@ if (!gantt.includes('Planning opslaan als revisie') || !gantt.includes('revision
 }
 
 if (process.exitCode) {
-  console.error('\nV102/V103 preflight: NIET akkoord. Los bovenstaande punten op voordat productie als stabiel wordt beschouwd.');
+  console.error('\nV102/V104 preflight: NIET akkoord. Los bovenstaande punten op voordat productie als stabiel wordt beschouwd.');
   process.exit(process.exitCode);
 }
-console.log('\nV102/V103 preflight: akkoord. Durable journal + chunked load + duurzame revisie-opslag zijn statisch geborgd.');
+console.log('\nV102/V104 preflight: akkoord. Durable journal + revisies + capaciteit/revisie-isolatie zijn statisch geborgd.');
