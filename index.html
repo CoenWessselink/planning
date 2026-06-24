@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="css/ui/06-mobile-gantt-capacity.css">
   <link rel="stylesheet" href="css/ui/10-print.css">
 </head>
-<body data-cws-build="CWS_UI_REBUILD_V101_CLEAN_PRESENTATION" data-cws-previous-build="CWS_VISUAL_SYSTEM_V100_CONSOLIDATED" data-cws-legacy-builds="V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+<body data-cws-build="CWS_UI_REBUILD_V105_STORAGE_FINALIZATION" data-cws-previous-build="CWS_UI_REBUILD_V101_CLEAN_PRESENTATION" data-cws-legacy-builds="V103_DURABLE_REVISIONS V104_CAPACITY_REVISION_ISOLATION V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
   <div class="headerbar">
     <div class="left">
       <div class="cws-brand" aria-label="CWS Planning">
@@ -75,6 +75,8 @@
   <div class="toast" id="toast"></div>
 
   <script src="js/core/store.js"></script>
+  <script src="js/core/print_save_guard.js"></script>
+  <script src="js/core/revision_delete_sync.js"></script>
   <script src="js/core/permissions.js"></script>
   <script src="js/core/ui.js"></script>
   <script src="js/core/attention.js"></script>
@@ -89,7 +91,7 @@
   <script>
     (async()=>{
       try{
-        document.body.dataset.cwsBuild = "CWS_UI_REBUILD_V101_CLEAN_PRESENTATION";
+        document.body.dataset.cwsBuild = "CWS_UI_REBUILD_V105_STORAGE_FINALIZATION";
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
@@ -141,7 +143,7 @@
               warning.textContent = prefix + (CWS.storageStatus.lastError || "") + (CWS.storageStatus.accessMissing ? " Cloudflare Access-identiteit ontbreekt." : "");
             }
           }else{
-            warning.textContent = "Let op: je werkt nu met lokale browserdata. Collega\'s zien deze wijzigingen niet.";
+            warning.textContent = "Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.";
           }
           document.getElementById("roleToggle").hidden = CWS.storageStatus.mode === "api";
         };
