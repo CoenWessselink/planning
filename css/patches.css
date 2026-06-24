@@ -129,3 +129,73 @@ body.v72-mobile-hardened .dialog {
     print-color-adjust: exact;
   }
 }
+
+/* V101 — emergency print recovery after D1/save regression build.
+   Keep the full Gantt/table content on A3 while removing the large blank
+   printable area that appeared below the chart before the legend. */
+@media print {
+  html body.printing,
+  html body.printing.v72-mobile-hardened {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  html body.printing .gantt-shell,
+  html body.printing .board-wrap,
+  html body.printing .board,
+  html body.printing .table-pane,
+  html body.printing .chart-pane,
+  html body.printing #timeline,
+  html body.printing #lanes,
+  html body.printing .print-task-table {
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  html body.printing .gantt-shell {
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  html body.printing .board-wrap {
+    margin: 0 !important;
+    padding: 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  html body.printing .board {
+    align-items: start !important;
+    align-content: start !important;
+  }
+
+  html body.printing .lane {
+    min-height: 0 !important;
+  }
+
+  html body.printing .print-legend {
+    margin-top: 2px !important;
+    break-before: avoid !important;
+    page-break-before: avoid !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  html body.printing .print-footer,
+  html body.printing .print-spacer,
+  html body.printing .print-bottom-spacer {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
