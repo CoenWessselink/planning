@@ -1,22 +1,38 @@
-/* CWS Planning V119 — pre-store D1 chunk boot interceptor.
-   This script MUST load before js/core/store.js. It ensures the store boot never receives
-   a manifest or a single truncated 180000-char chunk as if it were the complete state.
-   It converts /api/state?payload=raw-state&chunks=auto into one full JSON Response. */
+/* CWS Planning V127 — pre-store D1 chunk boot interceptor.
+   Server compatibility fix: older /api/state builds treat a missing chunkIndex as chunk 0
+   because Number("") === 0. Therefore every manifest/raw boot probe explicitly sends chunk=-1.
+   This prevents the app from booting on a truncated 180000-char chunk and falling back to stale local data. */
 (function(){
-  const MARKER = "v119-pre-store-d1-chunk-boot-interceptor";
-  if(window.__cwsV119StateChunkBootInterceptorInstalled) return;
+  const MARKER = "v127-pre-store-d1-chunk-boot-interceptor-force-nonchunk";
+  if(window.__cwsV127StateChunkBootInterceptorInstalled) return;
 
   const nativeFetch = window.fetch.bind(window);
 
-  function isStateBootRequest(input){
+  function stateUrl(input){
     try{
       const rawUrl = typeof input === "string" ? input : String(input?.url || "");
-      const url = new URL(rawUrl, location.origin);
-      return url.pathname === "/api/state" &&
-        url.searchParams.get("payload") === "raw-state" &&
-        !url.searchParams.has("chunkIndex") &&
-        !url.searchParams.has("chunk");
-    }catch(_){ return false; }
+      return new URL(rawUrl, location.origin);
+    }catch(_){ return null; }
+  }
+
+  function isStateBootRequest(input){
+    const url = stateUrl(input);
+    if(!url) return false;
+    return url.pathname === "/api/state" &&
+      url.searchParams.get("payload") === "raw-state" &&
+      !url.searchParams.has("chunkIndex") &&
+      !url.searchParams.has("chunk");
+  }
+
+  function withExplicitNonChunk(input){
+    const url = stateUrl(input);
+    if(!url) return input;
+    if(url.pathname === "/api/state" && !url.searchParams.has("chunkIndex") && !url.searchParams.has("chunk")){
+      url.searchParams.set("chunk", "-1");
+      url.searchParams.set("cacheBust", String(Date.now()));
+      return url.pathname + url.search;
+    }
+    return input;
   }
 
   function isManifestText(text){
@@ -30,7 +46,7 @@
   function parseManifest(text){
     const parsed = JSON.parse(text || "{}");
     if(parsed?.stateJson && typeof parsed.stateJson === "string"){
-      try{ return JSON.parse(parsed.stateJson); }catch(_){}
+      try{ return JSON.parse(parsed.stateJson); }catch(_){ }
     }
     return parsed;
   }
@@ -47,7 +63,7 @@
     const text = await response.text();
     if(!response.ok){
       let message = `Fetch mislukt ${url} (${response.status})`;
-      try{ const data = JSON.parse(text || "{}"); if(data?.error) message = data.error; }catch(_){}
+      try{ const data = JSON.parse(text || "{}"); if(data?.error) message = data.error; }catch(_){ }
       const error = new Error(message);
       error.status = response.status;
       throw error;
@@ -59,7 +75,7 @@
     if(isManifestText(existingText)){
       return { manifest:parseManifest(existingText), response:existingResponse };
     }
-    const fresh = await fetchText(`/api/state?payload=raw-state&chunks=manifest&cacheBust=${Date.now()}`, {
+    const fresh = await fetchText(`/api/state?payload=raw-state&chunks=manifest&chunk=-1&cacheBust=${Date.now()}`, {
       headers:{ "Accept":"application/json", "X-CWS-State-Response":"chunk-manifest", "Cache-Control":"no-cache" }
     });
     return { manifest:parseManifest(fresh.text), response:fresh.response };
@@ -95,7 +111,7 @@
     headers.set("X-CWS-Chunked", "0");
     headers.set("X-CWS-Chunked-Manifest", "0");
     headers.set("X-CWS-Chunk-Count", String(chunkCount));
-    headers.set("X-CWS-V119", MARKER);
+    headers.set("X-CWS-V127", MARKER);
     for(const key of ["X-CWS-User-Email", "X-CWS-User-Role", "X-CWS-User-Display-Name", "X-CWS-Updated-At", "X-CWS-Updated-By"]){
       const value = manifestResponse.headers.get(key) || existingResponse?.headers?.get?.(key);
       if(value) headers.set(key, value);
@@ -104,8 +120,9 @@
   }
 
   window.fetch = async function(input, init){
-    const response = await nativeFetch(input, init);
-    if(!isStateBootRequest(input)) return response;
+    if(!isStateBootRequest(input)) return nativeFetch(input, init);
+    const bootInput = withExplicitNonChunk(input);
+    const response = await nativeFetch(bootInput, init);
     try{
       const clone = response.clone();
       const text = await clone.text();
@@ -113,20 +130,21 @@
       if(!shouldRecover) return response;
       const recovered = await fetchFullStateFromChunks(text, response);
       try{
-        window.__cwsV119RecoveredD1ChunkBoot = {
+        window.__cwsV127RecoveredD1ChunkBoot = {
           at:new Date().toISOString(),
           marker:MARKER,
           originalLength:text.length,
-          originalChunkedManifest:response.headers.get("X-CWS-Chunked-Manifest") || ""
+          originalChunkedManifest:response.headers.get("X-CWS-Chunked-Manifest") || "",
+          forcedNonChunk:true
         };
-      }catch(_){}
+      }catch(_){ }
       return recovered;
     }catch(error){
-      console.warn("CWS V119 D1 chunk boot interceptor failed", error);
+      console.warn("CWS V127 D1 chunk boot interceptor failed", error);
       return response;
     }
   };
 
-  window.__cwsV119StateChunkBootInterceptorInstalled = true;
-  window.__cwsV119StateChunkBootInterceptorMarker = MARKER;
+  window.__cwsV127StateChunkBootInterceptorInstalled = true;
+  window.__cwsV127StateChunkBootInterceptorMarker = MARKER;
 })();
