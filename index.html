@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="css/ui/06-mobile-gantt-capacity.css">
   <link rel="stylesheet" href="css/ui/10-print.css">
 </head>
-<body data-cws-build="CWS_UI_REBUILD_V108_DIRECT_REVISION_SAVE" data-cws-previous-build="CWS_UI_REBUILD_V107_GANTT_INTERACTION_HYDRATION" data-cws-legacy-builds="V106_CLIENT_REVISION_CAPACITY_STRIP V103_DURABLE_REVISIONS V104_CAPACITY_REVISION_ISOLATION V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+<body data-cws-build="CWS_UI_REBUILD_V119_PRE_STORE_D1_CHUNK_BOOT" data-cws-previous-build="CWS_UI_REBUILD_V118_LATEST_VALID_CHUNK_RECOVERY" data-cws-legacy-builds="V117_INTERCEPT_TRUNCATED_D1_STATE V116_FAILSAFE_CHUNKED_BOOT V108_DIRECT_REVISION_SAVE V107_GANTT_INTERACTION_HYDRATION V106_CLIENT_REVISION_CAPACITY_STRIP V103_DURABLE_REVISIONS V104_CAPACITY_REVISION_ISOLATION V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
   <div class="headerbar">
     <div class="left">
       <div class="cws-brand" aria-label="CWS Planning">
@@ -74,6 +74,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="js/core/state_chunk_boot_interceptor.js"></script>
   <script src="js/core/store.js"></script>
   <script src="js/core/print_save_guard.js"></script>
   <script src="js/core/revision_delete_sync.js"></script>
@@ -93,7 +94,7 @@
   <script>
     (async()=>{
       try{
-        document.body.dataset.cwsBuild = "CWS_UI_REBUILD_V108_DIRECT_REVISION_SAVE";
+        document.body.dataset.cwsBuild = "CWS_UI_REBUILD_V119_PRE_STORE_D1_CHUNK_BOOT";
         AppsMenu.render();
         AppsMenu.bind();
         CWS_ExcelImport.bind();
