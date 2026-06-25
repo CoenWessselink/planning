@@ -1,7 +1,7 @@
-/* CWS Planning V125 — durable Gantt + revision bridge.
+/* CWS Planning V126 — durable Gantt + revision bridge + preview materialization.
    Do not override print CSS here. A3 print is controlled by laag4_gantt.html print rules. */
 (function(){
-  const MARKER = "v125-durable-gantt-revision-bridge";
+  const MARKER = "v126-durable-gantt-revision-preview-materialize";
   const postedRevisions = new Set();
   const postedGantt = new Map();
 
@@ -151,7 +151,7 @@
         window.CWS.storageStatus.lastRevisionModalD1Hydration = { projectId, count:revisions.length, reason, marker:MARKER };
       }
     }catch(error){
-      console.warn("CWS V125 revision hydration failed", error);
+      console.warn("CWS V126 revision hydration failed", error);
       if(window.CWS?.storageStatus){
         window.CWS.storageStatus.lastRevisionHydrationError = { message:error.message, marker:MARKER };
       }
@@ -159,13 +159,71 @@
   }
 
   function runInFrame(doc, code){
-    try { return doc?.defaultView?.eval?.(code); } catch(error) { console.warn("CWS V125 iframe eval failed", error); return null; }
+    try { return doc?.defaultView?.eval?.(code); } catch(error) { console.warn("CWS V126 iframe eval failed", error); return null; }
+  }
+
+  const PREVIEW_MATERIALIZE_PATCH = String.raw`
+(function(){
+  if(window.__cwsV126GanttPreviewMaterializeGuard) return true;
+  if(typeof getModel !== "function" || typeof generateModel !== "function" || typeof saveModel !== "function" || typeof render !== "function") return false;
+  window.__cwsV126GanttPreviewMaterializeGuard = true;
+  const marker = "v126-gantt-preview-materialize-before-edit";
+  const originalGetModel = getModel;
+  const originalRender = render;
+  function clone(value){ return JSON.parse(JSON.stringify(value || {})); }
+  function hasRows(model){ return !!(model && Array.isArray(model.rows) && model.rows.length); }
+  function materialize(projectId){
+    const live = originalGetModel(projectId) || { rows:[], sched:{}, revisions:[] };
+    if(hasRows(live)) return live;
+    if(window.__cwsV126RenderActive || window.__cwsV126Materializing) return live;
+    const generated = generateModel(projectId);
+    if(!hasRows(generated)) return live;
+    const next = clone(generated);
+    delete next._previewOnly;
+    next.revisions = Array.isArray(live.revisions) ? clone(live.revisions) : [];
+    next.meta = next.meta && typeof next.meta === "object" ? next.meta : {};
+    next.meta.materializedFromPreview = true;
+    next.meta.materializedFromPreviewAt = new Date().toISOString();
+    next.meta.materializedFromPreviewMarker = marker;
+    window.__cwsV126Materializing = true;
+    try{
+      const result = saveModel(projectId, next, "Fasen automatisch geactiveerd", { action:"gantt_preview_materialized", projectId, marker });
+      if(result && result.ok === false){ console.warn("CWS V126 preview materialize save failed", result); return next; }
+    }finally{
+      window.__cwsV126Materializing = false;
+    }
+    const stored = originalGetModel(projectId);
+    return hasRows(stored) ? stored : next;
+  }
+  render = function(){
+    window.__cwsV126RenderActive = true;
+    try { return originalRender.apply(this, arguments); }
+    finally { window.__cwsV126RenderActive = false; }
+  };
+  getModel = function(projectId){
+    const live = originalGetModel(projectId);
+    if(hasRows(live) || window.__cwsV126RenderActive || window.__cwsV126Materializing) return live;
+    const stack = String(new Error().stack || "");
+    const dragActive = !!(typeof UI !== "undefined" && UI && UI.drag);
+    const userIntent = dragActive || /openEdit|addTask|deleteRow|duplicateRow|mutateSelectedRows|finishPointerMutation|saveModelNoRender|change|onclick|EventListener|HTMLButtonElement|HTMLInputElement|HTMLSelectElement/i.test(stack);
+    if(!userIntent) return live;
+    return materialize(projectId);
+  };
+  window.CWS_GanttMaterializePreviewNow = materialize;
+  window.__cwsV126GanttPreviewMaterializeMarker = marker;
+  return true;
+})();`;
+
+  function installPreviewMaterializeGuard(){
+    const doc = getFrameDoc();
+    if(!doc) return false;
+    return Boolean(runInFrame(doc, PREVIEW_MATERIALIZE_PATCH));
   }
 
   function installRevisionActionBridge(){
     const doc = getFrameDoc();
-    if(!doc || doc.__v125RevisionActionBridgeInstalled) return Boolean(doc?.__v125RevisionActionBridgeInstalled);
-    doc.__v125RevisionActionBridgeInstalled = true;
+    if(!doc || doc.__v126RevisionActionBridgeInstalled) return Boolean(doc?.__v126RevisionActionBridgeInstalled);
+    doc.__v126RevisionActionBridgeInstalled = true;
     doc.addEventListener("click", async (event) => {
       const btn = event.target?.closest?.("button[data-d1-rev-action]");
       if(!btn) return;
@@ -210,7 +268,7 @@
   }
 
   function installGanttSaveBridge(){
-    if(!window.CWS?.gantt || window.CWS.gantt.__v125DurableBridgeInstalled) return Boolean(window.CWS?.gantt?.__v125DurableBridgeInstalled);
+    if(!window.CWS?.gantt || window.CWS.gantt.__v126DurableBridgeInstalled) return Boolean(window.CWS?.gantt?.__v126DurableBridgeInstalled);
     const original = window.CWS.gantt.saveProjectGantt;
     if(typeof original !== "function") return false;
     window.CWS.gantt.saveProjectGantt = function(projectId, model, mutationMeta={}){
@@ -236,21 +294,26 @@
       }
       return result;
     };
-    window.CWS.gantt.__v125DurableBridgeInstalled = true;
-    window.CWS.gantt.__v125DurableBridgeMarker = MARKER;
+    window.CWS.gantt.__v126DurableBridgeInstalled = true;
+    window.CWS.gantt.__v126DurableBridgeMarker = MARKER;
     return true;
   }
 
   function installFrameHooks(){
     const doc = getFrameDoc();
-    if(!doc || doc.__v125FrameHooksInstalled) return Boolean(doc?.__v125FrameHooksInstalled);
-    doc.__v125FrameHooksInstalled = true;
+    if(!doc) return false;
+    installPreviewMaterializeGuard();
+    if(doc.__v126FrameHooksInstalled) return true;
+    doc.__v126FrameHooksInstalled = true;
     doc.addEventListener("click", event => {
       const text = String(event.target?.closest?.("button")?.textContent || "").trim();
       if(text === "Revisies") setTimeout(() => hydrateRevisionModal("open-button"), 160);
       if(text.includes("Planning opslaan als revisie")) setTimeout(() => hydrateRevisionModal("after-save-button"), 900);
     }, true);
-    const observer = new MutationObserver(() => setTimeout(() => hydrateRevisionModal("mutation"), 180));
+    const observer = new MutationObserver(() => {
+      installPreviewMaterializeGuard();
+      setTimeout(() => hydrateRevisionModal("mutation"), 180);
+    });
     if(doc.body) observer.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class"] });
     installRevisionActionBridge();
     return true;
@@ -260,6 +323,7 @@
     installGanttSaveBridge();
     installFrameHooks();
     installRevisionActionBridge();
+    installPreviewMaterializeGuard();
     return true;
   }
 
