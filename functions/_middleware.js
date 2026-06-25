@@ -10,7 +10,7 @@ import {
   verifyRequiredSchema
 } from "./api/_shared.js";
 
-const MARKER = "v121-full-json-state-boot-response";
+const MARKER = "v122-no-implicit-chunk-zero";
 const CHUNK_SIZE = 180000;
 const CHUNK_THRESHOLD_BYTES = 700000;
 const enc = (v) => new TextEncoder().encode(String(v || "")).byteLength;
@@ -37,7 +37,9 @@ function wantsManifest(request, url) {
 }
 
 function chunkIndexFromUrl(url) {
-  const raw = url.searchParams.get("chunkIndex") ?? url.searchParams.get("chunk") ?? "";
+  if (!url.searchParams.has("chunkIndex") && !url.searchParams.has("chunk")) return -1;
+  const raw = url.searchParams.get("chunkIndex") ?? url.searchParams.get("chunk");
+  if (raw == null || String(raw).trim() === "") return -1;
   const index = Number(raw);
   return Number.isInteger(index) && index >= 0 ? index : -1;
 }
@@ -194,33 +196,33 @@ function assertSafeIncoming(raw) {
 
 async function handleStateGet(context, url) {
   const db = context.env?.DB;
-  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v121: { marker: MARKER } }, 500);
+  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v122: { marker: MARKER } }, 500);
   const email = requireActorEmail(context.request);
-  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v121: { marker: MARKER } }, 401);
+  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v122: { marker: MARKER } }, 401);
   await prepare(db);
   const user = await getOrCreateUser(db, email);
-  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v121: { marker: MARKER } }, 403);
+  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v122: { marker: MARKER } }, 403);
 
   const row = await db.prepare(
     `SELECT state_json, version, updated_at, updated_by FROM app_state WHERE tenant_id = ? AND state_key = ?`
   ).bind(TENANT_ID, STATE_KEY).first();
   const resolved = await resolveState(db, row);
+  const requestedChunkIndex = chunkIndexFromUrl(url);
 
-  if (resolved.exists && chunkIndexFromUrl(url) >= 0) {
+  if (resolved.exists && requestedChunkIndex >= 0) {
     const manifest = resolved.manifest || JSON.parse(makeManifest(resolved.version, enc(resolved.full), split(resolved.full).length, row?.updated_by || email));
-    const index = chunkIndexFromUrl(url);
     const rows = await readChunkRows(db, resolved.version);
-    const chunk = rows.find(r => Number(r.chunk_index) === index);
-    if (!chunk) return json({ ok: false, error: `Chunk ${index} ontbreekt.`, v121: { marker: MARKER } }, 500);
+    const chunk = rows.find(r => Number(r.chunk_index) === requestedChunkIndex);
+    if (!chunk) return json({ ok: false, error: `Chunk ${requestedChunkIndex} ontbreekt.`, v122: { marker: MARKER } }, 500);
     return rawStateResponse(chunk.chunk_text || "", 200, {
       "X-CWS-OK": "true",
       "X-CWS-State-Exists": "1",
       "X-CWS-Version": String(resolved.version),
       "X-CWS-Chunked": "1",
       "X-CWS-Chunked-Manifest": "0",
-      "X-CWS-Chunk-Index": String(index),
+      "X-CWS-Chunk-Index": String(requestedChunkIndex),
       "X-CWS-Chunk-Count": String(Number(manifest.chunkCount || rows.length)),
-      "X-CWS-V121": MARKER
+      "X-CWS-V122": MARKER
     });
   }
 
@@ -240,7 +242,7 @@ async function handleStateGet(context, url) {
       "X-CWS-Chunked-Manifest": "1",
       "X-CWS-Chunk-Count": String(Number(manifest.chunkCount || 0)),
       "X-CWS-Recovered-Truncated-State": resolved.recovered ? "1" : "0",
-      "X-CWS-V121": MARKER
+      "X-CWS-V122": MARKER
     });
   }
 
@@ -259,7 +261,7 @@ async function handleStateGet(context, url) {
       "X-CWS-Chunked-Manifest": "0",
       "X-CWS-Recovered-Truncated-State": resolved.recovered ? "1" : "0",
       "X-CWS-Full-State-Json": "1",
-      "X-CWS-V121": MARKER
+      "X-CWS-V122": MARKER
     });
   }
 
@@ -275,7 +277,7 @@ async function handleStateGet(context, url) {
     updatedAt: row?.updated_at || null,
     updatedBy: row?.updated_by || null,
     user: { email: user.email, displayName: user.display_name, role: user.role, active: Boolean(user.active) },
-    v121: { marker: MARKER, fullJsonBootResponse: true, recovered: resolved.recovered }
+    v122: { marker: MARKER, fullJsonBootResponse: true, recovered: resolved.recovered }
   });
 }
 
@@ -330,13 +332,13 @@ async function writeCheckpoint(db, raw, version, email) {
 
 async function handleStatePut(context, url) {
   const db = context.env?.DB;
-  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v121: { marker: MARKER } }, 500);
+  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v122: { marker: MARKER } }, 500);
   const email = requireActorEmail(context.request);
-  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v121: { marker: MARKER } }, 401);
+  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v122: { marker: MARKER } }, 401);
   await prepare(db);
   const user = await getOrCreateUser(db, email);
-  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v121: { marker: MARKER } }, 403);
-  if (user.role === "viewer") return json({ ok: false, error: "Viewer heeft alleen leesrechten.", v121: { marker: MARKER } }, 403);
+  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v122: { marker: MARKER } }, 403);
+  if (user.role === "viewer") return json({ ok: false, error: "Viewer heeft alleen leesrechten.", v122: { marker: MARKER } }, 403);
 
   const incoming = await readIncomingState(context, url);
   const m = assertSafeIncoming(incoming.stateJson);
@@ -353,18 +355,18 @@ async function handleStatePut(context, url) {
     ).bind(TENANT_ID, STATE_KEY, mutationId, version, incoming.baseVersion, m.bytes, m.projectCount, m.ganttRowCount, email).run();
   } catch (_) {}
 
-  return json({ ok: true, version, updatedBy: email, bytes: m.bytes, v121: { marker: MARKER, checkpointFirst: true, chunked: checkpoint.chunked, chunkCount: checkpoint.chunkCount } }, 200);
+  return json({ ok: true, version, updatedBy: email, bytes: m.bytes, v122: { marker: MARKER, checkpointFirst: true, chunked: checkpoint.chunked, chunkCount: checkpoint.chunkCount } }, 200);
 }
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
   if (url.pathname === "/api/state" && context.request.method === "GET") {
     try { return await handleStateGet(context, url); }
-    catch (error) { return json({ ok: false, error: error.message || String(error), v121: { marker: MARKER } }, error.status || 500); }
+    catch (error) { return json({ ok: false, error: error.message || String(error), v122: { marker: MARKER } }, error.status || 500); }
   }
   if (url.pathname === "/api/state" && context.request.method === "PUT") {
     try { return await handleStatePut(context, url); }
-    catch (error) { return json({ ok: false, error: error.message || String(error), metrics: error.metrics || null, v121: { marker: MARKER, checkpointFirst: true } }, error.status || 500); }
+    catch (error) { return json({ ok: false, error: error.message || String(error), metrics: error.metrics || null, v122: { marker: MARKER, checkpointFirst: true } }, error.status || 500); }
   }
   return context.next();
 }
