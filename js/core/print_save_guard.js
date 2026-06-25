@@ -1,8 +1,11 @@
-/* CWS Planning V106 — block print saves and strip derived capacity from revision snapshots before client save. */
+/* CWS Planning V134 — block actual print saves, but never leave print mode stuck. */
 (function(){
-  const PRINT_MARKER = "v105-print-save-guard";
-  const REVISION_CAPACITY_MARKER = "v106-client-revision-capacity-strip";
-  window.CWS_PRINT_ACTIVE = window.CWS_PRINT_ACTIVE || false;
+  const PRINT_MARKER = "v134-print-save-guard-auto-release";
+  const REVISION_CAPACITY_MARKER = "v134-client-revision-capacity-strip";
+  const PRINT_MAX_MS = 12000;
+  let printTimer = null;
+
+  window.CWS_PRINT_ACTIVE = Boolean(window.CWS_PRINT_ACTIVE && false);
 
   const frameIsPrinting = () => {
     try {
@@ -14,19 +17,37 @@
     }
   };
 
-  const isPrinting = () => Boolean(window.CWS_PRINT_ACTIVE || document.body?.classList?.contains("printing") || frameIsPrinting());
+  const clearFramePrintClasses = () => {
+    try {
+      const frame = document.getElementById("appFrame");
+      frame?.contentDocument?.body?.classList?.remove("printing", "cap-printing");
+    } catch (_) {}
+  };
 
   const setPrintActive = (active, reason="print") => {
     window.CWS_PRINT_ACTIVE = Boolean(active);
+    if (printTimer) {
+      clearTimeout(printTimer);
+      printTimer = null;
+    }
+    if (active) {
+      printTimer = setTimeout(() => setPrintActive(false, "auto-release-timeout"), PRINT_MAX_MS);
+    } else {
+      clearFramePrintClasses();
+      document.body?.classList?.remove("printing", "cap-printing");
+    }
     try {
       window.CWS = window.CWS || {};
       if (window.CWS.storageStatus) {
         window.CWS.storageStatus.printActive = Boolean(active);
         window.CWS.storageStatus.printGuardMarker = PRINT_MARKER;
         window.CWS.storageStatus.printGuardReason = reason;
+        if (!active) window.CWS.storageStatus.lastPrintGuardReleasedAt = new Date().toISOString();
       }
     } catch (_) {}
   };
+
+  const isPrinting = () => Boolean(window.CWS_PRINT_ACTIVE || document.body?.classList?.contains("printing") || frameIsPrinting());
 
   const stripDerivedCapacityFromRevisionSnapshot = (snapshot) => {
     if (!snapshot || typeof snapshot !== "object") return snapshot || {};
@@ -65,16 +86,29 @@
 
   window.CWS_StripRevisionCapacity = sanitizeStateRevisionSnapshots;
   window.CWS_SetPrintActive = setPrintActive;
+  window.CWS_ClearPrintActive = () => setPrintActive(false, "manual-clear");
   window.addEventListener("beforeprint", () => setPrintActive(true, "beforeprint"));
   window.addEventListener("afterprint", () => setPrintActive(false, "afterprint"));
+  window.addEventListener("focus", () => setTimeout(() => setPrintActive(false, "window-focus"), 500));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) setTimeout(() => setPrintActive(false, "visibility-return"), 500);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") setPrintActive(false, "escape");
+  }, true);
 
   const install = () => {
     if (!window.CWS?.storage) return false;
 
-    if (!window.CWS.storage.__v105PrintGuardInstalled) {
+    if (!window.CWS.storage.__v134PrintGuardInstalled) {
       const originalSave = window.CWS.storage.save;
       if (typeof originalSave !== "function") return false;
       window.CWS.storage.save = async function(snapshot){
+        if (isPrinting()) {
+          if (window.CWS_PRINT_ACTIVE && !frameIsPrinting() && !document.body?.classList?.contains("printing")) {
+            setPrintActive(false, "stale-active-reset-before-save");
+          }
+        }
         if (isPrinting()) {
           const error = new Error("Remote save geblokkeerd: printmodus is actief.");
           error.cwsGuard = PRINT_MARKER;
@@ -90,11 +124,11 @@
         if (snapshot?.state) sanitizeStateRevisionSnapshots(snapshot.state);
         return originalSave.call(this, snapshot);
       };
-      window.CWS.storage.__v105PrintGuardInstalled = true;
-      window.CWS.storage.__v105PrintGuardMarker = PRINT_MARKER;
+      window.CWS.storage.__v134PrintGuardInstalled = true;
+      window.CWS.storage.__v134PrintGuardMarker = PRINT_MARKER;
     }
 
-    if (window.CWS?.gantt && !window.CWS.gantt.__v106RevisionCapacityGuardInstalled) {
+    if (window.CWS?.gantt && !window.CWS.gantt.__v134RevisionCapacityGuardInstalled) {
       const originalSaveProjectGantt = window.CWS.gantt.saveProjectGantt;
       if (typeof originalSaveProjectGantt === "function") {
         window.CWS.gantt.saveProjectGantt = function(projectId, model, mutationMeta){
@@ -106,16 +140,17 @@
           } catch (_) {}
           return originalSaveProjectGantt.call(this, projectId, model, mutationMeta);
         };
-        window.CWS.gantt.__v106RevisionCapacityGuardInstalled = true;
-        window.CWS.gantt.__v106RevisionCapacityGuardMarker = REVISION_CAPACITY_MARKER;
+        window.CWS.gantt.__v134RevisionCapacityGuardInstalled = true;
+        window.CWS.gantt.__v134RevisionCapacityGuardMarker = REVISION_CAPACITY_MARKER;
       }
     }
 
-    return Boolean(window.CWS.storage.__v105PrintGuardInstalled);
+    return Boolean(window.CWS.storage.__v134PrintGuardInstalled);
   };
 
   const timer = setInterval(() => {
     if (install()) clearInterval(timer);
   }, 100);
   setTimeout(() => clearInterval(timer), 20000);
+  setTimeout(() => setPrintActive(false, "boot-clear"), 250);
 })();
