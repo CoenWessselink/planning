@@ -1,10 +1,20 @@
 import { STATE_KEY, TENANT_ID, json, requireActorEmail } from "./_shared.js";
 
-const MARKER = "v131-d1-cleanup-no-schema-writes";
+const MARKER = "v132-d1-cleanup-prune-current-version-orphans";
 
 async function tableExists(db, name) {
   const row = await db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`).bind(name).first();
   return Boolean(row?.name);
+}
+
+function parseManifest(raw) {
+  if (!raw || String(raw).length > 8192) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.__cwsChunkedState && parsed.version && parsed.chunkCount) return parsed;
+    if (parsed?.__cwsStateChunkManifest && parsed.version && parsed.chunkCount) return parsed;
+  } catch (_) {}
+  return null;
 }
 
 async function chunkStats(db) {
@@ -20,7 +30,7 @@ async function chunkStats(db) {
       WHERE tenant_id = ? AND state_key = ?`
   ).bind(TENANT_ID, STATE_KEY).first();
   const versionsResult = await db.prepare(
-    `SELECT version, COUNT(*) AS chunk_count, COALESCE(SUM(length(chunk_text)), 0) AS total_chars
+    `SELECT version, COUNT(*) AS chunk_count, COALESCE(SUM(length(chunk_text)), 0) AS total_chars, MIN(chunk_index) AS min_chunk, MAX(chunk_index) AS max_chunk
        FROM app_state_chunks
       WHERE tenant_id = ? AND state_key = ?
       GROUP BY version
@@ -39,9 +49,16 @@ async function chunkStats(db) {
 }
 
 async function currentStateVersion(db) {
-  if (!(await tableExists(db, "app_state"))) return { exists: false, version: 0, hasState: false, stateJsonLength: 0 };
+  if (!(await tableExists(db, "app_state"))) return { exists: false, version: 0, hasState: false, stateJsonLength: 0, manifest: null };
   const row = await db.prepare(`SELECT version, state_json FROM app_state WHERE tenant_id = ? AND state_key = ?`).bind(TENANT_ID, STATE_KEY).first();
-  return { exists: Boolean(row), version: Number(row?.version || 0), hasState: Boolean(row?.state_json), stateJsonLength: row?.state_json ? String(row.state_json).length : 0 };
+  const manifest = parseManifest(row?.state_json || "");
+  return {
+    exists: Boolean(row),
+    version: Number(row?.version || manifest?.version || 0),
+    hasState: Boolean(row?.state_json),
+    stateJsonLength: row?.state_json ? String(row.state_json).length : 0,
+    manifest: manifest ? { version: Number(manifest.version || 0), chunkCount: Number(manifest.chunkCount || 0), bytes: Number(manifest.bytes || 0), marker: manifest.marker || null } : null
+  };
 }
 
 async function revisionStats(db) {
@@ -79,13 +96,15 @@ async function describe(db) {
 
 async function cleanup(db, keepVersions = 1) {
   const before = await describe(db);
-  const currentVersion = Number(before.state.version || before.chunks.maxVersion || 0);
+  const currentVersion = Number(before.state.version || before.state.manifest?.version || before.chunks.maxVersion || 0);
+  const expectedCurrentChunkCount = Number(before.state.manifest?.chunkCount || 0);
   const keep = Math.max(1, Math.min(3, Number(keepVersions || 1)));
   const minKeepVersion = Math.max(0, currentVersion - keep + 1);
 
   let deletedOldChunkRows = 0;
   let deletedLogRows = 0;
-  let deletedOrphanChunkRows = 0;
+  let deletedFutureChunkRows = 0;
+  let deletedCurrentOrphanChunkRows = 0;
 
   if (await tableExists(db, "app_state_chunks")) {
     const old = await db.prepare(
@@ -96,13 +115,24 @@ async function cleanup(db, keepVersions = 1) {
     ).bind(TENANT_ID, STATE_KEY, minKeepVersion).run();
     deletedOldChunkRows = Number(old?.meta?.changes || old?.changes || 0);
 
-    const orphan = await db.prepare(
+    const future = await db.prepare(
       `DELETE FROM app_state_chunks
         WHERE tenant_id = ?
           AND state_key = ?
           AND version > ?`
     ).bind(TENANT_ID, STATE_KEY, Math.max(currentVersion, 0)).run();
-    deletedOrphanChunkRows = Number(orphan?.meta?.changes || orphan?.changes || 0);
+    deletedFutureChunkRows = Number(future?.meta?.changes || future?.changes || 0);
+
+    if (currentVersion > 0 && expectedCurrentChunkCount > 0) {
+      const currentOrphans = await db.prepare(
+        `DELETE FROM app_state_chunks
+          WHERE tenant_id = ?
+            AND state_key = ?
+            AND version = ?
+            AND chunk_index >= ?`
+      ).bind(TENANT_ID, STATE_KEY, currentVersion, expectedCurrentChunkCount).run();
+      deletedCurrentOrphanChunkRows = Number(currentOrphans?.meta?.changes || currentOrphans?.changes || 0);
+    }
   }
 
   if (await tableExists(db, "app_state_save_log")) {
@@ -127,9 +157,11 @@ async function cleanup(db, keepVersions = 1) {
     noSchemaWrites: true,
     keepVersions: keep,
     currentVersion,
+    expectedCurrentChunkCount,
     minKeepVersion,
     deletedOldChunkRows,
-    deletedOrphanChunkRows,
+    deletedFutureChunkRows,
+    deletedCurrentOrphanChunkRows,
     deletedLogRows,
     before,
     after
