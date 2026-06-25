@@ -12,7 +12,7 @@ import {
   writeAudit
 } from "./_shared.js";
 
-const MARKER = "v113-api-state-checkpoint-first";
+const MARKER = "v115-recover-truncated-chunked-state";
 const CHUNK_CHAR_SIZE = 180_000;
 const CHUNK_THRESHOLD_BYTES = 700_000;
 
@@ -39,7 +39,7 @@ async function prepareDb(db) {
   return schema;
 }
 
-function buildChunkManifest(version, bytes, chunkCount, updatedBy) {
+function buildChunkManifest(version, bytes, chunkCount, updatedBy, extra = {}) {
   return JSON.stringify({
     __cwsChunkedState: true,
     marker: MARKER,
@@ -49,7 +49,8 @@ function buildChunkManifest(version, bytes, chunkCount, updatedBy) {
     updatedBy,
     tenantId: TENANT_ID,
     stateKey: STATE_KEY,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    ...extra
   });
 }
 
@@ -87,35 +88,134 @@ function chunkIndexFromUrl(url) {
   return Number.isInteger(index) && index >= 0 ? index : -1;
 }
 
-async function readFullStateJson(db, row) {
-  const raw = row?.state_json || "";
-  const manifest = parseChunkManifest(raw);
-  if (!manifest) return raw;
+async function readChunkRows(db, version) {
   const result = await db.prepare(
     `SELECT chunk_index, chunk_text FROM app_state_chunks
      WHERE tenant_id = ? AND state_key = ? AND version = ?
      ORDER BY chunk_index ASC`
-  ).bind(TENANT_ID, STATE_KEY, Number(manifest.version || row?.version || 0)).all();
-  const rows = result.results || [];
-  if (rows.length !== Number(manifest.chunkCount || 0)) {
-    const error = new Error(`D1 chunked state incompleet: ${rows.length}/${manifest.chunkCount} chunks gevonden.`);
+  ).bind(TENANT_ID, STATE_KEY, Number(version || 0)).all();
+  return result.results || [];
+}
+
+async function readChunksAsJson(db, version, expectedCount = null) {
+  const rows = await readChunkRows(db, version);
+  if (!rows.length) {
+    const error = new Error(`Geen D1 chunks gevonden voor state-versie ${version}.`);
     error.status = 500;
     throw error;
   }
-  return rows.map(r => r.chunk_text || "").join("");
+  if (expectedCount != null && rows.length !== Number(expectedCount || 0)) {
+    const error = new Error(`D1 chunked state incompleet: ${rows.length}/${expectedCount} chunks gevonden.`);
+    error.status = 500;
+    throw error;
+  }
+  for (let i = 0; i < rows.length; i += 1) {
+    if (Number(rows[i].chunk_index) !== i) {
+      const error = new Error(`D1 chunk-index ontbreekt of is ongeldig bij index ${i}.`);
+      error.status = 500;
+      throw error;
+    }
+  }
+  const stateJson = rows.map(r => r.chunk_text || "").join("");
+  try { JSON.parse(stateJson); }
+  catch (error) {
+    const wrapped = new Error(`D1 chunks vormen geen geldige JSON (${error.message}).`);
+    wrapped.status = 500;
+    throw wrapped;
+  }
+  return { stateJson, rows, bytes: textByteLength(stateJson) };
+}
+
+async function repairAppStateManifestBestEffort(db, row, manifest) {
+  try {
+    await db.prepare(
+      `UPDATE app_state SET state_json = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE tenant_id = ? AND state_key = ? AND version = ?`
+    ).bind(JSON.stringify(manifest), TENANT_ID, STATE_KEY, Number(row?.version || manifest.version || 0)).run();
+  } catch (_) {}
+}
+
+async function resolveStoredState(db, row) {
+  const raw = row?.state_json || "";
+  const version = Number(row?.version || 0);
+  const parsedManifest = parseChunkManifest(raw);
+  if (parsedManifest) {
+    return {
+      exists: true,
+      type: "chunked-manifest",
+      version: Number(parsedManifest.version || version),
+      manifest: parsedManifest,
+      inlineRaw: null,
+      recovered: false
+    };
+  }
+
+  if (raw) {
+    try {
+      JSON.parse(raw);
+      return {
+        exists: true,
+        type: "inline-json",
+        version,
+        manifest: null,
+        inlineRaw: raw,
+        recovered: false
+      };
+    } catch (parseError) {
+      const chunkRows = await readChunkRows(db, version).catch(() => []);
+      if (chunkRows.length) {
+        const recovered = await readChunksAsJson(db, version, null);
+        const manifest = {
+          __cwsChunkedState: true,
+          marker: MARKER,
+          tenantId: TENANT_ID,
+          stateKey: STATE_KEY,
+          version,
+          bytes: recovered.bytes,
+          chunkCount: recovered.rows.length,
+          updatedBy: row?.updated_by || "recovered",
+          recoveredFromTruncatedStateJson: true,
+          recoveredAt: new Date().toISOString(),
+          originalParseError: parseError.message
+        };
+        await repairAppStateManifestBestEffort(db, row, manifest);
+        return {
+          exists: true,
+          type: "recovered-chunked-manifest",
+          version,
+          manifest,
+          inlineRaw: null,
+          recovered: true
+        };
+      }
+      const error = new Error(`D1-state is ongeldige JSON en er zijn geen herstelbare chunks voor versie ${version} (${parseError.message}).`);
+      error.status = 500;
+      throw error;
+    }
+  }
+
+  return { exists: false, type: "empty", version: 0, manifest: null, inlineRaw: "", recovered: false };
+}
+
+async function readFullStateJson(db, row) {
+  const resolved = await resolveStoredState(db, row);
+  if (!resolved.exists) return "";
+  if (resolved.type === "inline-json") return resolved.inlineRaw || "";
+  const data = await readChunksAsJson(db, resolved.version, resolved.manifest?.chunkCount ?? null);
+  return data.stateJson;
 }
 
 async function readStateChunkResponse(db, manifest, row, url) {
   const index = chunkIndexFromUrl(url);
   const version = Number(manifest?.version || row?.version || 0);
-  if (index < 0 || index >= Number(manifest?.chunkCount || 0)) return json({ ok:false, error:"Ongeldige chunk-index.", v113:MARKER }, 400);
+  if (index < 0 || index >= Number(manifest?.chunkCount || 0)) return json({ ok:false, error:"Ongeldige chunk-index.", v115:MARKER }, 400);
   const requestedVersion = Number(url.searchParams.get("version") || version);
-  if (requestedVersion !== version) return json({ ok:false, error:`Chunkversie komt niet overeen (${requestedVersion} != ${version}).`, v113:MARKER }, 409);
+  if (requestedVersion !== version) return json({ ok:false, error:`Chunkversie komt niet overeen (${requestedVersion} != ${version}).`, v115:MARKER }, 409);
   const chunk = await db.prepare(
     `SELECT chunk_text FROM app_state_chunks
      WHERE tenant_id = ? AND state_key = ? AND version = ? AND chunk_index = ?`
   ).bind(TENANT_ID, STATE_KEY, version, index).first();
-  if (!chunk?.chunk_text) return json({ ok:false, error:`State chunk ${index} ontbreekt.`, v113:MARKER }, 500);
+  if (!chunk?.chunk_text) return json({ ok:false, error:`State chunk ${index} ontbreekt.`, v115:MARKER }, 500);
   return rawStateResponse(chunk.chunk_text || "", 200, {
     "X-CWS-OK": "true",
     "X-CWS-State-Exists": "1",
@@ -125,11 +225,11 @@ async function readStateChunkResponse(db, manifest, row, url) {
     "X-CWS-Chunked-Manifest": "0",
     "X-CWS-Chunk-Index": String(index),
     "X-CWS-Chunk-Count": String(Number(manifest?.chunkCount || 0)),
-    "X-CWS-V113": MARKER
+    "X-CWS-V115": MARKER
   });
 }
 
-function chunkManifestResponse(manifest, row, user, email) {
+function chunkManifestResponse(manifest, row, user, email, recovered = false) {
   const body = JSON.stringify({
     __cwsStateChunkManifest: true,
     __cwsChunkedState: true,
@@ -140,7 +240,8 @@ function chunkManifestResponse(manifest, row, user, email) {
     bytes: Number(manifest?.bytes || 0),
     chunkCount: Number(manifest?.chunkCount || 0),
     updatedAt: row?.updated_at || null,
-    updatedBy: row?.updated_by || null
+    updatedBy: row?.updated_by || null,
+    recoveredFromTruncatedStateJson: Boolean(recovered || manifest?.recoveredFromTruncatedStateJson)
   });
   return rawStateResponse(body, 200, {
     "X-CWS-OK": "true",
@@ -155,7 +256,8 @@ function chunkManifestResponse(manifest, row, user, email) {
     "X-CWS-Chunked": "1",
     "X-CWS-Chunked-Manifest": "1",
     "X-CWS-Chunk-Count": String(Number(manifest?.chunkCount || 0)),
-    "X-CWS-V113": MARKER
+    "X-CWS-Recovered-Truncated-State": recovered || manifest?.recoveredFromTruncatedStateJson ? "1" : "0",
+    "X-CWS-V115": MARKER
   });
 }
 
@@ -207,11 +309,7 @@ function stateMetricsFromRaw(raw) {
   const legacyProjectArray = Array.isArray(parsed?.projects) ? parsed.projects.length : 0;
   const ganttByProject = parsed?.ganttV2?.byProject && typeof parsed.ganttV2.byProject === "object" && !Array.isArray(parsed.ganttV2.byProject) ? parsed.ganttV2.byProject : {};
   const ganttRowCount = Object.values(ganttByProject).reduce((sum, model) => sum + (Array.isArray(model?.rows) ? model.rows.length : 0), 0);
-  return {
-    projectCount: Math.max(projectOrder, projectById, legacyProjectArray),
-    ganttRowCount,
-    bytes: textByteLength(raw)
-  };
+  return { projectCount: Math.max(projectOrder, projectById, legacyProjectArray), ganttRowCount, bytes:textByteLength(raw) };
 }
 
 function assertIncomingStateSafe(incomingRaw) {
@@ -227,7 +325,7 @@ function assertIncomingStateSafe(incomingRaw) {
     const error = new Error(`Opslaan geblokkeerd: inkomende state lijkt leeg/demo (${incoming.projectCount} projecten/${incoming.ganttRowCount} rijen).`);
     error.status = 409;
     error.incomingMetrics = incoming;
-    error.guard = "v113-empty-state-guard";
+    error.guard = "v115-empty-state-guard";
     throw error;
   }
   return incoming;
@@ -281,9 +379,7 @@ async function writeCheckpoint(db, stateJson, version, email) {
         updated_at = CURRENT_TIMESTAMP,
         updated_by = excluded.updated_by`
     ).bind(TENANT_ID, STATE_KEY, stateJson, version, email).run();
-    try {
-      await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version <> ?`).bind(TENANT_ID, STATE_KEY, version).run();
-    } catch (_) {}
+    try { await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version <> ?`).bind(TENANT_ID, STATE_KEY, version).run(); } catch (_) {}
     return { chunked:false, chunkCount:0, bytes };
   }
 
@@ -306,39 +402,36 @@ async function writeCheckpoint(db, stateJson, version, email) {
       updated_at = CURRENT_TIMESTAMP,
       updated_by = excluded.updated_by`
   ).bind(TENANT_ID, STATE_KEY, manifest, version, email).run();
-  try {
-    await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version <> ?`).bind(TENANT_ID, STATE_KEY, version).run();
-  } catch (_) {}
+  try { await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version <> ?`).bind(TENANT_ID, STATE_KEY, version).run(); } catch (_) {}
   return { chunked:true, chunkCount:chunks.length, bytes };
 }
 
 async function auditBestEffort(db, email, metadata) {
-  try {
-    await writeAudit(db, email, "state_saved_checkpoint_first", metadata, "app_state", STATE_KEY);
-  } catch (_) {}
+  try { await writeAudit(db, email, "state_saved_checkpoint_first", metadata, "app_state", STATE_KEY); } catch (_) {}
 }
 
 export async function onRequestGet(context) {
   const db = context.env?.DB;
-  if (!db) return json({ ok:false, error:"D1-binding DB ontbreekt.", v113:MARKER }, 500);
+  if (!db) return json({ ok:false, error:"D1-binding DB ontbreekt.", v115:MARKER }, 500);
   const email = requireActorEmail(context.request);
-  if (!email) return json({ ok:false, error:"Cloudflare Access-identiteit ontbreekt.", v113:MARKER }, 401);
+  if (!email) return json({ ok:false, error:"Cloudflare Access-identiteit ontbreekt.", v115:MARKER }, 401);
   const url = new URL(context.request.url);
   const rawResponse = wantsRawStateResponse(context, url);
 
   try {
     const schema = await prepareDb(db);
-    if (!schema.ok) return json({ ok:false, error:"D1-schema kon niet automatisch worden hersteld.", schemaErrors:schema.errors, v113:MARKER }, 500);
+    if (!schema.ok) return json({ ok:false, error:"D1-schema kon niet automatisch worden hersteld.", schemaErrors:schema.errors, v115:MARKER }, 500);
     const user = await getOrCreateUser(db, email);
-    if (!user.active) return json({ ok:false, error:"Gebruiker is inactief.", v113:MARKER }, 403);
+    if (!user.active) return json({ ok:false, error:"Gebruiker is inactief.", v115:MARKER }, 403);
     const row = await db.prepare(
       `SELECT state_json, version, updated_at, updated_by FROM app_state WHERE tenant_id = ? AND state_key = ?`
     ).bind(TENANT_ID, STATE_KEY).first();
     const exists = Boolean(row?.state_json);
-    const manifest = parseChunkManifest(row?.state_json || "");
+    const resolved = exists ? await resolveStoredState(db, row) : { exists:false, type:"empty", version:0, manifest:null, inlineRaw:"", recovered:false };
+    const manifest = resolved.manifest;
 
     if (exists && manifest && chunkIndexFromUrl(url) >= 0) return readStateChunkResponse(db, manifest, row, url);
-    if (exists && manifest && (rawResponse || wantsChunkManifestResponse(context, url))) return chunkManifestResponse(manifest, row, user, email);
+    if (exists && manifest && (rawResponse || wantsChunkManifestResponse(context, url))) return chunkManifestResponse(manifest, row, user, email, resolved.recovered);
 
     const fullStateJson = exists ? await readFullStateJson(db, row) : "";
     const bytes = textByteLength(fullStateJson || "");
@@ -355,7 +448,8 @@ export async function onRequestGet(context) {
         "X-CWS-Bytes": String(bytes),
         "X-CWS-Chunked": "0",
         "X-CWS-Chunk-Count": "0",
-        "X-CWS-V113": MARKER
+        "X-CWS-Recovered-Truncated-State": resolved.recovered ? "1" : "0",
+        "X-CWS-V115": MARKER
       });
     }
     return json({
@@ -370,25 +464,25 @@ export async function onRequestGet(context) {
       updatedAt:row?.updated_at || null,
       updatedBy:row?.updated_by || null,
       user:{ email:user.email, displayName:user.display_name, role:user.role, active:Boolean(user.active) },
-      v113:{ marker:MARKER, checkpointFirst:true }
+      v115:{ marker:MARKER, checkpointFirst:true, recoveredTruncatedState:resolved.recovered, storageType:resolved.type }
     });
   } catch (error) {
-    return json({ ok:false, error:error.message || String(error), v113:MARKER }, error.status || 500);
+    return json({ ok:false, error:error.message || String(error), v115:MARKER }, error.status || 500);
   }
 }
 
 export async function onRequestPut(context) {
   const db = context.env?.DB;
-  if (!db) return json({ ok:false, error:"D1-binding DB ontbreekt.", v113:MARKER }, 500);
+  if (!db) return json({ ok:false, error:"D1-binding DB ontbreekt.", v115:MARKER }, 500);
   const email = requireActorEmail(context.request);
-  if (!email) return json({ ok:false, error:"Cloudflare Access-identiteit ontbreekt.", v113:MARKER }, 401);
+  if (!email) return json({ ok:false, error:"Cloudflare Access-identiteit ontbreekt.", v115:MARKER }, 401);
 
   try {
     const schema = await prepareDb(db);
-    if (!schema.ok) return json({ ok:false, error:"D1-schema kon niet automatisch worden hersteld.", schemaErrors:schema.errors, v113:MARKER }, 500);
+    if (!schema.ok) return json({ ok:false, error:"D1-schema kon niet automatisch worden hersteld.", schemaErrors:schema.errors, v115:MARKER }, 500);
     const user = await getOrCreateUser(db, email);
-    if (!user.active) return json({ ok:false, error:"Gebruiker is inactief.", v113:MARKER }, 403);
-    if (!canWriteState(user)) return json({ ok:false, error:"Viewer heeft alleen leesrechten.", v113:MARKER }, 403);
+    if (!user.active) return json({ ok:false, error:"Gebruiker is inactief.", v115:MARKER }, 403);
+    if (!canWriteState(user)) return json({ ok:false, error:"Viewer heeft alleen leesrechten.", v115:MARKER }, 403);
 
     const incoming = await readIncomingState(context);
     const incomingMetrics = assertIncomingStateSafe(incoming.stateJson);
@@ -417,7 +511,7 @@ export async function onRequestPut(context) {
       version:nextVersion,
       updatedBy:email,
       bytes:incoming.bytes,
-      v113:{ marker:MARKER, checkpointFirst:true, chunked:writeResult.chunked, chunkCount:writeResult.chunkCount }
+      v115:{ marker:MARKER, checkpointFirst:true, chunked:writeResult.chunked, chunkCount:writeResult.chunkCount }
     });
   } catch (error) {
     return json({
@@ -425,11 +519,11 @@ export async function onRequestPut(context) {
       error:error.message || String(error),
       incomingMetrics:error.incomingMetrics || null,
       guard:error.guard || null,
-      v113:{ marker:MARKER, checkpointFirst:true }
+      v115:{ marker:MARKER, checkpointFirst:true }
     }, error.status || 500);
   }
 }
 
 export function onRequest() {
-  return json({ ok:false, error:"Method not allowed.", v113:MARKER }, 405);
+  return json({ ok:false, error:"Method not allowed.", v115:MARKER }, 405);
 }
