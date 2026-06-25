@@ -1,6 +1,6 @@
-/* CWS Planning V110 — save Gantt revisions directly to D1 and hydrate revision modal from D1. */
+/* CWS Planning V111 — save Gantt revisions directly to D1, hydrate revision modal from D1, and hard-align print table/diagram rows. */
 (function(){
-  const MARKER = "v110-direct-revision-save-and-modal-d1-bridge";
+  const MARKER = "v111-revision-modal-and-print-alignment";
   const posted = new Set();
 
   function cleanSnapshot(snapshot){
@@ -106,9 +106,157 @@
     return list.find(rev => rev?.id && !rev._directSaved && !rev._durableRevision) || null;
   }
 
+  function installPrintAlignmentGuard(){
+    const doc = getFrameDoc();
+    if(!doc?.head || doc.getElementById("cws-v111-print-alignment-style")) return Boolean(doc?.getElementById("cws-v111-print-alignment-style"));
+    const style = doc.createElement("style");
+    style.id = "cws-v111-print-alignment-style";
+    style.textContent = `
+      @media print{
+        html body.printing{
+          --v111-print-row-h:24px!important;
+          --v111-print-head-h:58px!important;
+          --v111-print-left-w:240px!important;
+        }
+        html body.printing .board,
+        html body.printing .board.diagram-only,
+        html body.printing .board.table-only{
+          display:grid!important;
+          grid-template-columns:var(--v111-print-left-w) minmax(0,1fr)!important;
+          align-items:start!important;
+          align-content:start!important;
+          gap:0!important;
+          width:100%!important;
+          min-width:0!important;
+        }
+        html body.printing .print-task-table{
+          display:block!important;
+          grid-column:1!important;
+          width:var(--v111-print-left-w)!important;
+          min-width:var(--v111-print-left-w)!important;
+          max-width:var(--v111-print-left-w)!important;
+          margin:0!important;
+          padding:0!important;
+          border-right:.35px solid #111827!important;
+          box-sizing:border-box!important;
+          align-self:start!important;
+        }
+        html body.printing .chart-pane{
+          grid-column:2!important;
+          align-self:start!important;
+          margin:0!important;
+          padding:0!important;
+          min-width:0!important;
+          width:100%!important;
+          overflow:visible!important;
+          transform:none!important;
+        }
+        html body.printing .chart-pane > .timeline{
+          display:none!important;
+          height:0!important;
+          min-height:0!important;
+          max-height:0!important;
+          overflow:hidden!important;
+          visibility:hidden!important;
+        }
+        html body.printing .print-task-table thead{
+          display:none!important;
+          height:0!important;
+          min-height:0!important;
+          max-height:0!important;
+          overflow:hidden!important;
+          visibility:hidden!important;
+        }
+        html body.printing .print-task-table table{
+          width:100%!important;
+          border-collapse:collapse!important;
+          table-layout:fixed!important;
+          margin:0!important;
+          padding:0!important;
+          border:0!important;
+        }
+        html body.printing .print-task-table tbody tr,
+        html body.printing .print-task-table tbody td,
+        html body.printing #lanes > .lane{
+          height:var(--v111-print-row-h)!important;
+          min-height:var(--v111-print-row-h)!important;
+          max-height:var(--v111-print-row-h)!important;
+          box-sizing:border-box!important;
+        }
+        html body.printing .print-task-table tbody td{
+          padding:2px 3px!important;
+          line-height:1.05!important;
+          vertical-align:middle!important;
+          border:.35px solid #111827!important;
+          overflow:hidden!important;
+          white-space:nowrap!important;
+          text-overflow:ellipsis!important;
+        }
+        html body.printing #lanes{
+          margin:0!important;
+          padding:0!important;
+          border-top:0!important;
+          height:auto!important;
+          min-height:0!important;
+          transform:none!important;
+        }
+        html body.printing #lanes > .lane{
+          position:relative!important;
+          margin:0!important;
+          padding:0!important;
+          border-bottom:.35px solid #111827!important;
+          line-height:var(--v111-print-row-h)!important;
+        }
+        html body.printing #lanes > .lane .bar:not(.summary){
+          top:5px!important;
+          height:14px!important;
+          min-height:14px!important;
+          max-height:14px!important;
+          line-height:14px!important;
+        }
+        html body.printing #lanes > .lane .bar.summary{
+          top:0!important;
+          height:var(--v111-print-row-h)!important;
+          min-height:var(--v111-print-row-h)!important;
+          max-height:var(--v111-print-row-h)!important;
+        }
+        html body.printing #lanes > .lane .bar.summary:before{top:10px!important;}
+        html body.printing #lanes > .lane .bar.summary:after{top:15px!important;}
+        html body.printing .print-calendar{
+          grid-template-columns:var(--v111-print-left-w) minmax(0,1fr)!important;
+        }
+        html body.printing .print-calendar-left{
+          width:var(--v111-print-left-w)!important;
+          min-width:var(--v111-print-left-w)!important;
+          max-width:var(--v111-print-left-w)!important;
+        }
+        html body.printing .print-calendar-top .print-calendar-left table,
+        html body.printing .print-calendar-top .print-calendar-left th,
+        html body.printing .print-calendar-top .timeline{
+          height:var(--v111-print-head-h)!important;
+          min-height:var(--v111-print-head-h)!important;
+          max-height:var(--v111-print-head-h)!important;
+        }
+        html body.printing .dep-svg{
+          top:0!important;
+          height:100%!important;
+        }
+        html body.printing .today-line{top:0!important;}
+      }
+    `;
+    doc.head.appendChild(style);
+    try{
+      window.CWS.storageStatus = window.CWS.storageStatus || {};
+      window.CWS.storageStatus.ganttPrintAlignmentMarker = MARKER;
+      window.CWS.storageStatus.ganttPrintAlignmentInstalledAt = new Date().toISOString();
+    }catch(_){}
+    return true;
+  }
+
   function install(){
+    installPrintAlignmentGuard();
     if(!window.CWS?.gantt) return false;
-    if(!window.CWS.gantt.__v110DirectRevisionSaveInstalled){
+    if(!window.CWS.gantt.__v111DirectRevisionSaveInstalled){
       const original = window.CWS.gantt.saveProjectGantt;
       if(typeof original !== "function") return false;
       window.CWS.gantt.saveProjectGantt = function(projectId, model, mutationMeta){
@@ -138,27 +286,35 @@
         }
         return original.call(this, projectId, model, mutationMeta);
       };
-      window.CWS.gantt.__v110DirectRevisionSaveInstalled = true;
-      window.CWS.gantt.__v110DirectRevisionSaveMarker = MARKER;
+      window.CWS.gantt.__v111DirectRevisionSaveInstalled = true;
+      window.CWS.gantt.__v111DirectRevisionSaveMarker = MARKER;
     }
 
     const doc = getFrameDoc();
-    if(doc && !doc.__v110RevisionModalHydrationInstalled){
-      doc.__v110RevisionModalHydrationInstalled = true;
+    if(doc && !doc.__v111RevisionModalHydrationInstalled){
+      doc.__v111RevisionModalHydrationInstalled = true;
       doc.addEventListener("click", event => {
         const btn = event.target?.closest?.("button");
         const text = String(btn?.textContent || "").trim();
         if(text === "Revisies") setTimeout(() => hydrateRevisionModal("open-button"), 120);
         if(text.includes("Planning opslaan als revisie")) setTimeout(() => hydrateRevisionModal("after-save-button"), 700);
+        if(text.includes("Print") || text.includes("Print A3")) setTimeout(installPrintAlignmentGuard, 60);
       }, true);
-      const observer = new MutationObserver(() => setTimeout(() => hydrateRevisionModal("mutation"), 120));
-      observer.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class"] });
+      if(doc.body instanceof Node){
+        const observer = new MutationObserver(() => {
+          installPrintAlignmentGuard();
+          setTimeout(() => hydrateRevisionModal("mutation"), 120);
+        });
+        observer.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class"] });
+      }
     }
     return true;
   }
 
   window.CWS_SaveRevisionDirect = postRevision;
   window.CWS_HydrateRevisionModalFromD1 = hydrateRevisionModal;
+  window.CWS_InstallGanttPrintAlignmentGuard = installPrintAlignmentGuard;
+  window.addEventListener("beforeprint", installPrintAlignmentGuard);
   const timer = setInterval(() => { install(); }, 300);
   setTimeout(() => clearInterval(timer), 30000);
 })();
