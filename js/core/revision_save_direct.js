@@ -1,7 +1,7 @@
-/* CWS Planning V123 — durable Gantt + revision bridge.
+/* CWS Planning V124 — durable Gantt + revision bridge.
    Do not override print CSS here. A3 print is controlled by laag4_gantt.html print rules. */
 (function(){
-  const MARKER = "v123-durable-gantt-revision-bridge";
+  const MARKER = "v124-durable-gantt-revision-bridge";
   const postedRevisions = new Set();
   const postedGantt = new Map();
 
@@ -39,6 +39,12 @@
     return list.find(rev => rev?.id && !rev._directSaved && !rev._durableRevision) || null;
   }
 
+  function currentGanttProjection(){
+    const gantt = window.CWS?.getState?.()?.gantt;
+    if(!gantt || typeof gantt !== "object" || Array.isArray(gantt)) return null;
+    return deepClone(gantt);
+  }
+
   async function postRevision(projectId, revision){
     if(!projectId || !revision?.id) return { ok:false, error:"projectId/revision ontbreekt" };
     const key = `${projectId}/${revision.id}`;
@@ -73,20 +79,21 @@
   async function postProjectGantt(projectId, model, reason="gantt-save"){
     if(!projectId || !model) return { ok:false, skipped:true };
     const clean = cleanModel(model);
-    const signature = JSON.stringify({ rows:clean.rows, sched:clean.sched, revisions:clean.revisions?.map(r => ({ id:r.id, revNo:r.revNo, revisionDate:r.revisionDate, createdAt:r.createdAt })) });
+    const gantt = currentGanttProjection();
+    const signature = JSON.stringify({ rows:clean.rows, sched:clean.sched, revisions:clean.revisions?.map(r => ({ id:r.id, revNo:r.revNo, revisionDate:r.revisionDate, createdAt:r.createdAt })), gantt });
     const previous = postedGantt.get(projectId);
     if(previous === signature) return { ok:true, skipped:true };
     postedGantt.set(projectId, signature);
     const res = await fetch("/api/gantt-save", {
       method:"POST",
       headers:{ "Content-Type":"application/json", "Accept":"application/json" },
-      body:JSON.stringify({ projectId:String(projectId), model:clean, reason, marker:MARKER })
+      body:JSON.stringify({ projectId:String(projectId), model:clean, gantt, reason, marker:MARKER })
     });
     const data = await res.json().catch(()=>({}));
     if(!res.ok || !data.ok) throw new Error(data.error || `Direct Gantt opslaan mislukt (${res.status}).`);
     if(window.CWS?.storageStatus){
       window.CWS.storageStatus.lastDirectProjectGanttSaveAt = new Date().toISOString();
-      window.CWS.storageStatus.lastDirectProjectGanttSave = { projectId, version:data.version, marker:MARKER };
+      window.CWS.storageStatus.lastDirectProjectGanttSave = { projectId, version:data.version, capacityProjectionSaved:Boolean(data.capacityProjectionSaved), marker:MARKER };
       window.CWS.storageStatus.unsynced = false;
       window.CWS.storageStatus.lastError = null;
     }
@@ -144,7 +151,7 @@
         window.CWS.storageStatus.lastRevisionModalD1Hydration = { projectId, count:revisions.length, reason, marker:MARKER };
       }
     }catch(error){
-      console.warn("CWS V123 revision hydration failed", error);
+      console.warn("CWS V124 revision hydration failed", error);
       if(window.CWS?.storageStatus){
         window.CWS.storageStatus.lastRevisionHydrationError = { message:error.message, marker:MARKER };
       }
@@ -153,8 +160,8 @@
 
   function installRevisionActionBridge(){
     const doc = getFrameDoc();
-    if(!doc || doc.__v123RevisionActionBridgeInstalled) return Boolean(doc?.__v123RevisionActionBridgeInstalled);
-    doc.__v123RevisionActionBridgeInstalled = true;
+    if(!doc || doc.__v124RevisionActionBridgeInstalled) return Boolean(doc?.__v124RevisionActionBridgeInstalled);
+    doc.__v124RevisionActionBridgeInstalled = true;
     doc.addEventListener("click", async (event) => {
       const btn = event.target?.closest?.("button[data-d1-rev-action]");
       if(!btn) return;
@@ -168,18 +175,6 @@
       const rev = revisions.find(r => String(r.id) === String(revId));
       if(!rev) return;
       const action = btn.dataset.d1RevAction;
-      if(action === "view" || action === "print"){
-        const model = mergeRevisionsIntoRuntime(projectId, [rev]);
-        try{
-          const ui = window.CWS?.getState?.()?.ganttV2?.ui || {};
-          ui.revisionId = rev.id;
-        }catch(_){}
-        doc.getElementById("modalBack")?.classList?.remove("show");
-        doc.defaultView?.UI && (doc.defaultView.UI.revisionId = rev.id);
-        doc.defaultView?.render?.();
-        if(action === "print") setTimeout(() => doc.defaultView?.printA3?.(), 160);
-        return;
-      }
       if(action === "restore"){
         if(!window.confirm(`Revisie ${rev.revNo || ""} als live planning herstellen? De bestaande live planning wordt overschreven.`)) return;
         const current = window.CWS?.gantt?.getProjectGantt?.(projectId) || { rows:[], sched:{}, revisions:[] };
@@ -188,17 +183,16 @@
         window.CWS?.gantt?.saveProjectGantt?.(projectId, next, { action:"gantt_revision_restore", projectId, revisionId:rev.id });
         await postProjectGantt(projectId, next, "revision-restore").catch(error => console.warn("Direct restore save failed", error));
         doc.getElementById("modalBack")?.classList?.remove("show");
-        doc.defaultView?.render?.();
+        doc.defaultView?.location?.reload?.();
         return;
       }
       if(action === "delete"){
         if(!window.confirm(`Revisie ${rev.revNo || ""} definitief verwijderen?`)) return;
-        const res = await fetch("/api/revision-delete", {
-          method:"POST",
-          headers:{ "Content-Type":"application/json", "Accept":"application/json" },
-          body:JSON.stringify({ projectId, revisionId:rev.id })
+        const res = await fetch(`/api/revision-delete?projectId=${encodeURIComponent(projectId)}&revisionId=${encodeURIComponent(rev.id)}`, {
+          method:"DELETE",
+          headers:{ "Accept":"application/json" }
         });
-        if(!res.ok) console.warn("Revision delete failed", await res.text().catch(()=>""));
+        if(!res.ok) console.warn("Revision delete failed", await res.text().catch(() => ""));
         hydrateRevisionModal("after-delete");
       }
     }, true);
@@ -206,7 +200,7 @@
   }
 
   function installGanttSaveBridge(){
-    if(!window.CWS?.gantt || window.CWS.gantt.__v123DurableBridgeInstalled) return Boolean(window.CWS?.gantt?.__v123DurableBridgeInstalled);
+    if(!window.CWS?.gantt || window.CWS.gantt.__v124DurableBridgeInstalled) return Boolean(window.CWS?.gantt?.__v124DurableBridgeInstalled);
     const original = window.CWS.gantt.saveProjectGantt;
     if(typeof original !== "function") return false;
     window.CWS.gantt.saveProjectGantt = function(projectId, model, mutationMeta={}){
@@ -219,26 +213,28 @@
       const result = original.call(this, projectId, clean, mutationMeta || {});
       if(result?.ok !== false){
         const action = mutationMeta?.action || mutationMeta?.reason || (unsavedRevision ? "revision-save" : "gantt-save");
-        postProjectGantt(projectId, clean, action).catch(error => {
-          console.warn("CWS direct project Gantt save failed", error);
-          if(window.CWS?.storageStatus){
-            window.CWS.storageStatus.unsynced = true;
-            window.CWS.storageStatus.lastError = error.message;
-            window.CWS.storageStatus.lastDirectProjectGanttSaveError = { projectId, message:error.message, marker:MARKER };
-          }
-        });
+        setTimeout(() => {
+          postProjectGantt(projectId, clean, action).catch(error => {
+            console.warn("CWS direct project Gantt save failed", error);
+            if(window.CWS?.storageStatus){
+              window.CWS.storageStatus.unsynced = true;
+              window.CWS.storageStatus.lastError = error.message;
+              window.CWS.storageStatus.lastDirectProjectGanttSaveError = { projectId, message:error.message, marker:MARKER };
+            }
+          });
+        }, 120);
       }
       return result;
     };
-    window.CWS.gantt.__v123DurableBridgeInstalled = true;
-    window.CWS.gantt.__v123DurableBridgeMarker = MARKER;
+    window.CWS.gantt.__v124DurableBridgeInstalled = true;
+    window.CWS.gantt.__v124DurableBridgeMarker = MARKER;
     return true;
   }
 
   function installFrameHooks(){
     const doc = getFrameDoc();
-    if(!doc || doc.__v123FrameHooksInstalled) return Boolean(doc?.__v123FrameHooksInstalled);
-    doc.__v123FrameHooksInstalled = true;
+    if(!doc || doc.__v124FrameHooksInstalled) return Boolean(doc?.__v124FrameHooksInstalled);
+    doc.__v124FrameHooksInstalled = true;
     doc.addEventListener("click", event => {
       const text = String(event.target?.closest?.("button")?.textContent || "").trim();
       if(text === "Revisies") setTimeout(() => hydrateRevisionModal("open-button"), 160);
