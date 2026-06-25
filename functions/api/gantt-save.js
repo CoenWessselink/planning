@@ -1,8 +1,8 @@
 import { TENANT_ID, STATE_KEY, ensureSchema, getOrCreateUser, json, requireActorEmail, verifyRequiredSchema } from "./_shared.js";
 
-const MARKER = "v124-durable-project-gantt-save-with-capacity";
-const CHUNK_SIZE = 180000;
-const CHUNK_THRESHOLD_BYTES = 700000;
+const MARKER = "v133-durable-project-gantt-save-tolerant-chunks";
+const CHUNK_SIZE = 60000;
+const CHUNK_THRESHOLD_BYTES = 240000;
 const enc = (value) => new TextEncoder().encode(String(value || "")).byteLength;
 
 function split(text) {
@@ -12,7 +12,7 @@ function split(text) {
 }
 
 function parseManifest(raw) {
-  if (!raw || raw.length > 4096) return null;
+  if (!raw || raw.length > 8192) return null;
   try {
     const parsed = JSON.parse(raw);
     if (parsed?.__cwsChunkedState && (parsed.stateKey === STATE_KEY || parsed.version || parsed.chunkCount)) return parsed;
@@ -30,6 +30,7 @@ function makeManifest(version, bytes, chunkCount, updatedBy, extra = {}) {
     version,
     bytes,
     chunkCount,
+    chunkSize: CHUNK_SIZE,
     updatedBy,
     createdAt: new Date().toISOString(),
     ...extra
@@ -63,12 +64,30 @@ async function readChunkRows(db, version) {
 async function readChunksAsJson(db, version, expectedCount = null) {
   const rows = await readChunkRows(db, version);
   if (!rows.length) throw new Error(`Geen chunks gevonden voor versie ${version}.`);
-  if (expectedCount != null && rows.length !== Number(expectedCount || 0)) throw new Error(`Chunks incompleet voor versie ${version}: ${rows.length}/${expectedCount}.`);
-  for (let i = 0; i < rows.length; i += 1) {
-    if (Number(rows[i].chunk_index) !== i) throw new Error(`Chunk-index ontbreekt voor versie ${version}, index ${i}.`);
+
+  const expected = expectedCount == null ? null : Number(expectedCount || 0);
+  const selected = expected && rows.length >= expected ? rows.slice(0, expected) : rows;
+
+  if (expected && rows.length < expected) {
+    throw new Error(`Chunks incompleet voor versie ${version}: ${rows.length}/${expected}.`);
   }
-  const raw = rows.map(row => row.chunk_text || "").join("");
-  JSON.parse(raw);
+
+  for (let i = 0; i < selected.length; i += 1) {
+    if (Number(selected[i].chunk_index) !== i) throw new Error(`Chunk-index ontbreekt voor versie ${version}, index ${i}.`);
+  }
+
+  let raw = selected.map(row => row.chunk_text || "").join("");
+  try {
+    JSON.parse(raw);
+  } catch (firstError) {
+    if (expected && rows.length > expected) {
+      raw = rows.map(row => row.chunk_text || "").join("");
+      try { JSON.parse(raw); }
+      catch (_) { throw firstError; }
+    } else {
+      throw firstError;
+    }
+  }
   return raw;
 }
 
@@ -143,6 +162,7 @@ async function writeState(db, state, version, email) {
 
   const chunks = split(raw);
   const manifest = makeManifest(version, bytes, chunks.length, email, { projectGanttSave:true });
+  await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version <= ?`).bind(TENANT_ID, STATE_KEY, Math.max(0, version - 10)).run();
   await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version = ?`).bind(TENANT_ID, STATE_KEY, version).run();
   for (let i = 0; i < chunks.length; i += 1) {
     await db.prepare(
