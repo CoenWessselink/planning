@@ -1,6 +1,6 @@
 import { TENANT_ID, STATE_KEY, ensureSchema, getOrCreateUser, json, requireActorEmail, verifyRequiredSchema } from "./_shared.js";
 
-const MARKER = "v123-durable-project-gantt-save";
+const MARKER = "v124-durable-project-gantt-save-with-capacity";
 const CHUNK_SIZE = 180000;
 const CHUNK_THRESHOLD_BYTES = 700000;
 const enc = (value) => new TextEncoder().encode(String(value || "")).byteLength;
@@ -107,6 +107,17 @@ function cleanRevisionSnapshots(model) {
   return clean;
 }
 
+function cleanGanttProjection(gantt) {
+  if (!gantt || typeof gantt !== "object" || Array.isArray(gantt)) return null;
+  return {
+    ...gantt,
+    hoursByDay: gantt.hoursByDay && typeof gantt.hoursByDay === "object" && !Array.isArray(gantt.hoursByDay) ? gantt.hoursByDay : {},
+    sourcesByDay: gantt.sourcesByDay && typeof gantt.sourcesByDay === "object" && !Array.isArray(gantt.sourcesByDay) ? gantt.sourcesByDay : {},
+    directProjectGanttProjectionMarker: MARKER,
+    directProjectGanttProjectionAt: new Date().toISOString()
+  };
+}
+
 function projectCount(state) {
   const order = Array.isArray(state?.projects?.order) ? state.projects.order.length : 0;
   const byId = state?.projects?.byId && typeof state.projects.byId === "object" && !Array.isArray(state.projects.byId) ? Object.keys(state.projects.byId).length : 0;
@@ -167,6 +178,7 @@ export async function onRequest(context) {
     const body = await context.request.json();
     const projectId = String(body?.projectId || "").trim();
     const model = cleanRevisionSnapshots(body?.model || {});
+    const ganttProjection = cleanGanttProjection(body?.gantt || null);
     if (!projectId) return json({ ok:false, error:"projectId ontbreekt", marker:MARKER }, 400);
     if (!Array.isArray(model.rows)) return json({ ok:false, error:"model.rows ontbreekt", marker:MARKER }, 400);
 
@@ -177,6 +189,7 @@ export async function onRequest(context) {
     current.state.ganttV2 = current.state.ganttV2 && typeof current.state.ganttV2 === "object" ? current.state.ganttV2 : { byProject:{}, ui:{} };
     current.state.ganttV2.byProject = current.state.ganttV2.byProject && typeof current.state.ganttV2.byProject === "object" ? current.state.ganttV2.byProject : {};
     current.state.ganttV2.byProject[projectId] = model;
+    if (ganttProjection) current.state.gantt = ganttProjection;
     current.state.meta = current.state.meta && typeof current.state.meta === "object" ? current.state.meta : {};
     current.state.meta.lastDirectProjectGanttSaveAt = new Date().toISOString();
     current.state.meta.lastDirectProjectGanttSaveProjectId = projectId;
@@ -184,7 +197,7 @@ export async function onRequest(context) {
 
     const nextVersion = Number(current.version || 0) + 1;
     const write = await writeState(db, current.state, nextVersion, email);
-    return json({ ok:true, projectId, version:nextVersion, marker:MARKER, ...write }, 200);
+    return json({ ok:true, projectId, version:nextVersion, marker:MARKER, capacityProjectionSaved:Boolean(ganttProjection), ...write }, 200);
   } catch (error) {
     return json({ ok:false, error:String(error.message || error), marker:MARKER }, 500);
   }
