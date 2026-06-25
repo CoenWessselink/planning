@@ -1,7 +1,7 @@
-/* CWS Planning V124 — durable Gantt + revision bridge.
+/* CWS Planning V125 — durable Gantt + revision bridge.
    Do not override print CSS here. A3 print is controlled by laag4_gantt.html print rules. */
 (function(){
-  const MARKER = "v124-durable-gantt-revision-bridge";
+  const MARKER = "v125-durable-gantt-revision-bridge";
   const postedRevisions = new Set();
   const postedGantt = new Map();
 
@@ -151,17 +151,21 @@
         window.CWS.storageStatus.lastRevisionModalD1Hydration = { projectId, count:revisions.length, reason, marker:MARKER };
       }
     }catch(error){
-      console.warn("CWS V124 revision hydration failed", error);
+      console.warn("CWS V125 revision hydration failed", error);
       if(window.CWS?.storageStatus){
         window.CWS.storageStatus.lastRevisionHydrationError = { message:error.message, marker:MARKER };
       }
     }
   }
 
+  function runInFrame(doc, code){
+    try { return doc?.defaultView?.eval?.(code); } catch(error) { console.warn("CWS V125 iframe eval failed", error); return null; }
+  }
+
   function installRevisionActionBridge(){
     const doc = getFrameDoc();
-    if(!doc || doc.__v124RevisionActionBridgeInstalled) return Boolean(doc?.__v124RevisionActionBridgeInstalled);
-    doc.__v124RevisionActionBridgeInstalled = true;
+    if(!doc || doc.__v125RevisionActionBridgeInstalled) return Boolean(doc?.__v125RevisionActionBridgeInstalled);
+    doc.__v125RevisionActionBridgeInstalled = true;
     doc.addEventListener("click", async (event) => {
       const btn = event.target?.closest?.("button[data-d1-rev-action]");
       if(!btn) return;
@@ -175,6 +179,12 @@
       const rev = revisions.find(r => String(r.id) === String(revId));
       if(!rev) return;
       const action = btn.dataset.d1RevAction;
+      if(action === "view" || action === "print"){
+        mergeRevisionsIntoRuntime(projectId, [rev]);
+        runInFrame(doc, `UI.revisionId=${JSON.stringify(rev.id)}; document.getElementById('modalBack')?.classList.remove('show'); render();`);
+        if(action === "print") setTimeout(() => runInFrame(doc, `printA3();`), 180);
+        return;
+      }
       if(action === "restore"){
         if(!window.confirm(`Revisie ${rev.revNo || ""} als live planning herstellen? De bestaande live planning wordt overschreven.`)) return;
         const current = window.CWS?.gantt?.getProjectGantt?.(projectId) || { rows:[], sched:{}, revisions:[] };
@@ -200,7 +210,7 @@
   }
 
   function installGanttSaveBridge(){
-    if(!window.CWS?.gantt || window.CWS.gantt.__v124DurableBridgeInstalled) return Boolean(window.CWS?.gantt?.__v124DurableBridgeInstalled);
+    if(!window.CWS?.gantt || window.CWS.gantt.__v125DurableBridgeInstalled) return Boolean(window.CWS?.gantt?.__v125DurableBridgeInstalled);
     const original = window.CWS.gantt.saveProjectGantt;
     if(typeof original !== "function") return false;
     window.CWS.gantt.saveProjectGantt = function(projectId, model, mutationMeta={}){
@@ -226,15 +236,15 @@
       }
       return result;
     };
-    window.CWS.gantt.__v124DurableBridgeInstalled = true;
-    window.CWS.gantt.__v124DurableBridgeMarker = MARKER;
+    window.CWS.gantt.__v125DurableBridgeInstalled = true;
+    window.CWS.gantt.__v125DurableBridgeMarker = MARKER;
     return true;
   }
 
   function installFrameHooks(){
     const doc = getFrameDoc();
-    if(!doc || doc.__v124FrameHooksInstalled) return Boolean(doc?.__v124FrameHooksInstalled);
-    doc.__v124FrameHooksInstalled = true;
+    if(!doc || doc.__v125FrameHooksInstalled) return Boolean(doc?.__v125FrameHooksInstalled);
+    doc.__v125FrameHooksInstalled = true;
     doc.addEventListener("click", event => {
       const text = String(event.target?.closest?.("button")?.textContent || "").trim();
       if(text === "Revisies") setTimeout(() => hydrateRevisionModal("open-button"), 160);
