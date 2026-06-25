@@ -10,48 +10,20 @@ import {
   verifyRequiredSchema
 } from "./api/_shared.js";
 
-const MARKER = "v122-no-implicit-chunk-zero";
-const CHUNK_SIZE = 180000;
-const CHUNK_THRESHOLD_BYTES = 700000;
-const enc = (v) => new TextEncoder().encode(String(v || "")).byteLength;
-
-function split(text) {
-  const chunks = [];
-  for (let i = 0; i < text.length; i += CHUNK_SIZE) chunks.push(text.slice(i, i + CHUNK_SIZE));
-  return chunks;
-}
+const MARKER = "v128-stable-state-put-small-d1-chunks";
+const CHUNK_SIZE = 60_000;
+const INLINE_THRESHOLD_BYTES = 240_000;
+const KEEP_CHUNK_VERSIONS = 25;
+const enc = (value) => new TextEncoder().encode(String(value || "")).byteLength;
 
 function safeHeader(value) {
   return String(value ?? "").replace(/[\r\n]/g, " ");
 }
 
-function isRawStateRequest(request, url) {
-  return request.headers.get("X-CWS-State-Response") === "raw-state" ||
-    url.searchParams.get("payload") === "raw-state" ||
-    url.searchParams.get("response") === "raw-state";
-}
-
-function wantsManifest(request, url) {
-  return url.searchParams.get("chunks") === "manifest" ||
-    request.headers.get("X-CWS-State-Response") === "chunk-manifest";
-}
-
-function chunkIndexFromUrl(url) {
-  if (!url.searchParams.has("chunkIndex") && !url.searchParams.has("chunk")) return -1;
-  const raw = url.searchParams.get("chunkIndex") ?? url.searchParams.get("chunk");
-  if (raw == null || String(raw).trim() === "") return -1;
-  const index = Number(raw);
-  return Number.isInteger(index) && index >= 0 ? index : -1;
-}
-
-function parseManifest(raw) {
-  if (!raw || raw.length > 4096) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed?.__cwsChunkedState && (parsed.stateKey === STATE_KEY || parsed.version || parsed.chunkCount)) return parsed;
-    if (parsed?.__cwsStateChunkManifest && parsed.version && parsed.chunkCount) return parsed;
-  } catch (_) {}
-  return null;
+function makeChunks(text) {
+  const chunks = [];
+  for (let index = 0; index < text.length; index += CHUNK_SIZE) chunks.push(text.slice(index, index + CHUNK_SIZE));
+  return chunks;
 }
 
 function makeManifest(version, bytes, chunkCount, updatedBy, extra = {}) {
@@ -63,10 +35,40 @@ function makeManifest(version, bytes, chunkCount, updatedBy, extra = {}) {
     version,
     bytes,
     chunkCount,
+    chunkSize: CHUNK_SIZE,
     updatedBy,
     createdAt: new Date().toISOString(),
     ...extra
   });
+}
+
+function parseManifest(raw) {
+  if (!raw || raw.length > 8192) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.__cwsChunkedState && (parsed.stateKey === STATE_KEY || parsed.version || parsed.chunkCount)) return parsed;
+    if (parsed?.__cwsStateChunkManifest && parsed.version && parsed.chunkCount) return parsed;
+  } catch (_) {}
+  return null;
+}
+
+function wantsRawState(request, url) {
+  return request.headers.get("X-CWS-State-Response") === "raw-state" ||
+    url.searchParams.get("payload") === "raw-state" ||
+    url.searchParams.get("response") === "raw-state";
+}
+
+function wantsManifest(request, url) {
+  return request.headers.get("X-CWS-State-Response") === "chunk-manifest" ||
+    url.searchParams.get("chunks") === "manifest";
+}
+
+function requestedChunkIndex(url) {
+  if (!url.searchParams.has("chunkIndex") && !url.searchParams.has("chunk")) return -1;
+  const raw = url.searchParams.get("chunkIndex") ?? url.searchParams.get("chunk");
+  if (raw == null || String(raw).trim() === "") return -1;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : -1;
 }
 
 async function prepare(db) {
@@ -96,6 +98,7 @@ async function prepare(db) {
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (tenant_id, state_key, mutation_id)
   )`).run();
+  return schema;
 }
 
 async function readChunkRows(db, version) {
@@ -107,28 +110,27 @@ async function readChunkRows(db, version) {
   return result.results || [];
 }
 
-function assertConsecutive(rows, version) {
+function assertCompleteRows(rows, version, expectedCount = null) {
   if (!rows.length) throw Object.assign(new Error(`Geen chunks gevonden voor D1-state versie ${version}.`), { status: 500 });
-  for (let i = 0; i < rows.length; i += 1) {
-    if (Number(rows[i].chunk_index) !== i) {
-      throw Object.assign(new Error(`Chunk-index ontbreekt voor D1-state versie ${version}, index ${i}.`), { status: 500 });
+  if (expectedCount != null && rows.length !== Number(expectedCount || 0)) {
+    throw Object.assign(new Error(`D1-state chunks incompleet voor versie ${version}: ${rows.length}/${expectedCount}.`), { status: 500 });
+  }
+  for (let index = 0; index < rows.length; index += 1) {
+    if (Number(rows[index].chunk_index) !== index) {
+      throw Object.assign(new Error(`Chunk-index ontbreekt voor D1-state versie ${version}, index ${index}.`), { status: 500 });
     }
   }
 }
 
-async function readChunksAsFullJson(db, version, expectedCount = null) {
+async function readChunksAsText(db, version, expectedCount = null) {
   const rows = await readChunkRows(db, version);
-  assertConsecutive(rows, version);
-  if (expectedCount != null && rows.length !== Number(expectedCount || 0)) {
-    throw Object.assign(new Error(`D1-state chunks incompleet voor versie ${version}: ${rows.length}/${expectedCount}.`), { status: 500 });
-  }
-  const full = rows.map(r => r.chunk_text || "").join("");
-  try { JSON.parse(full); }
-  catch (error) { throw Object.assign(new Error(`D1-state chunks vormen geen geldige JSON (${error.message}).`), { status: 500 }); }
+  assertCompleteRows(rows, version, expectedCount);
+  const full = rows.map((row) => row.chunk_text || "").join("");
+  JSON.parse(full);
   return { full, rows, bytes: enc(full), version: Number(version || 0) };
 }
 
-async function findLatestValidChunkSet(db) {
+async function findLatestValidChunks(db) {
   const result = await db.prepare(
     `SELECT version, COUNT(*) AS chunk_count, MIN(chunk_index) AS min_index, MAX(chunk_index) AS max_index
      FROM app_state_chunks
@@ -137,166 +139,127 @@ async function findLatestValidChunkSet(db) {
      ORDER BY version DESC
      LIMIT 50`
   ).bind(TENANT_ID, STATE_KEY).all();
+
   for (const row of result.results || []) {
     const version = Number(row.version || 0);
     const count = Number(row.chunk_count || 0);
     if (!version || !count || Number(row.min_index) !== 0 || Number(row.max_index) !== count - 1) continue;
-    try { return await readChunksAsFullJson(db, version, count); } catch (_) {}
+    try { return await readChunksAsText(db, version, count); } catch (_) {}
   }
   return null;
 }
 
-async function resolveState(db, row) {
-  if (!row?.state_json) return { exists: false, version: 0, full: "", manifest: null, recovered: false };
-  const rowVersion = Number(row.version || 0);
+async function loadCurrentState(db) {
+  const row = await db.prepare(
+    `SELECT state_json, version, updated_at, updated_by FROM app_state WHERE tenant_id = ? AND state_key = ?`
+  ).bind(TENANT_ID, STATE_KEY).first();
+
+  if (!row?.state_json) return { exists: false, full: "", version: 0, row: null, manifest: null, recovered: false };
+
   const manifest = parseManifest(row.state_json);
   if (manifest) {
-    const version = Number(manifest.version || rowVersion || 0);
-    const data = await readChunksAsFullJson(db, version, Number(manifest.chunkCount || 0) || null);
-    return { exists: true, version, full: data.full, manifest: { ...manifest, version, bytes: data.bytes, chunkCount: data.rows.length }, recovered: false };
+    const version = Number(manifest.version || row.version || 0);
+    const loaded = await readChunksAsText(db, version, Number(manifest.chunkCount || 0) || null);
+    return {
+      exists: true,
+      full: loaded.full,
+      version,
+      row,
+      manifest: { ...manifest, version, bytes: loaded.bytes, chunkCount: loaded.rows.length },
+      recovered: false
+    };
   }
+
   try {
     JSON.parse(row.state_json);
-    return { exists: true, version: rowVersion, full: row.state_json, manifest: null, recovered: false };
+    return { exists: true, full: row.state_json, version: Number(row.version || 0), row, manifest: null, recovered: false };
   } catch (_) {
-    const data = await findLatestValidChunkSet(db);
-    if (!data) throw Object.assign(new Error("D1-state is corrupt en er is geen geldige chunk-set gevonden."), { status: 500 });
-    const repairedManifest = JSON.parse(makeManifest(data.version, data.bytes, data.rows.length, row.updated_by || "recovered", { recoveredFromCorruptInlineState: true }));
-    try {
-      await db.prepare(
-        `UPDATE app_state SET state_json = ?, version = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? AND state_key = ?`
-      ).bind(JSON.stringify(repairedManifest), data.version, TENANT_ID, STATE_KEY).run();
-    } catch (_) {}
-    return { exists: true, version: data.version, full: data.full, manifest: repairedManifest, recovered: true };
+    const recovered = await findLatestValidChunks(db);
+    if (!recovered) throw Object.assign(new Error("D1-state is corrupt en er is geen complete chunk-set gevonden."), { status: 500 });
+    const repairedManifest = JSON.parse(makeManifest(recovered.version, recovered.bytes, recovered.rows.length, row.updated_by || "recovered", { recoveredFromCorruptInlineState: true }));
+    await db.prepare(
+      `UPDATE app_state SET state_json = ?, version = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? AND state_key = ?`
+    ).bind(JSON.stringify(repairedManifest), recovered.version, TENANT_ID, STATE_KEY).run();
+    return { exists: true, full: recovered.full, version: recovered.version, row, manifest: repairedManifest, recovered: true };
   }
 }
 
 function stateMetrics(raw) {
   try {
-    const s = JSON.parse(raw);
-    const order = Array.isArray(s?.projects?.order) ? s.projects.order.length : 0;
-    const byId = s?.projects?.byId && typeof s.projects.byId === "object" && !Array.isArray(s.projects.byId) ? Object.keys(s.projects.byId).length : 0;
-    const legacy = Array.isArray(s?.projects) ? s.projects.length : 0;
-    const gp = s?.ganttV2?.byProject && typeof s.ganttV2.byProject === "object" ? s.ganttV2.byProject : {};
-    const ganttRows = Object.values(gp).reduce((n, model) => n + (Array.isArray(model?.rows) ? model.rows.length : 0), 0);
-    return { projectCount: Math.max(order, byId, legacy), ganttRowCount: ganttRows, bytes: enc(raw) };
+    const state = JSON.parse(raw || "{}");
+    const orderCount = Array.isArray(state?.projects?.order) ? state.projects.order.length : 0;
+    const byIdCount = state?.projects?.byId && typeof state.projects.byId === "object" && !Array.isArray(state.projects.byId) ? Object.keys(state.projects.byId).length : 0;
+    const legacyCount = Array.isArray(state?.projects) ? state.projects.length : 0;
+    const byProject = state?.ganttV2?.byProject && typeof state.ganttV2.byProject === "object" && !Array.isArray(state.ganttV2.byProject) ? state.ganttV2.byProject : {};
+    const ganttRowCount = Object.values(byProject).reduce((total, model) => total + (Array.isArray(model?.rows) ? model.rows.length : 0), 0);
+    return { projectCount: Math.max(orderCount, byIdCount, legacyCount), ganttRowCount, bytes: enc(raw) };
   } catch (_) {
     return { projectCount: 0, ganttRowCount: 0, bytes: enc(raw), parseError: true };
   }
 }
 
-function assertSafeIncoming(raw) {
-  const m = stateMetrics(raw);
-  if (m.parseError) throw Object.assign(new Error("Opslaan geblokkeerd: inkomende state is geen geldige JSON."), { status: 400, metrics: m });
-  if (m.projectCount <= 5 || (m.projectCount < 10 && m.ganttRowCount <= 20)) {
-    throw Object.assign(new Error(`Opslaan geblokkeerd: state lijkt leeg/demo (${m.projectCount} projecten/${m.ganttRowCount} rijen).`), { status: 409, metrics: m });
-  }
-  return m;
-}
-
-async function handleStateGet(context, url) {
-  const db = context.env?.DB;
-  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v122: { marker: MARKER } }, 500);
-  const email = requireActorEmail(context.request);
-  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v122: { marker: MARKER } }, 401);
-  await prepare(db);
-  const user = await getOrCreateUser(db, email);
-  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v122: { marker: MARKER } }, 403);
-
-  const row = await db.prepare(
-    `SELECT state_json, version, updated_at, updated_by FROM app_state WHERE tenant_id = ? AND state_key = ?`
-  ).bind(TENANT_ID, STATE_KEY).first();
-  const resolved = await resolveState(db, row);
-  const requestedChunkIndex = chunkIndexFromUrl(url);
-
-  if (resolved.exists && requestedChunkIndex >= 0) {
-    const manifest = resolved.manifest || JSON.parse(makeManifest(resolved.version, enc(resolved.full), split(resolved.full).length, row?.updated_by || email));
-    const rows = await readChunkRows(db, resolved.version);
-    const chunk = rows.find(r => Number(r.chunk_index) === requestedChunkIndex);
-    if (!chunk) return json({ ok: false, error: `Chunk ${requestedChunkIndex} ontbreekt.`, v122: { marker: MARKER } }, 500);
-    return rawStateResponse(chunk.chunk_text || "", 200, {
-      "X-CWS-OK": "true",
-      "X-CWS-State-Exists": "1",
-      "X-CWS-Version": String(resolved.version),
-      "X-CWS-Chunked": "1",
-      "X-CWS-Chunked-Manifest": "0",
-      "X-CWS-Chunk-Index": String(requestedChunkIndex),
-      "X-CWS-Chunk-Count": String(Number(manifest.chunkCount || rows.length)),
-      "X-CWS-V122": MARKER
+function sanitizeIncomingState(raw) {
+  const parsed = JSON.parse(raw);
+  const byProject = parsed?.ganttV2?.byProject || {};
+  for (const model of Object.values(byProject)) {
+    if (!Array.isArray(model?.revisions)) continue;
+    model.revisions = model.revisions.map((revision) => {
+      if (!revision || typeof revision !== "object") return revision;
+      const next = { ...revision };
+      const snapshot = JSON.parse(JSON.stringify(next.snapshot || {}));
+      delete snapshot.capacity;
+      delete snapshot.gantt;
+      delete snapshot.hoursByDay;
+      delete snapshot.sourcesByDay;
+      delete snapshot.projectDeptHoursValidation;
+      snapshot.meta = snapshot.meta && typeof snapshot.meta === "object" ? snapshot.meta : {};
+      snapshot.meta.capacityExcludedFromRevision = true;
+      snapshot.meta.capacityRevisionIsolation = MARKER;
+      next.snapshot = snapshot;
+      return next;
     });
   }
-
-  if (resolved.exists && wantsManifest(context.request, url)) {
-    const manifest = resolved.manifest || JSON.parse(makeManifest(resolved.version, enc(resolved.full), split(resolved.full).length, row?.updated_by || email));
-    return rawStateResponse(JSON.stringify({ ...manifest, __cwsStateChunkManifest: true }), 200, {
-      "X-CWS-OK": "true",
-      "X-CWS-State-Exists": "1",
-      "X-CWS-Version": String(resolved.version),
-      "X-CWS-Updated-At": safeHeader(row?.updated_at || ""),
-      "X-CWS-Updated-By": safeHeader(row?.updated_by || ""),
-      "X-CWS-User-Email": safeHeader(user.email || email),
-      "X-CWS-User-Role": safeHeader(user.role || "viewer"),
-      "X-CWS-User-Display-Name": safeHeader(user.display_name || user.email || email),
-      "X-CWS-Bytes": String(enc(resolved.full)),
-      "X-CWS-Chunked": "1",
-      "X-CWS-Chunked-Manifest": "1",
-      "X-CWS-Chunk-Count": String(Number(manifest.chunkCount || 0)),
-      "X-CWS-Recovered-Truncated-State": resolved.recovered ? "1" : "0",
-      "X-CWS-V122": MARKER
-    });
-  }
-
-  if (isRawStateRequest(context.request, url)) {
-    return rawStateResponse(resolved.full || "", 200, {
-      "X-CWS-OK": "true",
-      "X-CWS-State-Exists": resolved.exists ? "1" : "0",
-      "X-CWS-Version": String(resolved.version || 0),
-      "X-CWS-Updated-At": safeHeader(row?.updated_at || ""),
-      "X-CWS-Updated-By": safeHeader(row?.updated_by || ""),
-      "X-CWS-User-Email": safeHeader(user.email || email),
-      "X-CWS-User-Role": safeHeader(user.role || "viewer"),
-      "X-CWS-User-Display-Name": safeHeader(user.display_name || user.email || email),
-      "X-CWS-Bytes": String(enc(resolved.full || "")),
-      "X-CWS-Chunked": "0",
-      "X-CWS-Chunked-Manifest": "0",
-      "X-CWS-Recovered-Truncated-State": resolved.recovered ? "1" : "0",
-      "X-CWS-Full-State-Json": "1",
-      "X-CWS-V122": MARKER
-    });
-  }
-
-  return json({
-    ok: true,
-    exists: resolved.exists,
-    tenantId: TENANT_ID,
-    stateKey: STATE_KEY,
-    version: resolved.version || 0,
-    stateJson: resolved.full || null,
-    stateEncoding: resolved.exists ? "json-string" : "empty",
-    bytes: enc(resolved.full || ""),
-    updatedAt: row?.updated_at || null,
-    updatedBy: row?.updated_by || null,
-    user: { email: user.email, displayName: user.display_name, role: user.role, active: Boolean(user.active) },
-    v122: { marker: MARKER, fullJsonBootResponse: true, recovered: resolved.recovered }
-  });
+  parsed.meta = parsed.meta && typeof parsed.meta === "object" ? parsed.meta : {};
+  parsed.meta.stateSaveRoute = MARKER;
+  parsed.meta.stateSaveChunkSize = CHUNK_SIZE;
+  parsed.meta.stateSaveAt = new Date().toISOString();
+  return JSON.stringify(parsed);
 }
 
 async function readIncomingState(context, url) {
   const bodyText = await context.request.text();
-  if (enc(bodyText) > MAX_STATE_BYTES) throw Object.assign(new Error("State payload is te groot."), { status: 413 });
+  const incomingBytes = enc(bodyText);
+  if (incomingBytes > MAX_STATE_BYTES) throw Object.assign(new Error(`State payload is te groot (${incomingBytes}/${MAX_STATE_BYTES} bytes).`), { status: 413 });
+
   const rawMode = context.request.headers.get("X-CWS-State-Payload") === "raw-state" || url.searchParams.get("payload") === "raw-state";
-  const stateJson = rawMode ? bodyText : JSON.stringify((JSON.parse(bodyText).state || {}));
-  JSON.parse(stateJson);
+  let stateJson = "";
+  if (rawMode) {
+    stateJson = bodyText;
+  } else {
+    const body = JSON.parse(bodyText || "{}");
+    if (!body?.state || typeof body.state !== "object" || Array.isArray(body.state)) throw Object.assign(new Error("Body moet een state-object bevatten."), { status: 400 });
+    stateJson = JSON.stringify(body.state);
+  }
+
+  const sanitized = sanitizeIncomingState(stateJson);
+  const metrics = stateMetrics(sanitized);
+  if (metrics.parseError) throw Object.assign(new Error("Opslaan geblokkeerd: inkomende state is geen geldige JSON."), { status: 400, metrics });
+  if (metrics.projectCount <= 5 || (metrics.projectCount < 10 && metrics.ganttRowCount <= 20)) {
+    throw Object.assign(new Error(`Opslaan geblokkeerd: state lijkt leeg/demo (${metrics.projectCount} projecten/${metrics.ganttRowCount} Gantt-rijen).`), { status: 409, metrics });
+  }
+
   return {
-    stateJson,
+    stateJson: sanitized,
     baseVersion: Number(context.request.headers.get("X-CWS-Base-Version") || url.searchParams.get("baseVersion") || 0),
-    bytes: enc(stateJson)
+    bytes: enc(sanitized),
+    metrics,
+    rawMode
   };
 }
 
-async function writeCheckpoint(db, raw, version, email) {
-  const bytes = enc(raw);
-  if (bytes <= CHUNK_THRESHOLD_BYTES) {
+async function writeCheckpoint(db, stateJson, version, email) {
+  const bytes = enc(stateJson);
+  if (bytes <= INLINE_THRESHOLD_BYTES) {
     await db.prepare(
       `INSERT INTO app_state (tenant_id, state_key, state_json, version, updated_at, updated_by)
        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
@@ -305,19 +268,21 @@ async function writeCheckpoint(db, raw, version, email) {
          version = excluded.version,
          updated_at = CURRENT_TIMESTAMP,
          updated_by = excluded.updated_by`
-    ).bind(TENANT_ID, STATE_KEY, raw, version, email).run();
+    ).bind(TENANT_ID, STATE_KEY, stateJson, version, email).run();
     return { chunked: false, chunkCount: 0, bytes };
   }
 
-  const chunks = split(raw);
-  const manifest = makeManifest(version, bytes, chunks.length, email);
+  const chunks = makeChunks(stateJson);
+  const manifest = makeManifest(version, bytes, chunks.length, email, { stablePut: true });
+
   await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version = ?`).bind(TENANT_ID, STATE_KEY, version).run();
-  for (let i = 0; i < chunks.length; i += 1) {
+  for (let index = 0; index < chunks.length; index += 1) {
     await db.prepare(
       `INSERT OR REPLACE INTO app_state_chunks (tenant_id, state_key, version, chunk_index, chunk_text)
        VALUES (?, ?, ?, ?, ?)`
-    ).bind(TENANT_ID, STATE_KEY, version, i, chunks[i]).run();
+    ).bind(TENANT_ID, STATE_KEY, version, index, chunks[index]).run();
   }
+
   await db.prepare(
     `INSERT INTO app_state (tenant_id, state_key, state_json, version, updated_at, updated_by)
      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
@@ -327,24 +292,111 @@ async function writeCheckpoint(db, raw, version, email) {
        updated_at = CURRENT_TIMESTAMP,
        updated_by = excluded.updated_by`
   ).bind(TENANT_ID, STATE_KEY, manifest, version, email).run();
+
+  try {
+    await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version < ?`).bind(TENANT_ID, STATE_KEY, Math.max(0, version - KEEP_CHUNK_VERSIONS)).run();
+  } catch (_) {}
+
   return { chunked: true, chunkCount: chunks.length, bytes };
+}
+
+async function handleStateGet(context, url) {
+  const db = context.env?.DB;
+  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v128: { marker: MARKER } }, 500);
+  const email = requireActorEmail(context.request);
+  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v128: { marker: MARKER } }, 401);
+
+  await prepare(db);
+  const user = await getOrCreateUser(db, email);
+  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v128: { marker: MARKER } }, 403);
+
+  const current = await loadCurrentState(db);
+  const index = requestedChunkIndex(url);
+
+  if (current.exists && index >= 0) {
+    const requestedVersion = Number(url.searchParams.get("version") || current.version || 0);
+    const rows = await readChunkRows(db, requestedVersion);
+    const chunk = rows.find((row) => Number(row.chunk_index) === index);
+    if (!chunk) return json({ ok: false, error: `Chunk ${index} ontbreekt voor versie ${requestedVersion}.`, v128: { marker: MARKER } }, 500);
+    return rawStateResponse(chunk.chunk_text || "", 200, {
+      "X-CWS-OK": "true",
+      "X-CWS-State-Exists": "1",
+      "X-CWS-Version": String(requestedVersion),
+      "X-CWS-Chunked": "1",
+      "X-CWS-Chunked-Manifest": "0",
+      "X-CWS-Chunk-Index": String(index),
+      "X-CWS-Chunk-Count": String(rows.length),
+      "X-CWS-V128": MARKER
+    });
+  }
+
+  if (current.exists && wantsManifest(context.request, url)) {
+    const manifest = current.manifest || JSON.parse(makeManifest(current.version, enc(current.full), makeChunks(current.full).length, current.row?.updated_by || email, { transientInlineManifest: true }));
+    return rawStateResponse(JSON.stringify({ ...manifest, __cwsStateChunkManifest: true }), 200, {
+      "X-CWS-OK": "true",
+      "X-CWS-State-Exists": "1",
+      "X-CWS-Version": String(current.version || 0),
+      "X-CWS-Updated-At": safeHeader(current.row?.updated_at || ""),
+      "X-CWS-Updated-By": safeHeader(current.row?.updated_by || ""),
+      "X-CWS-User-Email": safeHeader(user.email || email),
+      "X-CWS-User-Role": safeHeader(user.role || "viewer"),
+      "X-CWS-User-Display-Name": safeHeader(user.display_name || user.email || email),
+      "X-CWS-Bytes": String(enc(current.full || "")),
+      "X-CWS-Chunked": "1",
+      "X-CWS-Chunked-Manifest": "1",
+      "X-CWS-Chunk-Count": String(Number(manifest.chunkCount || 0)),
+      "X-CWS-V128": MARKER
+    });
+  }
+
+  if (wantsRawState(context.request, url)) {
+    return rawStateResponse(current.full || "", 200, {
+      "X-CWS-OK": "true",
+      "X-CWS-State-Exists": current.exists ? "1" : "0",
+      "X-CWS-Version": String(current.version || 0),
+      "X-CWS-Updated-At": safeHeader(current.row?.updated_at || ""),
+      "X-CWS-Updated-By": safeHeader(current.row?.updated_by || ""),
+      "X-CWS-User-Email": safeHeader(user.email || email),
+      "X-CWS-User-Role": safeHeader(user.role || "viewer"),
+      "X-CWS-User-Display-Name": safeHeader(user.display_name || user.email || email),
+      "X-CWS-Bytes": String(enc(current.full || "")),
+      "X-CWS-Chunked": "0",
+      "X-CWS-Chunked-Manifest": "0",
+      "X-CWS-Full-State-Json": "1",
+      "X-CWS-V128": MARKER
+    });
+  }
+
+  return json({
+    ok: true,
+    exists: current.exists,
+    version: current.version || 0,
+    stateJson: current.full || null,
+    stateEncoding: current.exists ? "json-string" : "empty",
+    bytes: enc(current.full || ""),
+    updatedAt: current.row?.updated_at || null,
+    updatedBy: current.row?.updated_by || null,
+    user: { email: user.email, displayName: user.display_name, role: user.role, active: Boolean(user.active) },
+    v128: { marker: MARKER, stablePut: true, recovered: current.recovered }
+  });
 }
 
 async function handleStatePut(context, url) {
   const db = context.env?.DB;
-  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v122: { marker: MARKER } }, 500);
+  if (!db) return json({ ok: false, error: "D1-binding DB ontbreekt.", v128: { marker: MARKER } }, 500);
   const email = requireActorEmail(context.request);
-  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v122: { marker: MARKER } }, 401);
+  if (!email) return json({ ok: false, error: "Cloudflare Access-identiteit ontbreekt.", v128: { marker: MARKER } }, 401);
+
   await prepare(db);
   const user = await getOrCreateUser(db, email);
-  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v122: { marker: MARKER } }, 403);
-  if (user.role === "viewer") return json({ ok: false, error: "Viewer heeft alleen leesrechten.", v122: { marker: MARKER } }, 403);
+  if (!user.active) return json({ ok: false, error: "Gebruiker is inactief.", v128: { marker: MARKER } }, 403);
+  if (String(user.role || "").toLowerCase() === "viewer") return json({ ok: false, error: "Viewer heeft alleen leesrechten.", v128: { marker: MARKER } }, 403);
 
   const incoming = await readIncomingState(context, url);
-  const m = assertSafeIncoming(incoming.stateJson);
   const current = await db.prepare(`SELECT version FROM app_state WHERE tenant_id = ? AND state_key = ?`).bind(TENANT_ID, STATE_KEY).first();
-  const version = Math.max(Number(current?.version || 0), Number(incoming.baseVersion || 0)) + 1;
-  const checkpoint = await writeCheckpoint(db, incoming.stateJson, version, email);
+  const currentVersion = Number(current?.version || 0);
+  const nextVersion = Math.max(currentVersion, Number(incoming.baseVersion || 0)) + 1;
+  const write = await writeCheckpoint(db, incoming.stateJson, nextVersion, email);
 
   try {
     const mutationId = context.request.headers.get("X-CWS-Client-Mutation-Id") || `m${Date.now()}${Math.random().toString(36).slice(2, 9)}`;
@@ -352,21 +404,36 @@ async function handleStatePut(context, url) {
       `INSERT OR REPLACE INTO app_state_save_log
        (tenant_id, state_key, mutation_id, version, base_version, bytes, project_count, gantt_row_count, actor_email, status, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'checkpointed', CURRENT_TIMESTAMP)`
-    ).bind(TENANT_ID, STATE_KEY, mutationId, version, incoming.baseVersion, m.bytes, m.projectCount, m.ganttRowCount, email).run();
+    ).bind(TENANT_ID, STATE_KEY, mutationId, nextVersion, incoming.baseVersion, incoming.bytes, incoming.metrics.projectCount, incoming.metrics.ganttRowCount, email).run();
   } catch (_) {}
 
-  return json({ ok: true, version, updatedBy: email, bytes: m.bytes, v122: { marker: MARKER, checkpointFirst: true, chunked: checkpoint.chunked, chunkCount: checkpoint.chunkCount } }, 200);
+  return json({
+    ok: true,
+    version: nextVersion,
+    updatedBy: email,
+    bytes: incoming.bytes,
+    v128: {
+      marker: MARKER,
+      stablePut: true,
+      chunked: write.chunked,
+      chunkCount: write.chunkCount,
+      chunkSize: CHUNK_SIZE
+    }
+  }, 200);
 }
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
-  if (url.pathname === "/api/state" && context.request.method === "GET") {
+  if (url.pathname !== "/api/state") return context.next();
+
+  if (context.request.method === "OPTIONS") return new Response(null, { status: 204 });
+  if (context.request.method === "GET") {
     try { return await handleStateGet(context, url); }
-    catch (error) { return json({ ok: false, error: error.message || String(error), v122: { marker: MARKER } }, error.status || 500); }
+    catch (error) { return json({ ok: false, error: error.message || String(error), v128: { marker: MARKER, stage: "GET" } }, error.status || 500); }
   }
-  if (url.pathname === "/api/state" && context.request.method === "PUT") {
+  if (context.request.method === "PUT") {
     try { return await handleStatePut(context, url); }
-    catch (error) { return json({ ok: false, error: error.message || String(error), metrics: error.metrics || null, v122: { marker: MARKER, checkpointFirst: true } }, error.status || 500); }
+    catch (error) { return json({ ok: false, error: error.message || String(error), metrics: error.metrics || null, v128: { marker: MARKER, stage: "PUT" } }, error.status || 500); }
   }
-  return context.next();
+  return json({ ok: false, error: "Method not allowed", v128: { marker: MARKER } }, 405);
 }
