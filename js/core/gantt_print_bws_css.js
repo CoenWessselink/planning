@@ -1,8 +1,10 @@
-/* CWS Planning V135 - BWS-style print CSS for Layer 4 Gantt.
-   This module only injects print CSS into the Gantt iframe. It does not change data or save logic. */
+/* CWS Planning V139 - BWS-style print CSS + SVG A3 print renderer bridge for Layer 4 Gantt.
+   This module injects print CSS and the no-popup SVG print renderer into the Gantt iframe. It does not change data or save logic. */
 (function(){
-  const MARKER = "v135-bws-style-gantt-print-css";
-  const STYLE_ID = "cws-bws-gantt-print-css-v135";
+  const MARKER = "v139-bws-style-gantt-print-css-svg-renderer-bridge";
+  const STYLE_ID = "cws-bws-gantt-print-css-v139";
+  const RENDERER_ID = "cwsBwsPrintA3RendererScript";
+  const RENDERER_SRC = "/js/core/gantt_print_a3_bouwplanning.js?v=139";
   if (window.CWS_BWS_PRINT_CSS?.marker === MARKER) return;
 
   const css = `
@@ -13,7 +15,7 @@
   body{padding:0!important}
   .gantt-shell{border:3px solid #111!important;border-radius:0!important;box-shadow:none!important;background:#fff!important;overflow:visible!important;padding:2mm!important;page-break-inside:avoid!important}
   .module-head{display:grid!important;grid-template-columns:36mm 1fr 100mm!important;align-items:stretch!important;gap:0!important;min-height:16mm!important;margin:0 0 1.5mm 0!important;padding:0!important;border:2px solid #111!important;background:#fff!important}
-  .module-head:before{content:"CWS\\A PLANNING";white-space:pre;display:flex!important;align-items:center!important;justify-content:center!important;border-right:2px solid #111!important;color:#169d9d!important;font-size:14px!important;line-height:.95!important;font-weight:950!important;letter-spacing:.8px!important;text-align:center!important}
+  .module-head:before{content:"CWS\A PLANNING";white-space:pre;display:flex!important;align-items:center!important;justify-content:center!important;border-right:2px solid #111!important;color:#169d9d!important;font-size:14px!important;line-height:.95!important;font-weight:950!important;letter-spacing:.8px!important;text-align:center!important}
   .module-head>div:first-child{display:flex!important;flex-direction:column!important;justify-content:center!important;text-align:center!important;padding:1mm 3mm!important}
   .module-head h1{font-size:10px!important;margin:0 0 1mm 0!important;color:#000!important;font-weight:900!important;text-align:center!important}
   .module-head p{font-size:6px!important;color:#111!important;margin:0!important;text-align:center!important}
@@ -59,14 +61,22 @@
       doc.head.appendChild(style);
     }
     if (style.textContent !== css) style.textContent = css;
+    if (!doc.getElementById(RENDERER_ID) && doc.documentElement?.dataset?.cwsBwsPrintA3Renderer !== "CWS_BWS_PRINT_A3_RENDERER_V139") {
+      const script = doc.createElement("script");
+      script.id = RENDERER_ID;
+      script.src = RENDERER_SRC;
+      script.setAttribute("data-cws-marker", "CWS_BWS_PRINT_A3_RENDERER_V139");
+      doc.head.appendChild(script);
+    }
     doc.documentElement?.setAttribute("data-cws-bws-print", MARKER);
     return true;
   }
 
+  inject();
   const timer = setInterval(inject, 500);
   setTimeout(() => clearInterval(timer), 60000);
   window.addEventListener("message", inject);
   window.addEventListener("focus", inject);
   document.getElementById("appFrame")?.addEventListener?.("load", () => setTimeout(inject, 100));
-  window.CWS_BWS_PRINT_CSS = { marker: MARKER, inject };
+  window.CWS_BWS_PRINT_CSS = { marker: MARKER, inject, renderer: RENDERER_SRC };
 })();
