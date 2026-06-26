@@ -7,10 +7,12 @@ const [indexHtml, renderer, packageJsonText] = await Promise.all([
 ]);
 
 const checks = [
-  ["index build marker V137", indexHtml.includes("CWS_UI_REBUILD_V137_BWS_A3_PRINT_NO_POPUP")],
-  ["renderer loaded in index", indexHtml.includes("js/core/gantt_print_a3_bouwplanning.js?v=137")],
-  ["renderer marker", renderer.includes("CWS_BWS_PRINT_A3_RENDERER_V137")],
+  ["index build marker V138", indexHtml.includes("CWS_UI_REBUILD_V138_BWS_A3_PRINT_BAR_HYDRATION")],
+  ["renderer loaded in index", indexHtml.includes("js/core/gantt_print_a3_bouwplanning.js?v=138")],
+  ["renderer marker", renderer.includes("CWS_BWS_PRINT_A3_RENDERER_V138")],
   ["no browser popup", !renderer.includes("window.open") && renderer.includes("cwsBwsA3PrintFrame")],
+  ["DOM date/bar fallback", renderer.includes("domSchedule") && renderer.includes("#tableRows tr[data-id]") && renderer.includes(".bar[data-id]")],
+  ["missing schedule hydration", renderer.includes("hydrateMissingSchedules") && renderer.includes("generated:true")],
   ["BWS required columns", ["Regel", "Naam", "Bouwkundig"].every((needle) => renderer.includes(needle))],
   ["BWS required layout blocks", ["title-block", "planning-frame", "legend", "calendar-top", "calendar-bottom"].every((needle) => renderer.includes(needle))],
   ["A3 landscape page", renderer.includes("@page{size:A3 landscape;margin:6mm;}")],
@@ -23,6 +25,6 @@ const checks = [
 const failed = checks.filter(([, ok]) => !ok);
 for (const [name, ok] of checks) console.log(`${ok ? "OK" : "FAIL"} ${name}`);
 if (failed.length) {
-  throw new Error(`V137 BWS A3 no-popup preflight mislukt: ${failed.map(([name]) => name).join(", ")}`);
+  throw new Error(`V138 BWS A3 print bar hydration preflight mislukt: ${failed.map(([name]) => name).join(", ")}`);
 }
-console.log("v137 BWS A3 no-popup preflight OK");
+console.log("v138 BWS A3 print bar hydration preflight OK");
