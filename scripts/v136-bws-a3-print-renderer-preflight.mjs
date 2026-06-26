@@ -7,10 +7,10 @@ const [indexHtml, renderer, packageJsonText] = await Promise.all([
 ]);
 
 const checks = [
-  ["index build marker V136", indexHtml.includes("CWS_UI_REBUILD_V136_BWS_A3_PRINT_RENDERER")],
-  ["renderer loaded in index", indexHtml.includes("js/core/gantt_print_a3_bouwplanning.js?v=136")],
-  ["renderer marker", renderer.includes("CWS_BWS_PRINT_A3_RENDERER_V136")],
-  ["separate print window", renderer.includes("window.open") && renderer.includes("document.write")],
+  ["index build marker V137", indexHtml.includes("CWS_UI_REBUILD_V137_BWS_A3_PRINT_NO_POPUP")],
+  ["renderer loaded in index", indexHtml.includes("js/core/gantt_print_a3_bouwplanning.js?v=137")],
+  ["renderer marker", renderer.includes("CWS_BWS_PRINT_A3_RENDERER_V137")],
+  ["no browser popup", !renderer.includes("window.open") && renderer.includes("cwsBwsA3PrintFrame")],
   ["BWS required columns", ["Regel", "Naam", "Bouwkundig"].every((needle) => renderer.includes(needle))],
   ["BWS required layout blocks", ["title-block", "planning-frame", "legend", "calendar-top", "calendar-bottom"].every((needle) => renderer.includes(needle))],
   ["A3 landscape page", renderer.includes("@page{size:A3 landscape;margin:6mm;}")],
@@ -23,6 +23,6 @@ const checks = [
 const failed = checks.filter(([, ok]) => !ok);
 for (const [name, ok] of checks) console.log(`${ok ? "OK" : "FAIL"} ${name}`);
 if (failed.length) {
-  throw new Error(`V136 BWS A3 print renderer preflight mislukt: ${failed.map(([name]) => name).join(", ")}`);
+  throw new Error(`V137 BWS A3 no-popup preflight mislukt: ${failed.map(([name]) => name).join(", ")}`);
 }
-console.log("v136 BWS A3 print renderer preflight OK");
+console.log("v137 BWS A3 no-popup preflight OK");
