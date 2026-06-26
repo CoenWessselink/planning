@@ -2347,6 +2347,7 @@ var CWS = window.CWS;</script>
           const liveModel=modelForRender(pid, st);
           const model=activeModelForRender(liveModel);
           const scheduleMap=effectiveScheduleMap(model,st);
+          const labelConfig=cleanLabelConfig(loadLabelConfig());
           const rows=filteredRows(model,scheduleMap).map((item,displayIndex)=>({
             id:item.row.id,
             no:displayIndex+1,
@@ -2358,11 +2359,12 @@ var CWS = window.CWS;</script>
             department:item.row.department||item.row.dept||item.row.afdeling||"",
             bouwkundig:item.row.bouwkundig||item.row.discipline||item.row.department||item.row.dept||item.row.afdeling||"",
             resourceId:item.row.resourceId||"",
-            resource:item.row.resource||item.row.resourceName||item.row.resourceId||"",
+            resource:item.row.resource||item.row.resourceName||textForCol({id:"resource"},item.row,item.sc||{})||item.row.resourceId||"",
             colorKey:item.row.colorKey||"c1",
             color:colorHex(item.row.colorKey||"c1"),
             progress:Number(item.row.progress||0),
             duration:taskDurationForInteraction(item.row,item.sc||{}),
+            durationText:textForCol({id:"duration"},item.row,item.sc||{}),
             milestone:!!item.row.milestone,
             locked:!!item.row.locked,
             predecessor:item.row.predecessor||"",
@@ -2370,8 +2372,20 @@ var CWS = window.CWS;</script>
             end:toIso(item.sc?.end),
             workdays:Number(item.sc?.workdays||0)||taskDurationForInteraction(item.row,item.sc||{}),
             derived:!!item.sc?.derived,
+            labels:{
+              before:labelText(labelConfig.before,item.row,item.sc||{}),
+              inside:labelText(labelConfig.inside,item.row,item.sc||{}),
+              after:labelText(labelConfig.after,item.row,item.sc||{})
+            },
             raw:clone(item.row)
           }));
+          const rowIds=new Set(rows.map(row=>String(row.id)));
+          const dependencies=rows.flatMap(row=>parsePred(row.predecessor).map(pred=>({
+            from:String(pred.id),
+            to:String(row.id),
+            type:pred.type||"FS",
+            lag:Number(pred.lag||0)
+          }))).filter(dep=>rowIds.has(dep.from)&&rowIds.has(dep.to));
           const range=timelineRange(rows.map(row=>({row,sc:{start:row.start,end:row.end}})),st,pid);
           const days=[];
           for(let i=0;i<range.days;i++) days.push(addDays(range.start,i));
@@ -2387,11 +2401,14 @@ var CWS = window.CWS;</script>
             resources:clone(st.resources||{}),
             departments:clone(st.departments||{}),
             calendar:clone(st.settings?.calendar||{}),
+            dependencies,
             meta:{
               marker:"CWS_GANTT_PRINT_SOURCE_V145_SSOT",
               mode:model._revision?"revision":"live",
               revision,
               rowCount:rows.length,
+              showDeps:!!UI.showDeps,
+              labelConfig,
               generatedFromPreview:!!liveModel?._previewOnly,
               filters:{department:UI.dept||"",resource:UI.resource||"",search:String($("#searchInput")?.value||"")}
             }

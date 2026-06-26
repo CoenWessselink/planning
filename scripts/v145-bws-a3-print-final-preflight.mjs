@@ -31,12 +31,18 @@ check("final module does not call save APIs", !/CWS\.save|saveProjectGantt|setSt
 check("final module renders Regel", finalModule.includes("\"Regel\""));
 check("final module renders Naam", finalModule.includes("\"Naam\""));
 check("final module renders Bouwkundig", finalModule.includes("\"Bouwkundig\""));
+check("final module renders Resource and Dagen", finalModule.includes("\"Resource\"") && finalModule.includes("\"Dagen\""));
 check("final module renders top calendar", finalModule.includes("kalender boven"));
 check("final module renders bottom calendar", finalModule.includes("kalender onder"));
 check("final module renders legend", finalModule.includes("\"Legenda\""));
 check("final module renders task bars", finalModule.includes("data-taakbalken"));
 check("final module renders weekend shading", finalModule.includes("data-weekendvlak"));
 check("final module renders day/week/month lines", finalModule.includes("data-daglijnen") && finalModule.includes("data-weeklijnen") && finalModule.includes("data-maandlijnen"));
+check("final module renders selected label positions", finalModule.includes("data-label-before") && finalModule.includes("data-label-inside") && finalModule.includes("data-label-after"));
+check("final module renders dependencies when enabled", finalModule.includes("data-afhankelijkheden") && finalModule.includes("bwsDepArrow") && finalModule.includes("showDeps"));
+check("final module renders today line", finalModule.includes("data-vandaaglijn") && finalModule.includes("Vandaag"));
+check("final module sets requested PDF filename", finalModule.includes("function printFileName") && finalModule.includes("projectTitle(data.project)") && finalModule.includes("projectClient(data.project)") && finalModule.includes("__CWS_BWS_PRINT_LAST_FILENAME__"));
+check("final module range is one week before/after tasks", finalModule.includes("startOfWeek(addDays(start, -7))") && finalModule.includes("endOfWeek(addDays(end, 7))"));
 check("final module validates missing dates", finalModule.includes("meer dan 30%"));
 check("final module guards project-wide bars", finalModule.includes("projectbreed") && finalModule.includes("broadTasks"));
 check("final module stores inspection HTML", finalModule.includes("__CWS_BWS_PRINT_LAST_HTML__"));

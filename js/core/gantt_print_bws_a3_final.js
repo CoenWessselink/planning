@@ -105,6 +105,14 @@
   function projectClient(project){
     return project?.client || project?.customer || project?.opdrachtgever || project?.klant || "-";
   }
+  function safeFilePart(value){
+    return String(value || "").normalize("NFKD").replace(/[\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 80) || "planning";
+  }
+  function printFileName(data){
+    const now = new Date();
+    const date = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}`;
+    return [projectTitle(data.project), projectClient(data.project), date].map(safeFilePart).join("-");
+  }
   function companyLogo(data){
     return data?.company?.logo?.dataUrl || data?.project?.logo || getCws()?.getCompanyLogo?.() || "";
   }
@@ -119,12 +127,10 @@
       if (row.start) dates.push(row.start);
       if (row.end) dates.push(row.end);
     });
-    let start = iso(data?.range?.start) || (dates.length ? dates.slice().sort()[0] : iso(data?.project?.startDate || data?.project?.start || new Date()));
-    let end = iso(data?.range?.end) || (dates.length ? dates.slice().sort().at(-1) : addDays(start, 83));
+    let start = dates.length ? dates.slice().sort()[0] : (iso(data?.range?.start) || iso(data?.project?.startDate || data?.project?.start || new Date()));
+    let end = dates.length ? dates.slice().sort().at(-1) : (iso(data?.range?.end) || addDays(start, 28));
     start = startOfWeek(addDays(start, -7));
-    end = endOfWeek(addDays(end, 14));
-    if (daysBetween(start, end) + 1 < 84) end = addDays(start, 83);
-    if (daysBetween(start, end) + 1 > 126) end = addDays(start, 125);
+    end = endOfWeek(addDays(end, 7));
     return { start, end, days:dateRange(start, end) };
   }
   function fallbackSchedule(seedStart, row, index){
@@ -153,6 +159,9 @@
         start,
         end,
         color:row?.color || colorFor(row, index),
+        resource:row?.resource || row?.resourceLabel || row?.resourceName || row?.resourceId || "-",
+        durationText:row?.durationText || (row?.duration || row?.workdays ? `${Number(row.duration || row.workdays)} d` : "-"),
+        labels:row?.labels && typeof row.labels === "object" ? row.labels : {},
         fallback:false,
         invalid:Boolean((start && !end) || (!start && end))
       };
@@ -245,6 +254,9 @@
   }
   function line(x1,y1,x2,y2,sw=.16,stroke="#000",extra=""){
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${sw}" ${extra}/>`;
+  }
+  function path(d, sw=.2, stroke="#334155", extra=""){
+    return `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`;
   }
   function segments(days, kind){
     const keyFor = day => {
@@ -339,7 +351,7 @@
     const headerH = 23, legendH = 15;
     const boardY = M + headerH;
     const boardW = W - 2 * M;
-    const leftW = 106;
+    const leftW = 136;
     const chartX = M + leftW;
     const chartW = boardW - leftW;
     const topCalH = 19;
@@ -352,7 +364,7 @@
     const rowH = bodyH / visibleRows;
     const dayWidth = chartW / Math.max(1, data.range.days.length);
     const bodyBottom = bodyY + bodyH;
-    let out = `<svg xmlns="http://www.w3.org/2000/svg" width="408mm" height="285mm" viewBox="0 0 408 285" shape-rendering="crispEdges" data-bws-marker="${MARKER}">`;
+    let out = `<svg xmlns="http://www.w3.org/2000/svg" width="408mm" height="285mm" viewBox="0 0 408 285" shape-rendering="crispEdges" data-bws-marker="${MARKER}"><defs><marker id="bwsDepArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker></defs>`;
     out += rect(M, M, W - 2 * M, H - 2 * M, "#fff", "#000", .55);
     out += headerSvg(data, W, M, headerH);
 
@@ -364,12 +376,16 @@
 
     out += rect(M, boardY, boardW, legendY - boardY, "#fff", "#000", .35);
     out += rect(M, boardY, leftW, topCalH, "#fff", "#000", .25);
-    out += rect(M, boardY, 12, topCalH, "#fff", "#000", .18);
-    out += rect(M + 12, boardY, 64, topCalH, "#fff", "#000", .18);
-    out += rect(M + 76, boardY, 30, topCalH, "#fff", "#000", .18);
-    out += text(M + 6, boardY + topCalH - 2.2, "Regel", 1.52, 900);
-    out += text(M + 44, boardY + topCalH - 2.2, "Naam", 1.52, 900);
-    out += text(M + 91, boardY + topCalH - 2.2, "Bouwkundig", 1.52, 900);
+    out += rect(M, boardY, 10, topCalH, "#fff", "#000", .18);
+    out += rect(M + 10, boardY, 44, topCalH, "#fff", "#000", .18);
+    out += rect(M + 54, boardY, 26, topCalH, "#fff", "#000", .18);
+    out += rect(M + 80, boardY, 42, topCalH, "#fff", "#000", .18);
+    out += rect(M + 122, boardY, 14, topCalH, "#fff", "#000", .18);
+    out += text(M + 5, boardY + topCalH - 2.2, "Regel", 1.35, 900);
+    out += text(M + 32, boardY + topCalH - 2.2, "Naam", 1.35, 900);
+    out += text(M + 67, boardY + topCalH - 2.2, "Bouwkundig", 1.28, 900);
+    out += text(M + 101, boardY + topCalH - 2.2, "Resource", 1.28, 900);
+    out += text(M + 129, boardY + topCalH - 2.2, "Dagen", 1.2, 900);
     out += calendarSvg(data, chartX, boardY, chartW, true);
 
     for (let index = 0; index < visibleRows; index++) {
@@ -377,13 +393,17 @@
       const phase = row && isSummary(row);
       const y = bodyY + index * rowH;
       const fill = phase ? "#63cfc9" : (index % 2 ? "#eeeeee" : "#fff");
-      out += rect(M, y, 12, rowH, fill, "#000", .13);
-      out += rect(M + 12, y, 64, rowH, fill, "#000", .13);
-      out += rect(M + 76, y, 30, rowH, fill, "#000", .13);
+      out += rect(M, y, 10, rowH, fill, "#000", .13);
+      out += rect(M + 10, y, 44, rowH, fill, "#000", .13);
+      out += rect(M + 54, y, 26, rowH, fill, "#000", .13);
+      out += rect(M + 80, y, 42, rowH, fill, "#000", .13);
+      out += rect(M + 122, y, 14, rowH, fill, "#000", .13);
       if (row) {
-        out += text(M + 6, y + rowH / 2, row.no, 1.45, 900);
-        out += text(M + 14 + clamp(Number(row.level || 0) * 2, 0, 8), y + rowH / 2, row.name, 1.35, phase ? 900 : 700, "start");
-        out += text(M + 78, y + rowH / 2, discipline(row), 1.25, phase ? 900 : 700, "start");
+        out += text(M + 5, y + rowH / 2, row.no, 1.35, 900);
+        out += text(M + 12 + clamp(Number(row.level || 0) * 1.8, 0, 7), y + rowH / 2, row.name, 1.18, phase ? 900 : 700, "start");
+        out += text(M + 56, y + rowH / 2, discipline(row), 1.08, phase ? 900 : 700, "start");
+        out += text(M + 82, y + rowH / 2, row.resource || "-", 1.08, phase ? 900 : 700, "start");
+        out += text(M + 129, y + rowH / 2, row.durationText || "-", 1.05, phase ? 900 : 700);
       }
     }
 
@@ -402,8 +422,15 @@
       out += line(x, bodyY, x, bodyBottom, month ? .45 : (week ? .28 : .08), month || week ? "#000" : "#777", attr);
     });
     out += line(chartX + chartW, bodyY, chartX + chartW, bodyBottom, .35, "#000");
+    const todayIso = iso(new Date());
+    if (todayIso && daysBetween(data.range.start, todayIso) >= 0 && daysBetween(todayIso, data.range.end) >= 0) {
+      const todayX = chartX + daysBetween(data.range.start, todayIso) * dayWidth;
+      out += line(todayX, boardY, todayX, bodyBottom, .45, "#dc2626", `data-vandaaglijn="1"`);
+      out += text(todayX + 1, boardY + 2.4, "Vandaag", 1.15, 900, "start", `fill="#dc2626"`);
+    }
 
     // taakbalken
+    const rowGeometry = new Map();
     data.rows.forEach((row, index) => {
       if (!row.start || !row.end || daysBetween(row.start, row.end) < 0) return;
       const startIndex = clamp(daysBetween(data.range.start, row.start), 0, data.range.days.length - 1);
@@ -411,24 +438,46 @@
       const x = chartX + startIndex * dayWidth;
       const width = Math.max(dayWidth, (endIndex - startIndex + 1) * dayWidth);
       const y = bodyY + index * rowH;
+      rowGeometry.set(String(row.id), { x, y, width, centerY:y + rowH / 2, row });
       if (isSummary(row)) {
         out += line(x, y + rowH * .52, x + width, y + rowH * .52, .9, "#000", `data-summary-balk="1"`);
-        out += text(Math.min(x + width + 1, chartX + chartW - 1), y + rowH * .5, row.name, 1.3, 900, x + width + 24 < chartX + chartW ? "start" : "end");
+        const phaseLabel = row.labels?.inside || row.name;
+        out += text(Math.min(x + width + 1, chartX + chartW - 1), y + rowH * .5, phaseLabel, 1.25, 900, x + width + 24 < chartX + chartW ? "start" : "end");
         return;
       }
       const barH = Math.min(3.7, Math.max(2.3, rowH * .62));
       const by = y + (rowH - barH) / 2;
+      const before = String(row.labels?.before || "").trim();
+      const inside = String(row.labels?.inside || row.name || "").trim();
+      const after = String(row.labels?.after || "").trim();
+      if (before && x - chartX > 7) out += text(Math.max(chartX + .6, x - 1.2), by + barH / 2, before.slice(0, 34), 1.05, 900, "end", `fill="#000" data-label-before="1"`);
       out += `<rect x="${x}" y="${by}" width="${width}" height="${barH}" rx="0.5" fill="${esc(colorFor(row, index))}" stroke="#000" stroke-width="0.32" data-taakbalken="1" data-row-id="${esc(row.id)}" data-start="${esc(row.start)}" data-end="${esc(row.end)}" data-fallback="${row.fallback ? "1" : "0"}"/>`;
-      if (width > 6) {
-        const label = `${row.no} ${row.name}${row.fallback ? " *" : ""}`;
-        out += text(x + .8, by + barH / 2, label.slice(0, 42), 1.12, 900, "start");
+      if (inside && width > 6) {
+        const label = `${inside}${row.fallback ? " *" : ""}`;
+        out += text(x + .8, by + barH / 2, label.slice(0, 42), 1.08, 900, "start", `fill="#fff" data-label-inside="1"`);
       }
+      if (after && x + width < chartX + chartW - 7) out += text(x + width + 1.2, by + barH / 2, after.slice(0, 38), 1.05, 900, "start", `fill="#000" data-label-after="1"`);
     });
+    if (data.meta?.showDeps && Array.isArray(data.dependencies) && data.dependencies.length) {
+      data.dependencies.forEach(dep => {
+        const from = rowGeometry.get(String(dep.from));
+        const to = rowGeometry.get(String(dep.to));
+        if (!from || !to) return;
+        const startX = Math.min(chartX + chartW - 2, from.x + from.width + Math.max(.8, dayWidth * .14));
+        const endX = Math.max(chartX + 2, to.x - Math.max(1, dayWidth * .24));
+        const elbowX = Math.max(startX + 2, Math.min(endX - 1, startX + Math.max(4, (endX - startX) * .45)));
+        const route = `M ${startX} ${from.centerY} H ${elbowX} V ${to.centerY} H ${endX}`;
+        out += path(route, .7, "#fff", `data-afhankelijkheid-halo="1"`);
+        out += path(route, .28, "#334155", `marker-end="url(#bwsDepArrow)" data-afhankelijkheden="1"`);
+      });
+    }
 
     out += rect(M, bottomCalY, leftW, bottomCalH, "#fff", "#000", .25);
     out += text(M + 3, bottomCalY + 6, "Regel", 1.35, 900, "start");
     out += text(M + 13, bottomCalY + 6, "Naam", 1.35, 900, "start");
     out += text(M + 25, bottomCalY + 6, "Bouwkundig", 1.35, 900, "start");
+    out += text(M + 58, bottomCalY + 6, "Resource", 1.35, 900, "start");
+    out += text(M + 94, bottomCalY + 6, "Dagen", 1.35, 900, "start");
     out += calendarSvg(data, chartX, bottomCalY, chartW, false);
 
     out += rect(M, legendY, boardW, legendH, "#fff", "#000", .35);
@@ -447,7 +496,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<title>${esc(projectTitle(data.project))} - BWS A3</title>
+<title>${esc(printFileName(data))}</title>
 <style>
 @page { size: A3 landscape; margin: 6mm; }
 html, body {
@@ -472,8 +521,10 @@ ${renderSvg(data)}
   function printCurrentProject(){
     const data = readModel();
     const html = buildHtml(data);
+    const filename = printFileName(data);
     window.__CWS_BWS_PRINT_LAST_HTML__ = html;
     window.__CWS_BWS_PRINT_LAST_MODEL__ = deepClone(data);
+    window.__CWS_BWS_PRINT_LAST_FILENAME__ = filename;
     let iframe = document.getElementById("cwsBwsA3PrintFrame");
     if (!iframe) {
       iframe = document.createElement("iframe");
@@ -491,8 +542,16 @@ ${renderSvg(data)}
     doc.close();
     setTimeout(() => {
       try {
+        const oldTitle = document.title;
+        const oldParentTitle = window.parent && window.parent !== window ? window.parent.document.title : null;
+        document.title = filename;
+        try { if (window.parent && window.parent.document) window.parent.document.title = filename; } catch (_error) {}
         frameWindow.focus();
         frameWindow.print();
+        setTimeout(() => {
+          document.title = oldTitle;
+          try { if (oldParentTitle != null && window.parent?.document) window.parent.document.title = oldParentTitle; } catch (_error) {}
+        }, 300000);
       } catch (error) {
         console.error("BWS A3 print mislukt", error);
       }
