@@ -81,6 +81,7 @@
     "preflight:v93": "node scripts/v93-mobile-mockup-functional-preflight.mjs",
     "preflight:v100": "node scripts/v100-consolidated-visual-system-preflight.mjs",
     "preflight:v136": "node scripts/v136-bws-a3-print-renderer-preflight.mjs",
+    "preflight:v145": "node scripts/v145-bws-a3-print-final-preflight.mjs",
     "preflight:live-regression": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs"
   },
   "devDependencies": {}

@@ -6,6 +6,7 @@
   <title>Laag 4 - Gantt Planning</title>
   <link rel="stylesheet" href="../css/theme.css">
   <link rel="stylesheet" href="../css/patches.css">
+  <script src="../js/core/gantt_print_bws_a3_final.js?v=145"></script>
   <style>
     :root{--rowH:48px;--headH:102px;--dayW:34px;--leftW:1120px;--blue:#2f6fbd;--dark:#172033;--line:#e5e7eb;--soft:#f8fafc;--text:#0f172a;--muted:#64748b;--ok:#16a34a;--warn:#f59e0b;--bad:#dc2626}
     html,body{height:100%;margin:0;background:#f5f7fb;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
@@ -2336,6 +2337,69 @@ var CWS = window.CWS;</script>
     }
     function filteredRows(model, scheduleMap=null){ const dept=UI.dept, res=UI.resource, q=String($("#searchInput")?.value||"").toLowerCase(); const sm=scheduleMap || effectiveScheduleMap(model,state()); return model.rows.map((row,index)=>({row,index,sc:sm[row.id]||{}})).filter(x=>{ const r=x.row; const matchSelf=(!dept||r.department===dept)&&(!res||r.resourceId===res)&&(!q||[r.id,r.name,r.department].join(" ").toLowerCase().includes(q)); if(r.type!=="summary") return matchSelf; // keep summary if any direct/desc child visible
       if(matchSelf) return true; for(let i=x.index+1;i<model.rows.length&&Number(model.rows[i].level)>Number(r.level||0);i++){ const c=model.rows[i]; if((!dept||c.department===dept)&&(!res||c.resourceId===res)&&(!q||[c.id,c.name,c.department].join(" ").toLowerCase().includes(q))) return true; } return false; }); }
+    function installBwsPrintSource(){
+      const clone = value => deepClone(value);
+      window.CWS_GANTT_PRINT_SOURCE = Object.freeze({
+        marker: "CWS_GANTT_PRINT_SOURCE_V145_SSOT",
+        getBwsPrintModel(){
+          const st=state();
+          const pid=currentProjectId(st);
+          const liveModel=modelForRender(pid, st);
+          const model=activeModelForRender(liveModel);
+          const scheduleMap=effectiveScheduleMap(model,st);
+          const rows=filteredRows(model,scheduleMap).map((item,displayIndex)=>({
+            id:item.row.id,
+            no:displayIndex+1,
+            index:item.index,
+            name:item.row.name||item.row.title||item.row.id||"",
+            type:item.row.type==="summary"?"summary":"task",
+            level:Number(item.row.level||0),
+            parent:item.row.parent||"",
+            department:item.row.department||item.row.dept||item.row.afdeling||"",
+            bouwkundig:item.row.bouwkundig||item.row.discipline||item.row.department||item.row.dept||item.row.afdeling||"",
+            resourceId:item.row.resourceId||"",
+            resource:item.row.resource||item.row.resourceName||item.row.resourceId||"",
+            colorKey:item.row.colorKey||"c1",
+            color:colorHex(item.row.colorKey||"c1"),
+            progress:Number(item.row.progress||0),
+            duration:taskDurationForInteraction(item.row,item.sc||{}),
+            milestone:!!item.row.milestone,
+            locked:!!item.row.locked,
+            predecessor:item.row.predecessor||"",
+            start:toIso(item.sc?.start),
+            end:toIso(item.sc?.end),
+            workdays:Number(item.sc?.workdays||0)||taskDurationForInteraction(item.row,item.sc||{}),
+            derived:!!item.sc?.derived,
+            raw:clone(item.row)
+          }));
+          const range=timelineRange(rows.map(row=>({row,sc:{start:row.start,end:row.end}})),st,pid);
+          const days=[];
+          for(let i=0;i<range.days;i++) days.push(addDays(range.start,i));
+          const project=clone(st.projects?.byId?.[pid]||{});
+          const revision=model._revision ? clone(model._revision) : null;
+          return clone({
+            projectId:pid,
+            project,
+            rows,
+            schedules:rows.reduce((acc,row)=>{ acc[row.id]={start:row.start,end:row.end,workdays:row.workdays,derived:row.derived}; return acc; },{}),
+            range:{start:range.start,end:addDays(range.start,Math.max(0,range.days-1)),days:range.days},
+            days,
+            resources:clone(st.resources||{}),
+            departments:clone(st.departments||{}),
+            calendar:clone(st.settings?.calendar||{}),
+            meta:{
+              marker:"CWS_GANTT_PRINT_SOURCE_V145_SSOT",
+              mode:model._revision?"revision":"live",
+              revision,
+              rowCount:rows.length,
+              generatedFromPreview:!!liveModel?._previewOnly,
+              filters:{department:UI.dept||"",resource:UI.resource||"",search:String($("#searchInput")?.value||"")}
+            }
+          });
+        }
+      });
+    }
+    installBwsPrintSource();
     function timelineRange(rows, st, pid){
       const anchor=toIso(firstProjectStart(st,pid))||toIso(new Date());
       const dates=[];
@@ -3595,6 +3659,9 @@ var CWS = window.CWS;</script>
       }
     }
     function printA3(){
+      if(window.CWS_BWS_A3_PRINT?.printCurrentProject){
+        return window.CWS_BWS_A3_PRINT.printCurrentProject();
+      }
       const oldView=UI.view, oldZoom=UI.zoom, oldPrint=UI.printMode, oldDayW=UI.printDayW, oldTitle=document.title;
       let oldParentTitle=null;
       try{ oldParentTitle=window.parent && window.parent!==window ? window.parent.document.title : null; }catch(_e){}
