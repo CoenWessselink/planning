@@ -263,6 +263,12 @@
       <tr class="date-row">${weeks.map(w => `<th>${esc(w.mondayDate.slice(8, 10) + "/" + w.mondayDate.slice(5, 7))}</th>`).join("")}</tr>
     </thead>`;
   }
+  function mainColgroup(weeks){
+    return `<colgroup><col class="dept-col"><col class="project-col"><col class="metric-col"><col class="metric-col"><col class="metric-col">${weeks.map(() => `<col class="week-col">`).join("")}</colgroup>`;
+  }
+  function summaryColgroup(weeks){
+    return `<colgroup><col class="summary-label-col"><col class="metric-col"><col class="metric-col"><col class="metric-col">${weeks.map(() => `<col class="week-col">`).join("")}</colgroup>`;
+  }
   function renderMainTable(model){
     const weeks = model.period.weeks;
     const body = [];
@@ -290,7 +296,7 @@
     if(!body.length){
       body.push(`<tr><td colspan="${5 + weeks.length}" class="empty">Geen projecturen gevonden voor de geselecteerde afdelingen in deze periode.</td></tr>`);
     }
-    return `<table class="capacity-table main-table">${calendarHead(weeks)}<tbody>${body.join("")}</tbody></table>`;
+    return `<table class="capacity-table main-table">${mainColgroup(weeks)}${calendarHead(weeks)}<tbody>${body.join("")}</tbody></table>`;
   }
   function renderSummaryTable(model){
     const weeks = model.period.weeks;
@@ -309,6 +315,7 @@
       ${weekCells(weeks, model.grandTotals.weeks, "#eef2f7")}
     </tr>`);
     return `<section class="summary"><h2>OVERZICHT PER AFDELING</h2><table class="capacity-table summary-table">
+      ${summaryColgroup(weeks)}
       <thead>
         <tr class="month-row"><th rowspan="3">AFDELING</th><th rowspan="3">Beschikbaar<br>(u)</th><th rowspan="3">Gepland<br>(u)</th><th rowspan="3">Over / Tekort<br>(u)</th>${monthGroups(weeks).map(g => `<th colspan="${g.span}">${esc(g.label)}</th>`).join("")}</tr>
         <tr class="week-row">${weeks.map(w => `<th>${pad(w.isoWeek)}</th>`).join("")}</tr>
@@ -328,21 +335,20 @@
     <style>
       @page{size:A3 landscape;margin:7mm}
       *{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-      body{margin:0;background:#fff;color:#050505;font-family:Arial,Helvetica,sans-serif;font-size:8px}
-      .page{border:1.2pt solid #050505;min-height:100vh;padding:6px}
-      .top{display:grid;grid-template-columns:245px 1fr 365px;gap:12px;align-items:start;margin-bottom:8px}
-      .logo-box{height:82px;display:flex;align-items:center}.logo-box img{width:238px;max-height:82px;object-fit:contain}
-      .title{text-align:center;padding-top:8px}.title h1{font-size:29px;line-height:1;margin:0 0 9px;font-weight:900;letter-spacing:0}.title div{font-size:15px;font-weight:800}
-      .meta{width:100%;border-collapse:collapse;font-size:8px}.meta td{border:0.6pt solid #777;padding:4px 6px;height:18px}.meta td:first-child{font-weight:800;width:48%}.meta .page-no{text-align:center;font-weight:800}
-      .capacity-table{width:100%;border-collapse:collapse;table-layout:fixed}.capacity-table th,.capacity-table td{border:0.45pt solid #9ca3af;text-align:center;vertical-align:middle;padding:3px 3px;height:23px;overflow:hidden}
-      .capacity-table th{background:#00566a;color:#fff;font-weight:900}.month-row th{height:18px}.week-row th,.date-row th{background:#f8fafc;color:#111;font-size:7px;height:16px}
-      .main-table{--deptW:68px;--projectW:148px;--metricW:54px;--weekW:25px}.main-table col,.summary-table col{width:var(--weekW)}
-      .main-table th:nth-child(1),.main-table td:nth-child(1){width:var(--deptW)}.main-table th:nth-child(2),.main-table td:nth-child(2){width:var(--projectW)}.main-table th:nth-child(3),.main-table th:nth-child(4),.main-table th:nth-child(5),.main-table td:nth-child(3),.main-table td:nth-child(4),.main-table td:nth-child(5){width:var(--metricW)}
+      body{margin:0;background:#fff;color:#050505;font-family:Arial,Helvetica,sans-serif;font-size:9px}
+      .page{width:1650px;border:1.2pt solid #050505;min-height:1167px;padding:9px;margin:0 auto;overflow:hidden}
+      .top{display:grid;grid-template-columns:390px 1fr 505px;gap:14px;align-items:start;margin-bottom:12px}
+      .logo-box{height:125px;display:flex;align-items:flex-start}.logo-box img{width:380px;max-height:125px;object-fit:contain}
+      .title{text-align:center;padding-top:22px}.title h1{font-size:42px;line-height:1;margin:0 0 14px;font-weight:900;letter-spacing:0}.title div{font-size:22px;font-weight:800}
+      .meta{width:100%;border-collapse:collapse;font-size:10px}.meta td{border:0.6pt solid #777;padding:3px 8px;height:18px}.meta td:first-child{font-weight:800;width:48%}.meta .page-no{text-align:center;font-weight:800}
+      .capacity-table{width:100%;border-collapse:collapse;table-layout:fixed}.capacity-table th,.capacity-table td{border:0.45pt solid #9ca3af;text-align:center;vertical-align:middle;padding:4px 4px;height:49px;overflow:hidden}
+      .capacity-table th{background:#00566a;color:#fff;font-weight:900}.month-row th{height:22px}.week-row th,.date-row th{background:#f8fafc;color:#111;font-size:7px;height:20px}
+      .dept-col{width:90px}.project-col{width:190px}.metric-col{width:72px}.week-col{width:37px}.summary-label-col{width:280px}
       .dept-cell{font-weight:900;text-transform:uppercase;background:#fff}.dept-name{display:flex;align-items:center;justify-content:center;min-height:72px}
-      .project-cell{text-align:left!important;padding-left:8px!important;background:#fffdf3}.project-cell strong{display:block;font-size:8px}.project-cell small{display:block;color:#4b5563;font-size:6.5px;margin-top:2px}
+      .project-cell{text-align:left!important;padding-left:9px!important;background:#fffdf3}.project-cell strong{display:block;font-size:9px}.project-cell small{display:block;color:#4b5563;font-size:6.5px;margin-top:2px}
       .metric{font-weight:800}.pos{color:#087a24}.neg{color:#d10000}.week-cell{color:#050505;font-weight:800}.total-row td{font-weight:900;background:#f7f7f7}.empty{text-align:left!important;padding:12px!important}
-      .summary{margin-top:9px;break-inside:avoid}.summary h2{margin:0;background:#00566a;color:#fff;font-size:10px;padding:6px 8px;border:0.45pt solid #00566a}
-      .summary-table{--labelW:216px;--metricW:54px;--weekW:25px}.summary-table th:first-child,.summary-table td:first-child{width:var(--labelW);text-align:left}.summary-table th:nth-child(2),.summary-table th:nth-child(3),.summary-table th:nth-child(4),.summary-table td:nth-child(2),.summary-table td:nth-child(3),.summary-table td:nth-child(4){width:var(--metricW)}
+      .summary{margin-top:12px;break-inside:avoid}.summary h2{margin:0;background:#00566a;color:#fff;font-size:13px;padding:7px 10px;border:0.45pt solid #00566a}
+      .summary-table th:first-child,.summary-table td:first-child{text-align:left}
       .summary-label{font-weight:900}.grand-row td{font-weight:900;background:#f3f4f6}
       thead{display:table-header-group}tr{page-break-inside:avoid;break-inside:avoid}
     </style></head><body><div class="page">
