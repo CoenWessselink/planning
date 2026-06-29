@@ -169,18 +169,57 @@ async function repairAppStateManifestBestEffort(db, row, manifest) {
   } catch (_) {}
 }
 
+async function recoverChunkManifestIfNeeded(db, row, manifest) {
+  const currentVersion = Number(manifest?.version || row?.version || 0);
+  const expectedCount = Number(manifest?.chunkCount || 0) || null;
+  try {
+    const valid = await readChunksAsJson(db, currentVersion, expectedCount);
+    return {
+      manifest: { ...manifest, version:currentVersion, bytes:valid.bytes, chunkCount:valid.rows.length },
+      recovered:false,
+      type:"chunked-manifest"
+    };
+  } catch (parseError) {
+    const recovered = await findLatestRecoverableChunkVersion(db, currentVersion);
+    if (!recovered?.stateJson) {
+      const error = new Error(`D1 chunk-manifest verwijst naar ongeldige chunks en er is geen herstelbare oudere chunk-set gevonden (${parseError.message}).`);
+      error.status = 500;
+      throw error;
+    }
+    const nextManifest = {
+      __cwsChunkedState: true,
+      marker: MARKER,
+      tenantId: TENANT_ID,
+      stateKey: STATE_KEY,
+      version: recovered.version,
+      bytes: recovered.bytes,
+      chunkCount: recovered.rows.length,
+      updatedBy: row?.updated_by || "recovered",
+      recoveredFromInvalidChunkSet: true,
+      recoveredFromDifferentVersion: recovered.version !== currentVersion,
+      corruptChunkVersion: currentVersion,
+      recoveryMode: "latest-valid-chunk-version",
+      recoveredAt: new Date().toISOString(),
+      originalParseError: parseError.message
+    };
+    await repairAppStateManifestBestEffort(db, row, nextManifest);
+    return { manifest:nextManifest, recovered:true, type:"latest-valid-chunk-version" };
+  }
+}
+
 async function resolveStoredState(db, row) {
   const raw = row?.state_json || "";
   const currentVersion = Number(row?.version || 0);
   const parsedManifest = parseChunkManifest(raw);
   if (parsedManifest) {
+    const checked = await recoverChunkManifestIfNeeded(db, row, parsedManifest);
     return {
       exists: true,
-      type: "chunked-manifest",
-      version: Number(parsedManifest.version || currentVersion),
-      manifest: parsedManifest,
+      type: checked.type,
+      version: Number(checked.manifest.version || currentVersion),
+      manifest: checked.manifest,
       inlineRaw: null,
-      recovered: false
+      recovered: checked.recovered
     };
   }
 
@@ -289,7 +328,9 @@ function chunkManifestResponse(manifest, row, user, email, recovered = false) {
     updatedAt: row?.updated_at || null,
     updatedBy: row?.updated_by || null,
     recoveredFromTruncatedStateJson: Boolean(recovered || manifest?.recoveredFromTruncatedStateJson),
+    recoveredFromInvalidChunkSet: Boolean(recovered || manifest?.recoveredFromInvalidChunkSet),
     recoveredFromDifferentVersion: Boolean(manifest?.recoveredFromDifferentVersion),
+    corruptChunkVersion: manifest?.corruptChunkVersion || null,
     corruptInlineVersion: manifest?.corruptInlineVersion || null,
     recoveryMode: manifest?.recoveryMode || null
   });
@@ -307,6 +348,7 @@ function chunkManifestResponse(manifest, row, user, email, recovered = false) {
     "X-CWS-Chunked-Manifest": "1",
     "X-CWS-Chunk-Count": String(Number(manifest?.chunkCount || 0)),
     "X-CWS-Recovered-Truncated-State": recovered || manifest?.recoveredFromTruncatedStateJson ? "1" : "0",
+    "X-CWS-Recovered-Invalid-Chunks": recovered || manifest?.recoveredFromInvalidChunkSet ? "1" : "0",
     "X-CWS-V118": MARKER
   });
 }

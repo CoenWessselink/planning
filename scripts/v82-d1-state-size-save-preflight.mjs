@@ -14,10 +14,10 @@ const [pkgRaw, stateFn, shared, store, health, server] = await Promise.all([
 ]);
 const pkg = JSON.parse(pkgRaw);
 if(!pkg.scripts?.['preflight:v82']) fail('package.json mist preflight:v82');
-if(!stateFn.includes('V82_CHUNK_TABLE') || !stateFn.includes('app_state_chunks')) fail('state.js mist chunk table');
-if(!stateFn.includes('readFullStateJson') || !stateFn.includes('writeFullStateJson')) fail('state.js mist chunk read/write helpers');
-if(!stateFn.includes('__cwsChunkedState') || !stateFn.includes('v82-d1-chunked-state-save-fix')) fail('state.js mist chunk manifest marker');
-if(!stateFn.includes('db.batch(statements)')) fail('state.js schrijft chunked state niet via batch');
+if(!stateFn.includes('CREATE TABLE IF NOT EXISTS app_state_chunks') || !stateFn.includes('chunk_index') || !stateFn.includes('chunk_text')) fail('state.js mist chunk table');
+if(!stateFn.includes('readFullStateJson') || !stateFn.includes('writeCheckpoint') || !stateFn.includes('readChunksAsJson')) fail('state.js mist chunk read/write helpers');
+if(!stateFn.includes('__cwsChunkedState') || !stateFn.includes('buildChunkManifest')) fail('state.js mist chunk manifest marker');
+if(!stateFn.includes('splitStateIntoChunks') || !stateFn.includes('INSERT OR REPLACE INTO app_state_chunks')) fail('state.js schrijft chunked state niet naar app_state_chunks');
 if(!stateFn.includes('X-CWS-Chunked') || !stateFn.includes('X-CWS-Chunk-Count')) fail('state.js mist chunk headers');
 if(!shared.includes('X-CWS-Chunked') || !shared.includes('X-CWS-Chunk-Count')) fail('_shared.js expose headers mist chunk headers');
 if(!store.includes('createRemoteSaveSnapshot') || !store.includes('v82D1StateSizeAndSaveFix')) fail('store.js mist remote save projection');

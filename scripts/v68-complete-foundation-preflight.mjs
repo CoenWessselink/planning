@@ -18,7 +18,7 @@ check("V68 D1 SQL import extractie aanwezig", /extractStateJsonFromAnyText/.test
 check("V68 State Doctor aanwezig", /buildStateDoctorReport/.test(store) && /no-weekend-hours/.test(store));
 check("V68 recovery-lock aanwezig", /V68_LOCK_KEY/.test(store) && /setRecoveryLock/.test(store) && /clearRecoveryLock/.test(store));
 check("V68 IO bevat analyse, diagnose en recovery-lock", /Analyseer import/.test(io) && /Download diagnose/.test(io) && /Recovery-lock aan/.test(io) && /\.sql/.test(io));
-check("V68 server-side D1 guard blijft aanwezig", /assertNoCatastrophicOverwrite/.test(stateApi) && /overschrijven geblokkeerd/.test(stateApi));
+check("V68 server-side D1 guard blijft aanwezig", /assertIncomingStateSafe/.test(stateApi) && /Opslaan geblokkeerd/.test(stateApi) && /v118-empty-state-guard/.test(stateApi));
 check("V68 Gantt blijft centrale continue geometrie gebruiken", /function continuousBarGeometry/.test(gantt) && /data-v66-continuous-geometry="1"/.test(gantt));
 
 const fakeStore = new Map();

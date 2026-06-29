@@ -51,7 +51,7 @@ check("alle hoofdmodules bestaan", modules.every(file => fs.existsSync(file)));
 check("centrale Gantt duplicate repair en metadata", store.includes("normalizeGanttState") && store.includes("repairDuplicateGanttRowIds") && store.includes("ganttRowIdRepairCount"));
 check("continue Gantt-geometrie", gantt.includes("function continuousBarGeometry") && gantt.includes('data-v66-continuous-geometry="1"'));
 check("drag/resize immutable ref en rollback", gantt.includes("immutableRef=Object.freeze") && gantt.includes("finishPointerMutation") && gantt.includes("releasePointerCapture") && gantt.includes("gantt_task_resized"));
-check("client/server state shrink guard", store.includes("v72-state-shrink-guard") && stateFunction.includes("v72-state-shrink-guard") && stateFunction.includes("inkomende state zou planning verkleinen"));
+check("client/server state shrink guard", store.includes("v72-state-shrink-guard") && stateFunction.includes("assertIncomingStateSafe") && stateFunction.includes("Opslaan geblokkeerd: inkomende state lijkt leeg/demo"));
 check("State Doctor en live readiness", store.includes("buildStateDoctorReport") && store.includes("buildLiveReadinessReport") && store.includes("lastStateDoctorAt"));
 check(
   "V72 responsive hooks",

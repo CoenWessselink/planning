@@ -27,7 +27,7 @@ check("ongebruikte afdeling wordt via mutate opgeslagen", settings.includes('CWS
 check("legacy departments registry wordt mee opgeschoond", settings.includes("delete draft.departments.byId") && settings.includes("draft.departments.order"));
 check("normalizer voegt verwijderde afdeling niet direct opnieuw toe", store.includes("settings.deletedDepartments") && store.includes("deletedMatches") && store.includes("!options.explicit && deletedMatches"));
 check("D1 chunked save/load blijft aanwezig", stateApi.includes("app_state_chunks") && stateApi.includes("X-CWS-Chunked-Manifest") && store.includes("loadChunkedRemoteStateBody"));
-check("save guard settings-wijzigingen niet blokkeert", stateApi.includes("projectDrop") && stateApi.includes("ganttDrop") && !stateApi.includes("departmentDrop"));
+check("save guard settings-wijzigingen niet blokkeert", stateApi.includes("assertIncomingStateSafe") && stateApi.includes("looksLikeDemoOrEmpty") && !stateApi.includes("departmentDrop"));
 check("mobiel/modal regels blijven aanwezig", settings.includes("width:min(1150px, 96vw)") && settings.includes("table-wrap") && ui.includes("tableWrap.className = 'table-wrap'"));
 
 const context = {

@@ -32,7 +32,7 @@ add(store.includes("const healthPromise = storageAdapter.detect()") && store.inc
 add(store.includes("API_IDENTITY") && store.includes("identity-failed-nonblocking") && identityApi.includes("actorEmail"), "Access identity wordt non-blocking opgehaald");
 add(store.includes("Save tijdens boot geblokkeerd") && store.includes("savesBlockedDuringBoot"), "save tijdens boot guard bestaat");
 add(store.includes("stateSource !== \"remote-d1\"") && store.includes("fallback mag productie-D1 niet automatisch overschrijven"), "fallback kan productie-D1 niet automatisch overschrijven");
-add(stateApi.includes("assertNoCatastrophicOverwrite") && stateApi.includes("incomingProjects <= 5"), "server blokkeert 0/1/5-project overwrite");
+add(stateApi.includes("assertIncomingStateSafe") && stateApi.includes("projectCount <= 5") && stateApi.includes("v118-empty-state-guard"), "server blokkeert 0/1/5-project overwrite");
 add(store.includes("STATE_FETCH_TIMEOUT_MS = 30000"), "D1 state-timeout is niet extreem kort");
 add(store.includes("if(runtime.isLocal) currentUser = { email:\"local-dev@cws.test\""), "local-dev identiteit is beperkt tot lokale runtime");
 add(router.includes("showLoading") && router.includes("CWS.isStateReady") && router.includes("markReady"), "router laadt modules pas na state-ready");

@@ -14,7 +14,7 @@ const checks = [
   ['remote safety snapshot set before validation decision', /remoteSafetySnapshot = \{ \.\.\.incomingMetrics/.test(files.store)],
   ['UI-only setState skips remote D1 PUT', /UI-only route\/tab updates must never trigger a remote D1 PUT/.test(files.store) && /if\(!tenantChanged\)\{[\s\S]*?writeLocalSnapshot\(state\)/.test(files.store)],
   ['empty D1 response is not auto-uploaded', /empty D1 response must not be repaired by auto-uploading/.test(files.store) && !/await storageAdapter\.save\(state\);\n\s*\}else\{\n\s*storageStatus\.unsynced = false;/.test(files.store)],
-  ['server guard still active', /assertNoCatastrophicOverwrite/.test(files.state) && /V63 D1 save guard/.test(files.state)],
+  ['server guard still active', /assertIncomingStateSafe/.test(files.state) && /v118-empty-state-guard/.test(files.state)],
   ['package exposes preflight v63', /"preflight:v63"/.test(files.pkg)]
 ];
 

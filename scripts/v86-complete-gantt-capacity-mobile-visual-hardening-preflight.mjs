@@ -30,8 +30,8 @@ check("Gantt labels hebben max-width/ellipsis/overflow hidden", /bar-label[\s\S]
 check("geen brede witte labelachtergrond", gantt.includes("V86 - screen label") && !/\.lane \.bar\.summary \.bar-label\{[^}]*background:#fff!important/.test(gantt));
 check("Gantt calendar/header z-index isolatie aanwezig", gantt.includes("day-grid-line") && gantt.includes("nonwork-shade") && gantt.includes("calendar") && gantt.includes("z-index"));
 check("Capaciteit recalc vanuit Gantt aanwezig", store.includes("recalculateCapacityFromGantt") && store.includes("buildHoursByDayFromGantt") && store.includes("buildSourcesByDayFromGantt"));
-check("Capacity range start current week -3 weken", capacity.includes("applyDefaultCapacityRange") && capacity.includes("addWeeks(current.year,current.week,-3") && capacity.includes("3 weken vóór huidige week"));
-check("Capacity range eindigt laatste planningsweek +3 weken", capacity.includes("latestPlanningIso") && capacity.includes("addWeeks(lastWeek.year,lastWeek.week,3"));
+check("Capacity range start huidige week", capacity.includes("applyDefaultCapacityRange") && capacity.includes("const start=current") && capacity.includes("weeks:26"));
+check("Capacity print range is 3 weken terug en 26 weken vooruit", capacity.includes("capacityPrintWeeks") && capacity.includes("addWeeks(tw.year,tw.week,-3)") && capacity.includes("addWeeks(tw.year,tw.week,26)") && capacity.includes("3 weken terug t/m 26 weken vooruit"));
 check("scrollbars voor Gantt/Capaciteit/Projectoverzicht/Projecten aanwezig", gantt.includes("boardWrap") && gantt.includes("overflow-x:auto") && capacity.includes("matrixScrollProxy") && overview.includes("projectScrollProxy") && projects.includes("table-wrap"));
 check("responsive CSS voor toolbar-scroll aanwezig", gantt.includes(".toolbar{overflow-x:auto") && gantt.includes("@media(max-width:760px)") && capacity.includes("overflow-x:auto"));
 check("mobile/tablet Gantt toolbar overflow oplossing aanwezig", gantt.includes(".toolbar::-webkit-scrollbar") && gantt.includes("flex-wrap:nowrap"));

@@ -2571,16 +2571,25 @@ window.CWS = window.CWS || {};
     return model;
   };
 
+  const getProjectDeptHoursRows = (st, projectId, deptName) => {
+    const dept = String(deptName || "(Geen)").trim() || "(Geen)";
+    const seen = new Set();
+
+    return (Array.isArray(st?.projects?.deptHours) ? st.projects.deptHours : []).filter(row => {
+      if(String(row?.projectId || row?.project || "") !== String(projectId)) return;
+      const rd = String(row?.deptId || row?.dept || row?.department || "(Geen)").trim() || "(Geen)";
+      if(rd !== dept) return false;
+      const key = String(row?.id || row?.rowId || `${projectId}|${dept}|${Math.max(0, num(row?.hours))}`);
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
   const getProjectDeptHoursTotal = (st, projectId, deptName) => {
     const dept = String(deptName || "(Geen)").trim() || "(Geen)";
     const p = st?.projects?.byId?.[projectId] || {};
-    let total = 0;
-
-    (Array.isArray(st?.projects?.deptHours) ? st.projects.deptHours : []).forEach(row => {
-      if(String(row?.projectId || row?.project || "") !== String(projectId)) return;
-      const rd = String(row?.deptId || row?.dept || row?.department || "(Geen)").trim() || "(Geen)";
-      if(rd === dept) total += Math.max(0, num(row?.hours));
-    });
+    let total = getProjectDeptHoursRows(st, projectId, dept).reduce((sum, row) => sum + Math.max(0, num(row?.hours)), 0);
 
     if(total <= 0 && p.deptHours && typeof p.deptHours === "object"){
       total = Math.max(0, num(p.deptHours[dept]));
