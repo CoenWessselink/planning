@@ -84,7 +84,8 @@
     "preflight:v145": "node scripts/v145-bws-a3-print-final-preflight.mjs",
     "preflight:v146": "node scripts/v146-capacity-range-hours-preflight.mjs",
     "preflight:v147": "node scripts/v147-d1-invalid-chunk-recovery-preflight.mjs",
-    "preflight:live-regression": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs"
+    "preflight:live-regression": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs",
+    "preflight:capacity-print": "node scripts/v150-capacity-tasche-print-preflight.mjs"
   },
   "devDependencies": {}
 }
