@@ -1053,6 +1053,9 @@ window.CWS = window.CWS || {};
     remoteSaveRetryAttempt:0,
     remoteSaveRetryAt:null,
     remoteSaveLastTransientError:null,
+    d1UnrecoverableInvalidChunks:false,
+    d1CorruptChunkLocalRepairScheduled:false,
+    d1CorruptChunkLocalRepairAttempted:false,
     lastLocalSnapshotAt:null,
     lastLocalSnapshotBytes:0,
     lastLocalSnapshotError:null,
@@ -1252,6 +1255,7 @@ window.CWS = window.CWS || {};
         version:remoteVersion,
         state:remoteState,
         bytes:Number(response.headers.get("X-CWS-Bytes") || raw.length || 0),
+        unrecoverableInvalidChunks: response.headers.get("X-CWS-Unrecoverable-Invalid-Chunks") === "1",
         user:{
           email:response.headers.get("X-CWS-User-Email") || null,
           displayName:response.headers.get("X-CWS-User-Display-Name") || "",
@@ -3126,6 +3130,7 @@ window.CWS = window.CWS || {};
       const bootStarted = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
       const runtime = runtimeInfo();
       const localCandidate = state;
+      let repairCorruptD1FromLocalAfterBoot = false;
       markBootPhase("booting", {
         booting:true,
         bootReady:false,
@@ -3177,6 +3182,21 @@ window.CWS = window.CWS || {};
             storageStatus.lastSuccessfulD1LoadAt = new Date().toISOString();
             scheduleBootSnapshotPersistence(state, "remote-d1-load");
             markBootPhase("remote-state-ready");
+          }else if(remote?.unrecoverableInvalidChunks && stateHasAuthoritativeBusinessData(localCandidate, { ...stateMetrics(localCandidate), bytes:remoteSnapshotBytes(localCandidate), version:localCandidate?.schemaVersion || 1 })){
+            markBootPhase("local-d1-corrupt-chunk-repair-scheduled");
+            state = normalizeState(deepClone(localCandidate));
+            const localMetrics = stateMetrics(state);
+            remoteSafetySnapshot = { projectCount:0, ganttRowCount:0, bytes:0, version:remoteVersion, loadedAt:new Date().toISOString(), corruptChunkVersion:remoteVersion };
+            storageStatus.mode = "api";
+            storageStatus.stateSource = "remote-d1";
+            storageStatus.label = `D1 chunk-set corrupt - herstel vanuit lokale data gepland (${localMetrics.projectCount} projecten)`;
+            storageStatus.unsynced = true;
+            storageStatus.d1Reachable = true;
+            storageStatus.d1UnrecoverableInvalidChunks = true;
+            storageStatus.d1CorruptChunkLocalRepairScheduled = true;
+            storageStatus.lastError = "D1 chunk-manifest is corrupt; lokale browserstate wordt gebruikt om D1 opnieuw te schrijven.";
+            recordWarning(storageStatus.lastError);
+            repairCorruptD1FromLocalAfterBoot = true;
           }else{
             markBootPhase("local-fallback-considered");
             storageStatus.mode = "local";
@@ -3232,6 +3252,12 @@ window.CWS = window.CWS || {};
       markBootPhase("app-ready", { booting:false, bootReady:true, bootDurationMs:storageStatus.bootDurationMs });
       notify();
       schedulePostBootIntegrityCheck("after-app-ready");
+      if(repairCorruptD1FromLocalAfterBoot){
+        setTimeout(() => {
+          storageStatus.d1CorruptChunkLocalRepairAttempted = true;
+          flushRemoteSaveQueue("d1-corrupt-chunk-local-repair");
+        }, 1200);
+      }
 
       void identityPromise;
       void healthPromise;

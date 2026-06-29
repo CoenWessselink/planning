@@ -4,6 +4,7 @@ const read = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), "ut
 const pkg = JSON.parse(read("package.json"));
 const stateApi = read("functions/api/state.js");
 const shared = read("functions/api/_shared.js");
+const store = read("js/core/store.js");
 
 function check(label, ok) {
   if (!ok) throw new Error(`[preflight:v151] ${label}`);
@@ -18,5 +19,8 @@ check("state API bewaart meerdere chunkversies", stateApi.includes("RETAIN_CHUNK
 check("state API verwijdert niet alle andere chunkversies", !stateApi.includes("version <> ?"));
 check("chunk-endpoint wordt overgeslagen bij onherstelbare manifesten", stateApi.includes("!resolved.unrecoverable && chunkIndexFromUrl(url) >= 0"));
 check("unrecoverable header wordt gezet en geexposed", stateApi.includes('"X-CWS-Unrecoverable-Invalid-Chunks"') && shared.includes("X-CWS-Unrecoverable-Invalid-Chunks"));
+check("browser leest unrecoverable header", store.includes('unrecoverableInvalidChunks: response.headers.get("X-CWS-Unrecoverable-Invalid-Chunks") === "1"'));
+check("browser plant lokale D1-repair bij corrupte chunks", store.includes("repairCorruptD1FromLocalAfterBoot") && store.includes("d1-corrupt-chunk-local-repair"));
+check("lokale repair gebruikt remote-d1 savepad", store.includes('storageStatus.stateSource = "remote-d1"') && store.includes("D1 chunk-set corrupt - herstel vanuit lokale data gepland"));
 
 console.log("[preflight:v151] D1 corrupt chunk hard recovery checks OK");
