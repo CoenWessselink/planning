@@ -1,4 +1,5 @@
 import {
+  DEFAULT_STATE_JSON,
   MAX_STATE_BYTES,
   STATE_KEY,
   TENANT_ID,
@@ -12,9 +13,11 @@ import {
   writeAudit
 } from "./_shared.js";
 
-const MARKER = "v118-latest-valid-chunk-recovery";
+const MARKER = "v151-d1-corrupt-chunk-hard-recovery";
+const COMPAT_MARKER_V118 = "v118-latest-valid-chunk-recovery";
 const CHUNK_CHAR_SIZE = 180_000;
 const CHUNK_THRESHOLD_BYTES = 700_000;
+const RETAIN_CHUNK_VERSIONS = 8;
 
 function textByteLength(value) {
   return new TextEncoder().encode(String(value || "")).byteLength;
@@ -182,9 +185,20 @@ async function recoverChunkManifestIfNeeded(db, row, manifest) {
   } catch (parseError) {
     const recovered = await findLatestRecoverableChunkVersion(db, currentVersion);
     if (!recovered?.stateJson) {
-      const error = new Error(`D1 chunk-manifest verwijst naar ongeldige chunks en er is geen herstelbare oudere chunk-set gevonden (${parseError.message}).`);
-      error.status = 500;
-      throw error;
+      return {
+        manifest: {
+          ...manifest,
+          version:currentVersion,
+          unrecoverableInvalidChunkSet:true,
+          corruptChunkVersion:currentVersion,
+          recoveryMode:"unrecoverable-invalid-chunk-set",
+          originalParseError:parseError.message,
+          recoveredAt:new Date().toISOString()
+        },
+        recovered:false,
+        unrecoverable:true,
+        type:"unrecoverable-invalid-chunk-set"
+      };
     }
     const nextManifest = {
       __cwsChunkedState: true,
@@ -219,7 +233,8 @@ async function resolveStoredState(db, row) {
       version: Number(checked.manifest.version || currentVersion),
       manifest: checked.manifest,
       inlineRaw: null,
-      recovered: checked.recovered
+      recovered: checked.recovered,
+      unrecoverable: Boolean(checked.unrecoverable)
     };
   }
 
@@ -285,6 +300,7 @@ async function resolveStoredState(db, row) {
 async function readFullStateJson(db, row) {
   const resolved = await resolveStoredState(db, row);
   if (!resolved.exists) return "";
+  if (resolved.unrecoverable) return DEFAULT_STATE_JSON;
   if (resolved.type === "inline-json") return resolved.inlineRaw || "";
   const data = await readChunksAsJson(db, resolved.version, resolved.manifest?.chunkCount ?? null);
   return data.stateJson;
@@ -329,6 +345,7 @@ function chunkManifestResponse(manifest, row, user, email, recovered = false) {
     updatedBy: row?.updated_by || null,
     recoveredFromTruncatedStateJson: Boolean(recovered || manifest?.recoveredFromTruncatedStateJson),
     recoveredFromInvalidChunkSet: Boolean(recovered || manifest?.recoveredFromInvalidChunkSet),
+    unrecoverableInvalidChunkSet: Boolean(manifest?.unrecoverableInvalidChunkSet),
     recoveredFromDifferentVersion: Boolean(manifest?.recoveredFromDifferentVersion),
     corruptChunkVersion: manifest?.corruptChunkVersion || null,
     corruptInlineVersion: manifest?.corruptInlineVersion || null,
@@ -349,8 +366,21 @@ function chunkManifestResponse(manifest, row, user, email, recovered = false) {
     "X-CWS-Chunk-Count": String(Number(manifest?.chunkCount || 0)),
     "X-CWS-Recovered-Truncated-State": recovered || manifest?.recoveredFromTruncatedStateJson ? "1" : "0",
     "X-CWS-Recovered-Invalid-Chunks": recovered || manifest?.recoveredFromInvalidChunkSet ? "1" : "0",
+    "X-CWS-Unrecoverable-Invalid-Chunks": manifest?.unrecoverableInvalidChunkSet ? "1" : "0",
     "X-CWS-V118": MARKER
   });
+}
+
+async function pruneOldChunkVersions(db, currentVersion) {
+  const keepFromVersion = Math.max(0, Number(currentVersion || 0) - RETAIN_CHUNK_VERSIONS + 1);
+  try {
+    await db.prepare(
+      `DELETE FROM app_state_chunks
+       WHERE tenant_id = ?
+         AND state_key = ?
+         AND version < ?`
+    ).bind(TENANT_ID, STATE_KEY, keepFromVersion).run();
+  } catch (_) {}
 }
 
 function extractSchemaVersionFromRawState(raw) {
@@ -471,7 +501,7 @@ async function writeCheckpoint(db, stateJson, version, email) {
         updated_at = CURRENT_TIMESTAMP,
         updated_by = excluded.updated_by`
     ).bind(TENANT_ID, STATE_KEY, stateJson, version, email).run();
-    try { await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version <> ?`).bind(TENANT_ID, STATE_KEY, version).run(); } catch (_) {}
+    await pruneOldChunkVersions(db, version);
     return { chunked:false, chunkCount:0, bytes };
   }
 
@@ -494,7 +524,7 @@ async function writeCheckpoint(db, stateJson, version, email) {
       updated_at = CURRENT_TIMESTAMP,
       updated_by = excluded.updated_by`
   ).bind(TENANT_ID, STATE_KEY, manifest, version, email).run();
-  try { await db.prepare(`DELETE FROM app_state_chunks WHERE tenant_id = ? AND state_key = ? AND version <> ?`).bind(TENANT_ID, STATE_KEY, version).run(); } catch (_) {}
+  await pruneOldChunkVersions(db, version);
   return { chunked:true, chunkCount:chunks.length, bytes };
 }
 
@@ -522,8 +552,8 @@ export async function onRequestGet(context) {
     const resolved = exists ? await resolveStoredState(db, row) : { exists:false, type:"empty", version:0, manifest:null, inlineRaw:"", recovered:false };
     const manifest = resolved.manifest;
 
-    if (exists && manifest && chunkIndexFromUrl(url) >= 0) return readStateChunkResponse(db, manifest, row, url);
-    if (exists && manifest && (rawResponse || wantsChunkManifestResponse(context, url))) return chunkManifestResponse(manifest, row, user, email, resolved.recovered);
+    if (exists && manifest && !resolved.unrecoverable && chunkIndexFromUrl(url) >= 0) return readStateChunkResponse(db, manifest, row, url);
+    if (exists && manifest && !resolved.unrecoverable && (rawResponse || wantsChunkManifestResponse(context, url))) return chunkManifestResponse(manifest, row, user, email, resolved.recovered);
 
     const fullStateJson = exists ? await readFullStateJson(db, row) : "";
     const bytes = textByteLength(fullStateJson || "");
@@ -541,6 +571,7 @@ export async function onRequestGet(context) {
         "X-CWS-Chunked": "0",
         "X-CWS-Chunk-Count": "0",
         "X-CWS-Recovered-Truncated-State": resolved.recovered ? "1" : "0",
+        "X-CWS-Unrecoverable-Invalid-Chunks": resolved.unrecoverable ? "1" : "0",
         "X-CWS-V118": MARKER
       });
     }
@@ -556,7 +587,7 @@ export async function onRequestGet(context) {
       updatedAt:row?.updated_at || null,
       updatedBy:row?.updated_by || null,
       user:{ email:user.email, displayName:user.display_name, role:user.role, active:Boolean(user.active) },
-      v118:{ marker:MARKER, checkpointFirst:true, recoveredTruncatedState:resolved.recovered, storageType:resolved.type }
+      v118:{ marker:MARKER, checkpointFirst:true, recoveredTruncatedState:resolved.recovered, unrecoverableInvalidChunks:Boolean(resolved.unrecoverable), storageType:resolved.type }
     });
   } catch (error) {
     return json({ ok:false, error:error.message || String(error), v118:MARKER }, error.status || 500);
