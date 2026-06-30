@@ -13,13 +13,14 @@ const [indexHtml, finalModule, ganttLayer, packageJson] = await Promise.all([
 const checks = [];
 const check = (name, ok) => checks.push({ name, ok:Boolean(ok) });
 
-check("index loads only the V145 final BWS print module", indexHtml.includes("js/core/gantt_print_bws_a3_final.js?v=145"));
+check("index loads only the V146 final BWS print module", indexHtml.includes("js/core/gantt_print_bws_a3_final.js?v=146"));
 check("index does not load old BWS print css bridge", !indexHtml.includes("gantt_print_bws_css.js"));
 check("index does not load old A3 bouwplanning renderer", !indexHtml.includes("gantt_print_a3_bouwplanning.js"));
 check("index does not load old V144 final renderer", !indexHtml.includes("gantt_print_bws_final.js"));
 
 check("Gantt layer exposes read-only print source", ganttLayer.includes("window.CWS_GANTT_PRINT_SOURCE") && ganttLayer.includes("getBwsPrintModel()"));
-check("Gantt layer can load final renderer directly", ganttLayer.includes("../js/core/gantt_print_bws_a3_final.js?v=145"));
+check("Gantt layer can load final renderer directly", ganttLayer.includes("../js/core/gantt_print_bws_a3_final.js?v=146"));
+check("final module only binds inside Gantt document", finalModule.includes("function isGanttDocument") && finalModule.includes('getElementById?.("boardWrap")') && finalModule.includes('getElementById?.("chartPane")') && finalModule.includes('getElementById?.("tableRows")') && finalModule.includes("if (!isGanttDocument()) return false"));
 check("Gantt source uses effective screen schedule map", ganttLayer.includes("effectiveScheduleMap(model,st)") && ganttLayer.includes("filteredRows(model,scheduleMap)"));
 check("Gantt printA3 delegates to final renderer", ganttLayer.includes("CWS_BWS_A3_PRINT.printCurrentProject"));
 

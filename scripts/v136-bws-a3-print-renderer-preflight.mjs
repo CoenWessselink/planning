@@ -9,7 +9,8 @@ const [indexHtml, finalRenderer, bridge, legacyRenderer, packageJsonText] = awai
 ]);
 
 const checks = [
-  ["V145 final renderer marker", finalRenderer.includes("CWS_BWS_A3_PRINT_FINAL_V145_SSOT")],
+  ["V146 final renderer marker", finalRenderer.includes("CWS_BWS_A3_PRINT_FINAL_V146_GANTT_ONLY")],
+  ["final renderer gated to Gantt document", finalRenderer.includes("function isGanttDocument") && finalRenderer.includes("boardWrap") && finalRenderer.includes("chartPane") && finalRenderer.includes("tableRows")],
   ["single full-page SVG", finalRenderer.includes('width="408mm" height="285mm"') && finalRenderer.includes("data-bws-marker")],
   ["bars drawn as SVG rects", finalRenderer.includes("data-taakbalken") && finalRenderer.includes('stroke="#000" stroke-width="0.32"')],
   ["calendar drawn in SVG", finalRenderer.includes("calendarSvg") && finalRenderer.includes("segments(data.range.days")],

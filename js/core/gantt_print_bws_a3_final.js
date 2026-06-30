@@ -2,9 +2,9 @@
 (function(){
   "use strict";
 
-  const MARKER = "CWS_BWS_A3_PRINT_FINAL_V145_SSOT";
+  const MARKER = "CWS_BWS_A3_PRINT_FINAL_V146_GANTT_ONLY";
   const SCRIPT_ID = "cwsBwsA3PrintFinalScript";
-  const SCRIPT_SRC = "/js/core/gantt_print_bws_a3_final.js?v=145";
+  const SCRIPT_SRC = "/js/core/gantt_print_bws_a3_final.js?v=146";
   if (window.__CWS_BWS_A3_PRINT_FINAL__ === MARKER) return;
   window.__CWS_BWS_A3_PRINT_FINAL__ = MARKER;
 
@@ -558,11 +558,16 @@ ${renderSvg(data)}
     }, 220);
     return true;
   }
+  function isGanttDocument(doc = document){
+    return Boolean(doc?.getElementById?.("boardWrap") && doc?.getElementById?.("chartPane") && doc?.getElementById?.("tableRows"));
+  }
   function isPrintButton(target){
+    if (!isGanttDocument()) return false;
     const el = target?.closest?.("#printBtn,[data-ctx-action='print'],[data-rev-action='print']");
     return Boolean(el && (el.id === "printBtn" || el.dataset?.ctxAction === "print" || el.dataset?.revAction === "print"));
   }
   function install(){
+    if (!isGanttDocument()) return;
     if (document.__CWS_BWS_A3_PRINT_FINAL_BOUND__ === MARKER) return;
     document.__CWS_BWS_A3_PRINT_FINAL_BOUND__ = MARKER;
     document.addEventListener("click", event => {
@@ -586,8 +591,9 @@ ${renderSvg(data)}
     try {
       const doc = frame?.contentDocument || frame?.contentWindow?.document;
       if (!doc?.head) return false;
+      if (!isGanttDocument(doc)) return false;
       const existing = doc.getElementById(SCRIPT_ID);
-      if (existing && String(existing.src || "").includes("v=145")) return true;
+      if (existing && String(existing.src || "").includes("v=146")) return true;
       if (existing) existing.remove();
       const script = doc.createElement("script");
       script.id = SCRIPT_ID;
@@ -601,8 +607,8 @@ ${renderSvg(data)}
   }
   function boot(){
     if (document.getElementById("printBtn")) {
-      install();
-      return;
+      if (isGanttDocument()) install();
+      if (!document.getElementById("appFrame")) return;
     }
     const frame = document.getElementById("appFrame");
     if (!frame) return;
