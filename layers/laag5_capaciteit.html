@@ -83,6 +83,7 @@ var CWS = window.CWS;</script>
 
   <script src="../js/core/ui.js"></script>
   <script src="../js/core/attention.js"></script>
+  <script src="../js/core/capacity_print_tasche_a3.js?v=154"></script>
 <script>
   (function(){
     var CWS = window.CWS; try{ CWS = (window.parent && window.parent !== window && window.parent.CWS) ? window.parent.CWS : window.CWS; }catch(_e){ CWS = window.CWS; }
@@ -462,16 +463,16 @@ var CWS = window.CWS;</script>
     }
     function capacityTaschePrint(){
       try{
-        if(window.CWS_CapacityPrintTascheA3?.print) return window.CWS_CapacityPrintTascheA3;
-        if(window.parent && window.parent !== window && window.parent.CWS_CapacityPrintTascheA3?.print) return window.parent.CWS_CapacityPrintTascheA3;
-        if(window.CWS?.capacityPrint?.printTascheA3) return { print: window.CWS.capacityPrint.printTascheA3 };
-        if(window.parent && window.parent !== window && window.parent.CWS?.capacityPrint?.printTascheA3) return { print: window.parent.CWS.capacityPrint.printTascheA3 };
+        if(window.CWS_CapacityPrintTascheA3?.printCurrentDocument) return window.CWS_CapacityPrintTascheA3;
+        if(window.CWS?.capacityPrint?.printTascheA3CurrentDocument) return { printCurrentDocument: window.CWS.capacityPrint.printTascheA3CurrentDocument };
+        if(window.parent && window.parent !== window && window.parent.CWS_CapacityPrintTascheA3?.printCurrentDocument) return window.parent.CWS_CapacityPrintTascheA3;
+        if(window.parent && window.parent !== window && window.parent.CWS?.capacityPrint?.printTascheA3CurrentDocument) return { printCurrentDocument: window.parent.CWS.capacityPrint.printTascheA3CurrentDocument };
       }catch(_e){}
       return null;
     }
     function printA0(){
       const printer = capacityTaschePrint();
-      if(printer?.print){ printer.print({ selectedDept:UI.dept }); return; }
+      if(printer?.printCurrentDocument){ printer.printCurrentDocument({ selectedDept:UI.dept }); return; }
       const message = "Capaciteitsoverzicht printmodule niet geladen. Herlaad de pagina.";
       console.error(message);
       if(window.UI?.toast) window.UI.toast(message);

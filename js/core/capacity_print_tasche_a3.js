@@ -1,12 +1,14 @@
 (function(){
   "use strict";
 
-  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V153";
+  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V154";
   const FRAME_ID = "cwsCapacityTaschePrintFrame";
+  const ROOT_ID = "cwsCapacityPrintRoot";
+  const STYLE_ID = "cwsCapacityPrintRootStyle";
   const STALE_BWS_FRAME_ID = "cwsBwsA3PrintFrame";
   const WEEK_COUNT = 29;
   const PERIOD_CONTRACT = "3 weken terug t/m 26 weken vooruit";
-  const LOGO_SRC = "assets/tasche-logo.png";
+  const LOGO_SRC = `${window.location.origin}/assets/tasche-logo.png`;
   const NL_MONTHS = ["JANUARI","FEBRUARI","MAART","APRIL","MEI","JUNI","JULI","AUGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DECEMBER"];
   const DEPARTMENT_COLORS = {
     productie:"#dff0d8",
@@ -371,6 +373,64 @@
       } catch (_error) {}
     });
   }
+  function parsePrintHtml(printHtml){
+    const parsed = new DOMParser().parseFromString(printHtml, "text/html");
+    return {
+      title: parsed.querySelector("title")?.textContent || "CAPACITEITSOVERZICHT",
+      style: parsed.querySelector("style")?.textContent || "",
+      body: parsed.body?.innerHTML || ""
+    };
+  }
+  function installCurrentDocumentPrintRoot(printHtml){
+    const parsed = parsePrintHtml(printHtml);
+    document.getElementById(STYLE_ID)?.remove();
+    document.getElementById(ROOT_ID)?.remove();
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = `${parsed.style}
+      @media screen{#${ROOT_ID}{display:none!important}}
+      @media print{
+        body > :not(#${ROOT_ID}){display:none!important}
+        #${ROOT_ID}{display:block!important}
+        html,body{margin:0!important;padding:0!important;background:#fff!important}
+      }`;
+    document.head.appendChild(style);
+    const root = document.createElement("div");
+    root.id = ROOT_ID;
+    root.dataset.cwsPrintKind = "capacity-overview";
+    root.dataset.cwsPrintMarker = MARKER;
+    root.innerHTML = parsed.body;
+    document.body.appendChild(root);
+    return parsed;
+  }
+  function printCurrentDocument(options = {}){
+    const model = buildPrintModel(options);
+    const printHtml = renderHtml(model);
+    if(options.returnHtml) return printHtml;
+    if(options.returnModel) return model;
+    removeStalePrintFrames();
+    const parsed = installCurrentDocumentPrintRoot(printHtml);
+    const oldTitle = document.title;
+    let oldParentTitle = null;
+    try { oldParentTitle = window.parent && window.parent !== window ? window.parent.document.title : null; } catch (_error) {}
+    document.title = parsed.title || "CAPACITEITSOVERZICHT";
+    try { if(window.parent && window.parent.document) window.parent.document.title = document.title; } catch (_error) {}
+    window.__CWS_CAPACITY_PRINT_LAST_HTML__ = printHtml;
+    window.__CWS_CAPACITY_PRINT_LAST_MODEL__ = model;
+    const restore = () => {
+      window.removeEventListener("afterprint", restore);
+      document.getElementById(ROOT_ID)?.remove();
+      document.getElementById(STYLE_ID)?.remove();
+      document.title = oldTitle;
+      try { if(oldParentTitle != null && window.parent?.document) window.parent.document.title = oldParentTitle; } catch (_error) {}
+    };
+    window.addEventListener("afterprint", restore);
+    requestAnimationFrame(() => setTimeout(() => window.print(), 80));
+    setTimeout(() => {
+      if(document.getElementById(ROOT_ID)) restore();
+    }, 300000);
+    return model;
+  }
   function print(options = {}){
     const model = buildPrintModel(options);
     const printHtml = renderHtml(model);
@@ -416,8 +476,9 @@
     return model;
   }
 
-  window.CWS_CapacityPrintTascheA3 = { print, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, frameId:FRAME_ID, mockToday:null };
+  window.CWS_CapacityPrintTascheA3 = { print, printCurrentDocument, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, frameId:FRAME_ID, rootId:ROOT_ID, mockToday:null };
   window.CWS = window.CWS || {};
   window.CWS.capacityPrint = window.CWS.capacityPrint || {};
   window.CWS.capacityPrint.printTascheA3 = print;
+  window.CWS.capacityPrint.printTascheA3CurrentDocument = printCurrentDocument;
 })();
