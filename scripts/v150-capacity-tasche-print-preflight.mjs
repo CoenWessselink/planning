@@ -10,8 +10,10 @@ const checks = [];
 const add = (name, pass) => checks.push([name, !!pass]);
 
 add("Nieuwe printmodule bestaat", fs.existsSync("js/core/capacity_print_tasche_a3.js"));
-add("Index laadt nieuwe printmodule", index.includes("js/core/capacity_print_tasche_a3.js?v=150"));
-add("Capaciteit koppelt Print A3/printknop aan nieuwe renderer", cap.includes("CWS_CapacityPrintTascheA3.print({ selectedDept:UI.dept })"));
+add("Index laadt nieuwe printmodule met cachebust", index.includes("js/core/capacity_print_tasche_a3.js?v=152"));
+add("Capaciteit vindt printmodule in iframe of parent", cap.includes("function capacityTaschePrint()") && cap.includes("window.parent.CWS_CapacityPrintTascheA3") && cap.includes("window.parent.CWS?.capacityPrint?.printTascheA3"));
+add("Capaciteit printknop gebruikt alleen nieuwe renderer", cap.includes("printer.print({ selectedDept:UI.dept })") && !cap.includes('document.body.classList.add("cap-printing"); const oldTitle=document.title'));
+add("Oude A0 knoptekst is verwijderd", !cap.includes("Afdrukken A0"));
 add("Oude Gantt printmodules worden niet gekoppeld aan Capaciteit", !cap.includes("gantt_print_bws") && !cap.includes("printBws"));
 add("Module bevat CAPACITEITSOVERZICHT", mod.includes("CAPACITEITSOVERZICHT"));
 add("Module bevat Tasche Staalbouw", mod.includes("Tasche Staalbouw"));

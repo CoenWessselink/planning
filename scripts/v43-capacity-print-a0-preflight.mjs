@@ -1,6 +1,7 @@
 import fs from "node:fs";
 const f=(p)=>fs.readFileSync(p,"utf8");
 const cap=f("layers/laag5_capaciteit.html");
+const capacityPrint=f("js/core/capacity_print_tasche_a3.js");
 const pkg=f("package.json");
 const checks=[
  ["V43 capaciteit A0-print CSS aanwezig",()=>cap.includes("V43 capaciteit A0-print")&&cap.includes("--v43-cap-line")&&cap.includes("--v43-cap-row")],
@@ -11,7 +12,7 @@ const checks=[
  ["Afdelingsregels in Tasche geel",()=>cap.includes("--v43-cap-yellow")&&cap.includes("text-transform:uppercase")],
  ["Printbereik vanaf 3 weken voor huidige datum",()=>cap.includes("capacityPrintWeeks")&&cap.includes("addWeeks(tw.year,tw.week,-3)")],
  ["Printbereik tot 26 weken vooruit",()=>cap.includes("addWeeks(tw.year,tw.week,26)")&&cap.includes("3 weken terug t/m 26 weken vooruit")],
- ["PDF/documenttitel Bedrijfsnaam - Capaciteit - Datum",()=>cap.includes("capacityPrintTitle")&&cap.includes(" - Capaciteit - ")&&cap.includes("document.title=capacityPrintTitle()")],
+ ["PDF/documenttitel via nieuwe capaciteit-renderer",()=>capacityPrint.includes("<title>CAPACITEITSOVERZICHT</title>")&&capacityPrint.includes("iframe.contentDocument.write(printHtml)")&&cap.includes("capacityTaschePrint")],
  ["A0 print verbergt app/mobile toolbars",()=>cap.includes(".mobile-toolbar,.v37-mobile-action-dock")&&cap.includes("display:none!important")],
  ["Beschikbaar/Benodigd/Resterend in print",()=>cap.includes("Beschikbaar")&&cap.includes("Benodigd")&&cap.includes("Resterend")],
  ["V43 preflight geregistreerd",()=>pkg.includes("preflight:v43")]

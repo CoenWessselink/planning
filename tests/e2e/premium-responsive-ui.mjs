@@ -459,7 +459,7 @@ try {
       matrixScroll:matrix && matrix.scrollWidth > matrix.clientWidth,
       heatmap:!!heatmap,
       why:[...document.querySelectorAll(".why,.hm-cell")].length > 0,
-      print:[...document.querySelectorAll("button")].some(btn => /Afdrukken A0/i.test(btn.textContent)),
+      print:[...document.querySelectorAll("button")].some(btn => /Print overzicht/i.test(btn.textContent)),
     };
   })()`);
   check("Capaciteit mobiel heeft geen overlappende iframe-actiedock", capacityMobile.noDock, JSON.stringify(capacityMobile));
