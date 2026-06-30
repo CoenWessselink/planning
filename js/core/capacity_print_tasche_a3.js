@@ -1,6 +1,9 @@
 (function(){
   "use strict";
 
+  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V153";
+  const FRAME_ID = "cwsCapacityTaschePrintFrame";
+  const STALE_BWS_FRAME_ID = "cwsBwsA3PrintFrame";
   const WEEK_COUNT = 29;
   const PERIOD_CONTRACT = "3 weken terug t/m 26 weken vooruit";
   const LOGO_SRC = "assets/tasche-logo.png";
@@ -331,7 +334,7 @@
     const first = model.period.weeks[0];
     const last = model.period.weeks[model.period.weeks.length - 1];
     const period = `Week ${pad(first?.isoWeek)}-${first?.isoYear} t/m Week ${pad(last?.isoWeek)}-${last?.isoYear}`;
-    return `<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>CAPACITEITSOVERZICHT</title>
+    return `<!doctype html><html lang="nl" data-cws-print-kind="capacity-overview" data-cws-print-marker="${MARKER}"><head><meta charset="utf-8"><title>CAPACITEITSOVERZICHT</title>
     <style>
       @page{size:A3 landscape;margin:7mm}
       *{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
@@ -351,7 +354,7 @@
       .summary-table th:first-child,.summary-table td:first-child{text-align:left}
       .summary-label{font-weight:900}.grand-row td{font-weight:900;background:#f3f4f6}
       thead{display:table-header-group}tr{page-break-inside:avoid;break-inside:avoid}
-    </style></head><body><div class="page">
+    </style></head><body data-cws-print-kind="capacity-overview" data-cws-print-marker="${MARKER}"><div class="page">
       <header class="top">
         <div class="logo-box"><img src="${LOGO_SRC}" alt="Tasche Staalbouw"></div>
         <div class="title"><h1>CAPACITEITSOVERZICHT</h1><div>Tasche Staalbouw</div></div>
@@ -361,23 +364,59 @@
       ${renderSummaryTable(model)}
     </div></body></html>`;
   }
+  function removeStalePrintFrames(){
+    [document, window.parent && window.parent !== window ? window.parent.document : null].forEach(doc => {
+      try {
+        doc?.getElementById?.(STALE_BWS_FRAME_ID)?.remove();
+      } catch (_error) {}
+    });
+  }
   function print(options = {}){
     const model = buildPrintModel(options);
     const printHtml = renderHtml(model);
     if(options.returnHtml) return printHtml;
     if(options.returnModel) return model;
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none";
-    document.body.appendChild(iframe);
-    iframe.contentDocument.open();
-    iframe.contentDocument.write(printHtml);
-    iframe.contentDocument.close();
-    setTimeout(() => iframe.contentWindow.print(), 150);
-    setTimeout(() => iframe.remove(), 30000);
+    removeStalePrintFrames();
+    let iframe = document.getElementById(FRAME_ID);
+    if(!iframe){
+      iframe = document.createElement("iframe");
+      iframe.id = FRAME_ID;
+      iframe.title = "Capaciteitsoverzicht afdruk";
+      iframe.setAttribute("aria-hidden", "true");
+      iframe.style.cssText = "position:fixed;left:-10000px;bottom:0;width:1px;height:1px;border:0;opacity:0.01;pointer-events:none";
+      document.body.appendChild(iframe);
+    }
+    const frameWindow = iframe.contentWindow;
+    const doc = iframe.contentDocument || frameWindow?.document;
+    if(!doc || !frameWindow) throw new Error("Capaciteitsoverzicht printframe kon niet worden gemaakt.");
+    doc.open();
+    doc.write(printHtml);
+    doc.close();
+    const oldTitle = document.title;
+    let oldParentTitle = null;
+    try { oldParentTitle = window.parent && window.parent !== window ? window.parent.document.title : null; } catch (_error) {}
+    document.title = "CAPACITEITSOVERZICHT";
+    try { if(window.parent && window.parent.document) window.parent.document.title = "CAPACITEITSOVERZICHT"; } catch (_error) {}
+    window.__CWS_CAPACITY_PRINT_LAST_HTML__ = printHtml;
+    window.__CWS_CAPACITY_PRINT_LAST_MODEL__ = model;
+    setTimeout(() => {
+      if(!doc.documentElement?.dataset?.cwsPrintMarker || doc.documentElement.dataset.cwsPrintMarker !== MARKER) {
+        console.error("Capaciteitsoverzicht print geannuleerd: printframe bevat niet de juiste marker.");
+        return;
+      }
+      frameWindow.focus();
+      frameWindow.print();
+    }, 220);
+    const restoreTitle = () => {
+      document.title = oldTitle;
+      try { if(oldParentTitle != null && window.parent?.document) window.parent.document.title = oldParentTitle; } catch (_error) {}
+    };
+    setTimeout(restoreTitle, 300000);
+    setTimeout(() => iframe.remove(), 60000);
     return model;
   }
 
-  window.CWS_CapacityPrintTascheA3 = { print, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, mockToday:null };
+  window.CWS_CapacityPrintTascheA3 = { print, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, frameId:FRAME_ID, mockToday:null };
   window.CWS = window.CWS || {};
   window.CWS.capacityPrint = window.CWS.capacityPrint || {};
   window.CWS.capacityPrint.printTascheA3 = print;
