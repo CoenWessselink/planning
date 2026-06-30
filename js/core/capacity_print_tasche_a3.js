@@ -1,7 +1,7 @@
 (function(){
   "use strict";
 
-  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V154";
+  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V155";
   const FRAME_ID = "cwsCapacityTaschePrintFrame";
   const ROOT_ID = "cwsCapacityPrintRoot";
   const STYLE_ID = "cwsCapacityPrintRootStyle";
@@ -403,7 +403,7 @@
     document.body.appendChild(root);
     return parsed;
   }
-  function printCurrentDocument(options = {}){
+  function prepareCurrentDocumentPrint(options = {}){
     const model = buildPrintModel(options);
     const printHtml = renderHtml(model);
     if(options.returnHtml) return printHtml;
@@ -425,10 +425,15 @@
       try { if(oldParentTitle != null && window.parent?.document) window.parent.document.title = oldParentTitle; } catch (_error) {}
     };
     window.addEventListener("afterprint", restore);
-    requestAnimationFrame(() => setTimeout(() => window.print(), 80));
     setTimeout(() => {
       if(document.getElementById(ROOT_ID)) restore();
     }, 300000);
+    return model;
+  }
+  function printCurrentDocument(options = {}){
+    const model = prepareCurrentDocumentPrint(options);
+    if(options.returnHtml || options.returnModel) return model;
+    requestAnimationFrame(() => setTimeout(() => window.print(), 80));
     return model;
   }
   function print(options = {}){
@@ -476,9 +481,16 @@
     return model;
   }
 
-  window.CWS_CapacityPrintTascheA3 = { print, printCurrentDocument, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, frameId:FRAME_ID, rootId:ROOT_ID, mockToday:null };
+  window.addEventListener("beforeprint", () => {
+    if(!document.getElementById(ROOT_ID)) {
+      try { prepareCurrentDocumentPrint({ selectedDept:document.querySelector("#deptSel")?.value || "" }); } catch (_error) {}
+    }
+  });
+
+  window.CWS_CapacityPrintTascheA3 = { print, printCurrentDocument, prepareCurrentDocumentPrint, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, frameId:FRAME_ID, rootId:ROOT_ID, mockToday:null };
   window.CWS = window.CWS || {};
   window.CWS.capacityPrint = window.CWS.capacityPrint || {};
   window.CWS.capacityPrint.printTascheA3 = print;
   window.CWS.capacityPrint.printTascheA3CurrentDocument = printCurrentDocument;
+  window.CWS.capacityPrint.prepareTascheA3CurrentDocument = prepareCurrentDocumentPrint;
 })();

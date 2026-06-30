@@ -72,7 +72,7 @@ ok("Gantt printregels blijven aanwezig", gantt.includes("@media print") && gantt
 
 ok("Capaciteit blijft Gantt sources/hours gebruiken", capacity.includes("gantt?.sourcesByDay") && capacity.includes("gantt?.hoursByDay"));
 ok("Capaciteit responsive heatmap/matrix scrollbars blijven aanwezig", capacity.includes("heatmap-wrap") && capacity.includes("matrix-wrap") && capacity.includes("scrollbar-dock"));
-ok("Capaciteit A0-print blijft aanwezig", capacity.includes("@page{size:A0 landscape") || capacity.includes("@page { size:A0 landscape"));
+ok("Capaciteit printroot vervangt oude A0-print", capacity.includes("cwsCapacityPrintRoot") && !capacity.includes("@page{size:A0 landscape") && !capacity.includes("@page { size:A0 landscape"));
 
 const appCodeFiles = [
   "index.html",

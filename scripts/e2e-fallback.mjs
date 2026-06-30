@@ -58,8 +58,8 @@ const v42pass = gantt.includes("--v42-line") && gantt.includes("depArrow") && ga
 console.log(`${v42pass ? "OK" : "FAIL"} - V42 print raster + dependency arrows`);
 if(!v42pass) ok = false;
 
-const v43pass = capacity.includes("V43 capaciteit A0-print") && capacity.includes("capacityPrintWeeks") && capacity.includes(" - Capaciteit - ") && capacity.includes("../assets/tasche-logo.png") && capacity.includes("border:0.45pt solid var(--v43-cap-line)");
-console.log(`${v43pass ? "OK" : "FAIL"} - V43 capaciteit A0 printstijl en PDF-naam`);
+const v43pass = capacity.includes("cwsCapacityPrintRoot") && capacity.includes("capacityPrintWeeks") && !capacity.includes("V43 capaciteit A0-print") && !capacity.includes("a0-day-table");
+console.log(`${v43pass ? "OK" : "FAIL"} - Capaciteit printroot zonder oude A0 printstijl`);
 if(!v43pass) ok = false;
 
 

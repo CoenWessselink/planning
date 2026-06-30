@@ -6,7 +6,7 @@ const checks = [
   ['project A0 print', po.includes('paper:"A0 landscape"')],
   ['project task state classes', po.includes('taskStatusInfo') && po.includes('task-done') && po.includes('task-late') && po.includes('Te laat')],
   ['capacity scroll proxy', cap.includes('matrixScrollProxy') && cap.includes('function initMatrixScrollDock')],
-  ['capacity color print', cap.includes('@page{size:A0 landscape') && cap.includes('print-color-adjust:exact')],
+  ['capacity printroot color print', cap.includes('@page{size:A3 landscape') && cap.includes('cwsCapacityPrintRoot') && cap.includes('print-color-adjust:exact') && !cap.includes('@page{size:A0 landscape')],
 ];
 const failed = checks.filter(([,ok]) => !ok);
 checks.forEach(([label, ok]) => console.log(`${ok ? 'OK' : 'FAIL'} - ${label}`));

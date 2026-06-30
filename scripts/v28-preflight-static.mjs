@@ -24,7 +24,7 @@ const tests = read('tests/acceptance/cws.acceptance.spec.js');
 add('centrale printhelper heeft logo', ui.includes('companyPrintInfo') && ui.includes('print-logo'));
 add('store bedrijfsnaam gebruikt Instellingen als SSOT', store.includes('settings.tables.company[0]?.name) || st.company.name'));
 add('logo-upload blokkeert SVG veilig', !settings.includes('image/svg+xml') && settings.includes('SVG is uitgeschakeld'));
-add('Capaciteit heeft A0 dagmatrix', cap.includes('a0-day-table') && cap.includes('renderA0DayPrint'));
+add('Capaciteit gebruikt nieuwe printroot zonder A0 dagmatrix', cap.includes('cwsCapacityPrintRoot') && !cap.includes('a0-day-table') && !cap.includes('renderA0DayPrint'));
 add('Capaciteit gebruikt ISO-correcte weekverschuiving', cap.includes('isoWeekFromDate') && !cap.includes('while(ww>52)'));
 add('Capaciteitsperiode wordt in state opgeslagen', cap.includes('st.ui.capacity.period'));
 add('Gantt taakbalk dubbelklik opent popup', gantt.includes('bar.addEventListener("dblclick"') && gantt.includes('openEdit(id)'));
