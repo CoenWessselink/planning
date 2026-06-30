@@ -1,8 +1,9 @@
 (function(){
   "use strict";
 
-  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V156";
+  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V157";
   const PRINT_WINDOW_NAME = "cws_capacity_overview_print";
+  const PRINT_STORAGE_PREFIX = "cws.capacity.print.html.";
   const ROOT_ID = "cwsCapacityPrintRoot";
   const STYLE_ID = "cwsCapacityPrintRootStyle";
   const STALE_BWS_FRAME_ID = "cwsBwsA3PrintFrame";
@@ -438,21 +439,25 @@
     removeStalePrintFrames();
     window.__CWS_CAPACITY_PRINT_LAST_HTML__ = printHtml;
     window.__CWS_CAPACITY_PRINT_LAST_MODEL__ = model;
+    const key = `${PRINT_STORAGE_PREFIX}${Date.now()}`;
+    try {
+      window.localStorage.setItem(key, printHtml);
+    } catch (_error) {
+      throw new Error("Capaciteitsoverzicht kon niet worden voorbereid voor afdrukken.");
+    }
     let printWindow = null;
     try {
       const opener = window.top && window.top.open ? window.top : window;
-      printWindow = opener.open("", PRINT_WINDOW_NAME);
-    } catch (_error) {
-      try { printWindow = window.open("", PRINT_WINDOW_NAME); } catch (_fallbackError) {}
-    }
-    if(!printWindow || !printWindow.document) {
-      prepareCurrentDocumentPrint(options);
-      requestAnimationFrame(() => setTimeout(() => window.print(), 80));
+      const printUrl = `${window.location.origin}/layers/capacity_print_view.html?key=${encodeURIComponent(key)}&v=157`;
+      printWindow = opener.open(printUrl, PRINT_WINDOW_NAME);
+    } catch (_error) {}
+    if(!printWindow) {
+      try { window.localStorage.removeItem(key); } catch (_error) {}
+      const message = "Pop-up geblokkeerd: capaciteitsoverzicht kon niet worden geopend.";
+      if(window.UI?.toast) window.UI.toast(message);
+      else alert(message);
       return model;
     }
-    printWindow.document.open();
-    printWindow.document.write(printHtml.replace("</body>", `<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},120);});<\/script></body>`));
-    printWindow.document.close();
     return model;
   }
   function print(options = {}){
