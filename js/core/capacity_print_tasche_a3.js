@@ -1,8 +1,8 @@
 (function(){
   "use strict";
 
-  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V155";
-  const FRAME_ID = "cwsCapacityTaschePrintFrame";
+  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V156";
+  const PRINT_WINDOW_NAME = "cws_capacity_overview_print";
   const ROOT_ID = "cwsCapacityPrintRoot";
   const STYLE_ID = "cwsCapacityPrintRootStyle";
   const STALE_BWS_FRAME_ID = "cwsBwsA3PrintFrame";
@@ -431,54 +431,32 @@
     return model;
   }
   function printCurrentDocument(options = {}){
-    const model = prepareCurrentDocumentPrint(options);
-    if(options.returnHtml || options.returnModel) return model;
-    requestAnimationFrame(() => setTimeout(() => window.print(), 80));
-    return model;
-  }
-  function print(options = {}){
     const model = buildPrintModel(options);
     const printHtml = renderHtml(model);
     if(options.returnHtml) return printHtml;
     if(options.returnModel) return model;
     removeStalePrintFrames();
-    let iframe = document.getElementById(FRAME_ID);
-    if(!iframe){
-      iframe = document.createElement("iframe");
-      iframe.id = FRAME_ID;
-      iframe.title = "Capaciteitsoverzicht afdruk";
-      iframe.setAttribute("aria-hidden", "true");
-      iframe.style.cssText = "position:fixed;left:-10000px;bottom:0;width:1px;height:1px;border:0;opacity:0.01;pointer-events:none";
-      document.body.appendChild(iframe);
-    }
-    const frameWindow = iframe.contentWindow;
-    const doc = iframe.contentDocument || frameWindow?.document;
-    if(!doc || !frameWindow) throw new Error("Capaciteitsoverzicht printframe kon niet worden gemaakt.");
-    doc.open();
-    doc.write(printHtml);
-    doc.close();
-    const oldTitle = document.title;
-    let oldParentTitle = null;
-    try { oldParentTitle = window.parent && window.parent !== window ? window.parent.document.title : null; } catch (_error) {}
-    document.title = "CAPACITEITSOVERZICHT";
-    try { if(window.parent && window.parent.document) window.parent.document.title = "CAPACITEITSOVERZICHT"; } catch (_error) {}
     window.__CWS_CAPACITY_PRINT_LAST_HTML__ = printHtml;
     window.__CWS_CAPACITY_PRINT_LAST_MODEL__ = model;
-    setTimeout(() => {
-      if(!doc.documentElement?.dataset?.cwsPrintMarker || doc.documentElement.dataset.cwsPrintMarker !== MARKER) {
-        console.error("Capaciteitsoverzicht print geannuleerd: printframe bevat niet de juiste marker.");
-        return;
-      }
-      frameWindow.focus();
-      frameWindow.print();
-    }, 220);
-    const restoreTitle = () => {
-      document.title = oldTitle;
-      try { if(oldParentTitle != null && window.parent?.document) window.parent.document.title = oldParentTitle; } catch (_error) {}
-    };
-    setTimeout(restoreTitle, 300000);
-    setTimeout(() => iframe.remove(), 60000);
+    let printWindow = null;
+    try {
+      const opener = window.top && window.top.open ? window.top : window;
+      printWindow = opener.open("", PRINT_WINDOW_NAME);
+    } catch (_error) {
+      try { printWindow = window.open("", PRINT_WINDOW_NAME); } catch (_fallbackError) {}
+    }
+    if(!printWindow || !printWindow.document) {
+      prepareCurrentDocumentPrint(options);
+      requestAnimationFrame(() => setTimeout(() => window.print(), 80));
+      return model;
+    }
+    printWindow.document.open();
+    printWindow.document.write(printHtml.replace("</body>", `<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},120);});<\/script></body>`));
+    printWindow.document.close();
     return model;
+  }
+  function print(options = {}){
+    return printCurrentDocument(options);
   }
 
   window.addEventListener("beforeprint", () => {
@@ -487,7 +465,7 @@
     }
   });
 
-  window.CWS_CapacityPrintTascheA3 = { print, printCurrentDocument, prepareCurrentDocumentPrint, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, frameId:FRAME_ID, rootId:ROOT_ID, mockToday:null };
+  window.CWS_CapacityPrintTascheA3 = { print, printCurrentDocument, prepareCurrentDocumentPrint, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, printWindowName:PRINT_WINDOW_NAME, rootId:ROOT_ID, mockToday:null };
   window.CWS = window.CWS || {};
   window.CWS.capacityPrint = window.CWS.capacityPrint || {};
   window.CWS.capacityPrint.printTascheA3 = print;
