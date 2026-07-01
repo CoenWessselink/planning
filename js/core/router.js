@@ -8,6 +8,15 @@ const Router = (() => {
     projecten: "layers/laag3_projecten.html",
     gantt: "layers/laag4_gantt.html",
     capaciteit: "layers/laag5_capaciteit.html",
+    afdelingsplanning: "layers/laag14_afdelingsplanning.html",
+    "afdelingsplanning-maand": "layers/laag14_afdelingsplanning.html",
+    "afdelingsplanning-week": "layers/laag14_afdelingsplanning.html",
+    "afdelingsplanning-dag": "layers/laag14_afdelingsplanning.html",
+    werkvoorraad: "layers/laag15_werkvoorraad.html",
+    resources: "layers/laag16_resources.html",
+    conflicten: "layers/laag17_conflicten.html",
+    mijnwerk: "layers/laag18_mijn_werk.html",
+    rollenrechten: "layers/laag19_rollen_rechten.html",
     projectoverzicht: "layers/laag6_projectoverzicht.html",
     projectplanning: "layers/laag7_projectplanning.html",
     planbord: "layers/laag8_planbord.html",
@@ -35,6 +44,15 @@ const Router = (() => {
     planbord: "Planbord",
     transport: "Transportplanning",
     capaciteit: "Capaciteit",
+    afdelingsplanning: "Afdelingsplanning",
+    "afdelingsplanning-maand": "Afdelingsplanning maand",
+    "afdelingsplanning-week": "Afdelingsplanning week",
+    "afdelingsplanning-dag": "Afdelingsplanning dag",
+    werkvoorraad: "Werkvoorraad",
+    resources: "Resources",
+    conflicten: "Conflicten",
+    mijnwerk: "Mijn werk",
+    rollenrechten: "Rollen & rechten",
     rapporten: "Rapporten",
     dashboard: "Dashboard",
     instellingen: "Instellingen",
@@ -89,7 +107,8 @@ const Router = (() => {
     const url = appFrames[app] || appFrames.projecten;
     const frame = document.getElementById("appFrame");
     frame.removeAttribute("srcdoc");
-    frame.src = url + "?r=" + Date.now();
+    frame.dataset.activeApp = app;
+    frame.src = `${url}?app=${encodeURIComponent(app)}&r=${Date.now()}`;
     setTitle(appToTitle[app] || "App");
     commitRouteState(app);
     CWS.recordRender?.();

@@ -62,15 +62,18 @@ const UI = (() => {
   };
 
   const printA3 = (title, subtitle, html, options = {}) => {
-    const w = window.open("", "_blank");
-    if(!w) return toast("Pop-up geblokkeerd");
     const { companyName, logo } = companyPrintInfo();
     const logoHtml = logo ? `<img class="print-logo" src="${logo}" alt="Bedrijfslogo">` : `<div class="print-logo-placeholder">${escapeHtml(companyName).slice(0,2).toUpperCase()}</div>`;
     const paper = options.paper || "A3 landscape";
     const extraCss = options.extraCss || "";
     const printDate = new Date().toLocaleString("nl-NL");
-    w.document.open();
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"/>
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none";
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open();
+    doc.write(`<!doctype html><html><head><meta charset="utf-8"/>
       <title>${escapeHtml(title)}</title>
       <style>
         @page { size: ${paper}; margin: 12mm; }
@@ -104,10 +107,17 @@ const UI = (() => {
       <div class="hdr"><div><h1>${escapeHtml(title)}</h1><div class="sub"><b>${escapeHtml(companyName)}</b>${subtitle ? ` · ${escapeHtml(subtitle)}` : ""}</div><div class="print-meta">Afdruk: ${escapeHtml(printDate)}</div></div><div class="logo-wrap">${logoHtml}</div></div>
       ${html}
     </body></html>`);
-    w.document.close();
-    w.focus();
+    doc.close();
     try{ CWS.audit?.('print_a3', { title, paper }); }catch(e){}
-    w.print();
+    setTimeout(() => {
+      try{
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      }catch(_error){
+        toast("Printvenster kon niet starten.");
+      }
+      setTimeout(() => frame.remove(), 30000);
+    }, 120);
   };
 
   // Cross-origin safe Apps Menu opener.

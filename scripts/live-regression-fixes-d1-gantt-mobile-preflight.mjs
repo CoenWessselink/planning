@@ -89,18 +89,21 @@ check(
 );
 
 check(
-  "capaciteit start vanuit actuele week minus drie en reset stale periodes",
+  "capaciteit scherm start vanuit actuele week en reset stale periodes",
   capacity.includes("function defaultCapacityRange") &&
-  capacity.includes("addWeeks(current.year,current.week,-3)") &&
+  capacity.includes("const start=current") &&
+  capacity.includes("const end=addWeeks(current.year,current.week,25)") &&
   capacity.includes("savedCapacityPeriodIsRelevant") &&
   capacity.includes("!savedCapacityPeriodIsRelevant(activePeriod)") &&
   !capacity.includes("W32 2029")
 );
 
 check(
-  "capaciteit eindigt rond laatste planning plus drie weken",
-  capacity.includes("latestPlanningIso") &&
-  capacity.includes("addWeeks(lastWeek.year,lastWeek.week,3)") &&
+  "capaciteit print gebruikt drie weken terug t/m zesentwintig vooruit",
+  capacity.includes("function capacityPrintWeeks") &&
+  capacity.includes("addWeeks(tw.year,tw.week,-3)") &&
+  capacity.includes("addWeeks(tw.year,tw.week,26)") &&
+  capacity.includes("3 weken terug t/m 26 weken vooruit") &&
   capacity.includes("weeksBetweenInclusive(start,end)")
 );
 

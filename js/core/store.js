@@ -37,7 +37,11 @@ window.CWS = window.CWS || {};
 
   const DEFAULT_ROLES = {
     admin:  { name:"Admin",  permissions:["*"] },
-    planner:{ name:"Planner",permissions:["view_projects","edit_projects","view_planning","edit_planning","auto_plan","view_reports","audit_view","import_data"] },
+    planner:{ name:"Planner",permissions:["view_projects","edit_projects","view_planning","edit_planning","planning_assign","invite_employee","view_resources","auto_plan","view_reports","audit_view","import_data","print_export"] },
+    afdelingsplanner:{ name:"Afdelingsplanner", permissions:["view_projects","view_planning","edit_planning","planning_assign","view_resources","view_reports","print_export"] },
+    projectleider:{ name:"Projectleider", permissions:["view_projects","edit_projects_limited","view_planning","view_reports","print_export"] },
+    medewerker_viewer:{ name:"Medewerker viewer", permissions:["view_own_work","view_planning_readonly","print_export"] },
+    extern_viewer:{ name:"Extern viewer", permissions:["view_shared_readonly","print_export"] },
     viewer: { name:"Viewer", permissions:["view_projects","view_planning","view_reports"] }
   };
 
@@ -172,6 +176,9 @@ window.CWS = window.CWS || {};
     resources: { order: [], byId: {} },
     tasks: { byProject: {} },
     allocations: { byWeek: {} },
+    planningAssignments: [],
+    resourceAvailability: [],
+    portalInvites: [],
     planbord: { byDeptWeek: {} },
     projectOverview: { notesByProject:{}, statusByProject:{} },
     projectPlanning: { byWeek:{}, columns:[] },
@@ -879,6 +886,9 @@ window.CWS = window.CWS || {};
     st.resources = st.resources || { order:[], byId:{} };
     st.resources.order = Array.isArray(st.resources.order) ? [...new Set(st.resources.order)] : [];
     st.resources.byId = st.resources.byId && typeof st.resources.byId === "object" ? st.resources.byId : {};
+    st.planningAssignments = Array.isArray(st.planningAssignments) ? st.planningAssignments : [];
+    st.resourceAvailability = Array.isArray(st.resourceAvailability) ? st.resourceAvailability : [];
+    st.portalInvites = Array.isArray(st.portalInvites) ? st.portalInvites : [];
     st.departments = st.departments || { order:[], byId:{} };
     st.departments.order = Array.isArray(st.departments.order) ? [...new Set(st.departments.order)] : [];
     st.departments.byId = st.departments.byId && typeof st.departments.byId === "object" ? st.departments.byId : {};

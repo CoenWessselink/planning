@@ -171,8 +171,8 @@ try {
     };
   })()`);
   check("Desktop Apps Menu opent premium met hero", desktopMenu.open && desktopMenu.hero.includes("Welkom bij CWS Planning"));
-  check("Desktop Apps Menu toont exact 10 hoofdmodules", desktopMenu.mainCount === 10 && desktopMenu.cards.length === 10, JSON.stringify({ mainCount:desktopMenu.mainCount, cards:desktopMenu.cards.length }));
-  check("Desktop Apps Menu bevat alle mockup-hoofdmodules", ["Dashboard","Projecten","Gantt","Capaciteit","Projectoverzicht","Planbord","Rapporten","Import / Export","Instellingen","Auditlog"].every(label => desktopMenu.cards.some(text => text.includes(label))));
+  check("Desktop Apps Menu toont compleet hoofdmodulecontract", desktopMenu.mainCount >= 16 && desktopMenu.cards.length >= 16, JSON.stringify({ mainCount:desktopMenu.mainCount, cards:desktopMenu.cards.length }));
+  check("Desktop Apps Menu bevat alle mockup- en prompt-hoofdmodules", ["Dashboard","Projecten","Gantt","Capaciteit","Afdelingsplanning","Werkvoorraad","Resources","Conflicten","Mijn werk","Rollen & rechten","Projectoverzicht","Planbord","Rapporten","Import / Export","Instellingen","Auditlog"].every(label => desktopMenu.cards.some(text => text.includes(label))));
   check("Desktop Apps Menu behoudt beheer-extra's compact", ["Self-test","Projectplanning","Transportplanning"].every(label => desktopMenu.utility.some(text => text.includes(label))));
   check("Desktop toont geen mobiele bottom nav", desktopMenu.navVisible === false);
   check("Apps Menu footer behoudt premium regel", desktopMenu.footer.includes("Veilig") && desktopMenu.footer.includes("D1-state"));

@@ -86,7 +86,16 @@
     "preflight:v147": "node scripts/v147-d1-invalid-chunk-recovery-preflight.mjs",
     "preflight:live-regression": "node scripts/live-regression-fixes-d1-gantt-mobile-preflight.mjs",
     "preflight:capacity-print": "node scripts/v150-capacity-tasche-print-preflight.mjs",
-    "preflight:v151": "node scripts/v151-d1-corrupt-chunk-hard-recovery-preflight.mjs"
+    "preflight:v150": "node scripts/v150-capacity-tasche-print-preflight.mjs",
+    "preflight:v151": "node scripts/v151-d1-corrupt-chunk-hard-recovery-preflight.mjs",
+    "preflight:responsive": "node scripts/v160-full-app-responsive-preflight.mjs",
+    "preflight:v160": "node scripts/v160-full-app-responsive-preflight.mjs",
+    "preflight:interactive-planning": "node scripts/v170-interactive-planning-preflight.mjs",
+    "preflight:v170": "node scripts/v170-interactive-planning-preflight.mjs",
+    "preflight:roles-invites-print": "node scripts/v180-roles-invites-print-preflight.mjs",
+    "preflight:v180": "node scripts/v180-roles-invites-print-preflight.mjs",
+    "preflight:complete-interactive-app": "node scripts/v190-complete-interactive-app-preflight.mjs",
+    "preflight:v190": "node scripts/v190-complete-interactive-app-preflight.mjs"
   },
   "devDependencies": {}
 }

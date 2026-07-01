@@ -16,6 +16,12 @@ const AppsMenu = (() => {
     { id:"projecten", label:"Projecten", icon:"PR", desc:"Projectgegevens, afdelingsuren en projectstatus beheren." },
     { id:"gantt", label:"Gantt", icon:"GA", desc:"Planning, fasen, taken, afhankelijkheden en voortgang." },
     { id:"capaciteit", label:"Capaciteit", icon:"CA", desc:"Bezetting en heatmap vanuit Gantt-uren per dag." },
+    { id:"afdelingsplanning", label:"Afdelingsplanning", icon:"AP", desc:"Maand, week en dagplanning voor afdelingen en resources." },
+    { id:"werkvoorraad", label:"Werkvoorraad", icon:"WV", desc:"Nog te plannen taken, blokkades en ontbrekende resources." },
+    { id:"resources", label:"Resources", icon:"RE", desc:"Medewerkers, materieel, gereedschap en beschikbaarheid." },
+    { id:"conflicten", label:"Conflicten", icon:"CO", desc:"Centraal conflictcenter met oorzaken en oplossuggesties." },
+    { id:"mijnwerk", label:"Mijn werk", icon:"MW", desc:"Read-only medewerkerportaal met dag- en weekoverzicht." },
+    { id:"rollenrechten", label:"Rollen & rechten", icon:"RR", desc:"Rechtenmatrix, uitnodigingen en viewerrollen." },
     { id:"projectoverzicht", label:"Projectoverzicht", icon:"PO", desc:"Portfolio-overzicht, risico's en Project 360." },
     { id:"planbord", label:"Planbord", icon:"PL", desc:"Operationele planning en resource-indeling." },
     { id:"rapporten", label:"Rapporten", icon:"RA", desc:"Rapportages, signaleringen en exports." },
@@ -139,8 +145,9 @@ const AppsMenu = (() => {
 
     roleBtn().addEventListener("click", () => {
       const st=CWS.getState();
+      const roles = ["admin","planner","afdelingsplanner","projectleider","medewerker_viewer","extern_viewer","viewer"];
       const cur = st.user?.role || "admin";
-      const next = (cur==="admin") ? "planner" : (cur==="planner" ? "viewer" : "admin");
+      const next = roles[(Math.max(0, roles.indexOf(cur)) + 1) % roles.length];
       CWS.setUserRole(next);
       CWS.audit("change_role", { to: next });
       UI.toast("Gebruiker: " + CWS.getState().ui.role);

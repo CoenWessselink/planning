@@ -497,32 +497,25 @@
     removeStalePrintFrames();
     window.__CWS_CAPACITY_PRINT_LAST_HTML__ = printHtml;
     window.__CWS_CAPACITY_PRINT_LAST_MODEL__ = model;
-    let printWindow = null;
-    try {
-      const opener = window.top && window.top.open ? window.top : window;
-      const printUrl = `${window.location.origin}/layers/capacity_print_view.html?v=161&transport=message`;
-      printWindow = opener.open(printUrl, PRINT_WINDOW_NAME);
-    } catch (_error) {}
-    if(!printWindow) {
-      const message = "Pop-up geblokkeerd: capaciteitsoverzicht kon niet worden geopend.";
-      if(window.UI?.toast) window.UI.toast(message);
-      else alert(message);
-      return model;
-    }
-    const targetOrigin = window.location.origin;
-    const payload = { type:"CWS_CAPACITY_PRINT_HTML", marker:MARKER, html:printHtml };
-    const sendPayload = () => {
-      try { printWindow.postMessage(payload, targetOrigin); } catch (_error) {}
-    };
-    const onReady = event => {
-      if(event.origin !== targetOrigin) return;
-      if(event.source !== printWindow) return;
-      if(event.data?.type !== "CWS_CAPACITY_PRINT_VIEW_READY") return;
-      window.removeEventListener("message", onReady);
-      sendPayload();
-    };
-    window.addEventListener("message", onReady);
-    [120, 400, 900, 1600].forEach(delay => setTimeout(sendPayload, delay));
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(printHtml);
+    doc.close();
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (_error) {
+        const message = "Capaciteitsoverzicht kon niet worden geprint.";
+        if(window.UI?.toast) window.UI.toast(message);
+        else alert(message);
+      }
+      setTimeout(() => iframe.remove(), 30000);
+    }, 150);
     return model;
   }
   function print(options = {}){
@@ -535,7 +528,7 @@
     }
   });
 
-  window.CWS_CapacityPrintTascheA3 = { print, printCurrentDocument, prepareCurrentDocumentPrint, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, printWindowName:PRINT_WINDOW_NAME, rootId:ROOT_ID, mockToday:null };
+  window.CWS_CapacityPrintTascheA3 = { print, printCurrentDocument, prepareCurrentDocumentPrint, buildPrintModel, renderHtml, colors:DEPARTMENT_COLORS, marker:MARKER, printWindowName:PRINT_WINDOW_NAME, rootId:ROOT_ID, mockToday:null, printTransport:"hidden-iframe" };
   window.CWS = window.CWS || {};
   window.CWS.capacityPrint = window.CWS.capacityPrint || {};
   window.CWS.capacityPrint.printTascheA3 = print;

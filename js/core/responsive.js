@@ -21,6 +21,12 @@ const CWS_Responsive = (() => {
     {id:"more", label:"Meer", icon:icon.more}
   ];
   const moreItems = [
+    {id:"afdelingsplanning", label:"Afdelingsplanning", icon:icon.board},
+    {id:"werkvoorraad", label:"Werkvoorraad", icon:icon.reports},
+    {id:"resources", label:"Resources", icon:icon.settings},
+    {id:"conflicten", label:"Conflicten", icon:icon.audit},
+    {id:"mijnwerk", label:"Mijn werk", icon:icon.overview},
+    {id:"rollenrechten", label:"Rollen & rechten", icon:icon.settings},
     {id:"projectoverzicht", label:"Projectoverzicht", icon:icon.overview},
     {id:"planbord", label:"Planbord", icon:icon.board},
     {id:"rapporten", label:"Rapporten", icon:icon.reports},

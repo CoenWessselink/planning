@@ -1,0 +1,19 @@
+Generated: 2026-07-01T20:41:52.067Z
+Phases: 12
+Viewports per phase: 7
+PDFs: 7
+Console issues: 0
+Network issues: 0
+
+Server log:
+CWS Planning local-test-v78: http://127.0.0.1:4173
+
+Chrome log:
+DevTools listening on ws://127.0.0.1:11993/devtools/browser/646a2bdb-b90b-4e2e-a2c3-1dc27c81c094
+[17444:22396:0701/223827.393:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[17444:22396:0701/223827.393:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[17444:22396:0701/223827.399:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+Created TensorFlow Lite XNNPACK delegate for CPU.
+[17444:22396:0701/223848.558:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[17444:22396:0701/223946.719:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[17444:22396:0701/224136.570:ERROR:google_apis\gcm\engine\registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT

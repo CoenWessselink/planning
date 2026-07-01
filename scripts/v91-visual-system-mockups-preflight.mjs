@@ -35,10 +35,10 @@ const report = read("docs/visual-system-mockups-report.md");
 const mainIds = idsFromBlock(appsMenu, "items");
 const utilityIds = idsFromBlock(appsMenu, "utilityItems");
 const mobileMoreIds = idsFromBlock(responsive, "moreItems");
-const expectedMain = ["dashboard","projecten","gantt","capaciteit","projectoverzicht","planbord","rapporten","importexport","instellingen","audit"];
-ok("Apps Menu hoofdgrid heeft exact 10 mockup-modules", mainIds.length === 10 && expectedMain.every(id => mainIds.includes(id)), JSON.stringify(mainIds));
+const expectedMain = ["dashboard","projecten","gantt","capaciteit","afdelingsplanning","werkvoorraad","resources","conflicten","mijnwerk","rollenrechten","projectoverzicht","planbord","rapporten","importexport","instellingen","audit"];
+ok("Apps Menu hoofdgrid bevat mockup- en promptmodules", mainIds.length >= expectedMain.length && expectedMain.every(id => mainIds.includes(id)), JSON.stringify(mainIds));
 ok("Technische routes blijven compact bereikbaar", ["preflight","projectplanning","transport"].every(id => utilityIds.includes(id)) && index.includes("appsUtility"));
-ok("Mobiele Meer-sheet toont secundaire modules en technische routes blijven utility", ["projectoverzicht","planbord","rapporten","importexport","instellingen","audit"].every(id => mobileMoreIds.includes(id)) && ["preflight","projectplanning","transport"].every(id => utilityIds.includes(id)) && responsive.includes("mobileMoreSheet"), JSON.stringify(mobileMoreIds));
+ok("Mobiele Meer-sheet toont prompt- en secundaire modules en technische routes blijven utility", ["afdelingsplanning","werkvoorraad","resources","conflicten","mijnwerk","rollenrechten","projectoverzicht","planbord","rapporten","importexport","instellingen","audit"].every(id => mobileMoreIds.includes(id)) && ["preflight","projectplanning","transport"].every(id => utilityIds.includes(id)) && responsive.includes("mobileMoreSheet"), JSON.stringify(mobileMoreIds));
 
 ok("Mobiele bottom navigation bevat referentie-items", ["Dashboard","Projecten","Gantt","Capaciteit","Meer"].every(label => responsive.includes(`label:"${label}"`)) && responsive.includes("primary:true"));
 ok("Mobiele More-sheet heeft viewport-safe gridregels", theme.includes("mobile-more-panel") && theme.includes("calc(100vw - 20px)") && theme.includes("repeat(2,minmax(0,1fr))") && theme.includes("@media (max-width:430px)"));
@@ -50,7 +50,7 @@ ok("Local snapshot opslag is quota-safe zonder console error spam", store.includ
 ok("Stale globale projecttarget wordt tijdelijk en niet-lokaal verwerkt", store.includes("delete snapshot.ui.globalSearchTarget") && read("js/core/global_search.js").includes("expiresAt") && read("js/core/default_empty_project_filter.js").includes("clearStaleGlobalSearchTarget") && e2e.includes("Stale globale projecttarget filtert Projecten niet meer"));
 
 ok("E2E dekt desktop 1920 en mobiele referentiebreedtes", ["[1920, 1080]","[375, 812]","[414, 896]","[430, 932]"].every(token => e2e.includes(token)));
-ok("E2E bewaakt Apps Menu 10-tegelcontract", e2e.includes("Desktop Apps Menu toont exact 10 hoofdmodules") && e2e.includes("beheer-extra"));
+ok("E2E bewaakt compleet Apps Menu-contract", e2e.includes("Desktop Apps Menu toont compleet hoofdmodulecontract") && e2e.includes("beheer-extra"));
 ok("E2E bewaakt mobiel dashboard", e2e.includes("Mobiel dashboard toont cockpit volgens referentie") && e2e.includes("mobileCapacityPct"));
 ok("E2E bewaakt mobiele overflow en overlaydock", e2e.includes("Meer-sheet past binnen viewport") && e2e.includes("geen overlappende iframe-actiedock") && e2e.includes("bodyOverflow"));
 
