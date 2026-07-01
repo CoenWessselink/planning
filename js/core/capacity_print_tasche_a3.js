@@ -1,7 +1,7 @@
 (function(){
   "use strict";
 
-  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V157";
+  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V159";
   const PRINT_WINDOW_NAME = "cws_capacity_overview_print";
   const PRINT_STORAGE_PREFIX = "cws.capacity.print.html.";
   const ROOT_ID = "cwsCapacityPrintRoot";
@@ -129,13 +129,25 @@
   function projectDeptBudget(st, projectId, dept){
     const wantDept = norm(dept);
     const project = st.projects?.byId?.[projectId] || {};
-    let total = 0;
-    Object.entries(project.deptHours || {}).forEach(([d, h]) => { if(norm(d) === wantDept) total += Number(h || 0); });
-    (Array.isArray(st.projects?.deptHours) ? st.projects.deptHours : []).forEach(row => {
+    const centralRows = (Array.isArray(st.projects?.deptHours) ? st.projects.deptHours : []).filter(row => {
       const rowProject = String(row.projectId || row.project || "").trim();
       const rowDept = String(row.deptId || row.dept || row.department || "").trim();
-      if(String(projectId) === rowProject && norm(rowDept) === wantDept) total += Number(row.hours || 0);
+      return String(projectId) === rowProject && norm(rowDept) === wantDept;
     });
+    if(centralRows.length){
+      const seen = new Set();
+      return round(centralRows.reduce((sum, row) => {
+        const key = String(row.id || row.rowId || `${projectId}|${wantDept}|${Number(row.hours || 0)}`);
+        if(seen.has(key)) return sum;
+        seen.add(key);
+        return sum + Math.max(0, Number(row.hours || 0));
+      }, 0));
+    }
+    let total = 0;
+    Object.entries(project.deptHours || {}).forEach(([d, h]) => { if(norm(d) === wantDept) total += Math.max(0, Number(h || 0)); });
+    if(total <= 0 && project.requiredDeptHours && typeof project.requiredDeptHours === "object"){
+      Object.entries(project.requiredDeptHours).forEach(([d, h]) => { if(norm(d) === wantDept) total += Math.max(0, Number(h || 0)); });
+    }
     return round(total);
   }
   function sourceKey(date, dept, item){
@@ -339,24 +351,26 @@
     const period = `Week ${pad(first?.isoWeek)}-${first?.isoYear} t/m Week ${pad(last?.isoWeek)}-${last?.isoYear}`;
     return `<!doctype html><html lang="nl" data-cws-print-kind="capacity-overview" data-cws-print-marker="${MARKER}"><head><meta charset="utf-8"><title>CAPACITEITSOVERZICHT</title>
     <style>
-      @page{size:A3 landscape;margin:7mm}
+      @page{size:A3 landscape;margin:5mm}
       *{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-      body{margin:0;background:#fff;color:#050505;font-family:Arial,Helvetica,sans-serif;font-size:9px}
-      .page{width:1650px;border:1.2pt solid #050505;min-height:1167px;padding:9px;margin:0 auto;overflow:hidden}
-      .top{display:grid;grid-template-columns:390px 1fr 505px;gap:14px;align-items:start;margin-bottom:12px}
-      .logo-box{height:125px;display:flex;align-items:flex-start}.logo-box img{width:380px;max-height:125px;object-fit:contain}
-      .title{text-align:center;padding-top:22px}.title h1{font-size:42px;line-height:1;margin:0 0 14px;font-weight:900;letter-spacing:0}.title div{font-size:22px;font-weight:800}
-      .meta{width:100%;border-collapse:collapse;font-size:10px}.meta td{border:0.6pt solid #777;padding:3px 8px;height:18px}.meta td:first-child{font-weight:800;width:48%}.meta .page-no{text-align:center;font-weight:800}
-      .capacity-table{width:100%;border-collapse:collapse;table-layout:fixed}.capacity-table th,.capacity-table td{border:0.45pt solid #9ca3af;text-align:center;vertical-align:middle;padding:4px 4px;height:49px;overflow:hidden}
-      .capacity-table th{background:#00566a;color:#fff;font-weight:900}.month-row th{height:22px}.week-row th,.date-row th{background:#f8fafc;color:#111;font-size:7px;height:20px}
-      .dept-col{width:90px}.project-col{width:190px}.metric-col{width:72px}.week-col{width:37px}.summary-label-col{width:280px}
-      .dept-cell{font-weight:900;text-transform:uppercase;background:#fff}.dept-name{display:flex;align-items:center;justify-content:center;min-height:72px}
-      .project-cell{text-align:left!important;padding-left:9px!important;background:#fffdf3}.project-cell strong{display:block;font-size:9px}.project-cell small{display:block;color:#4b5563;font-size:6.5px;margin-top:2px}
-      .metric{font-weight:800}.pos{color:#087a24}.neg{color:#d10000}.week-cell{color:#050505;font-weight:800}.total-row td{font-weight:900;background:#f7f7f7}.empty{text-align:left!important;padding:12px!important}
-      .summary{margin-top:12px;break-inside:avoid}.summary h2{margin:0;background:#00566a;color:#fff;font-size:13px;padding:7px 10px;border:0.45pt solid #00566a}
+      html,body{width:100%;min-height:100%;margin:0!important;padding:0!important;background:#fff!important}
+      body{color:#050505;font-family:Arial,Helvetica,sans-serif;font-size:6.4px;line-height:1.15}
+      .page{width:100%;min-height:auto;border:0.8pt solid #050505;padding:3mm;margin:0;overflow:visible;break-inside:auto;page-break-inside:auto}
+      .top{display:grid;grid-template-columns:75mm 1fr 100mm;gap:4mm;align-items:start;margin-bottom:2.5mm;break-after:avoid}
+      .logo-box{height:24mm;display:flex;align-items:flex-start}.logo-box img{width:74mm;max-height:24mm;object-fit:contain}
+      .title{text-align:center;padding-top:4mm}.title h1{font-size:26px;line-height:1;margin:0 0 3mm;font-weight:900;letter-spacing:0}.title div{font-size:14px;font-weight:800}
+      .meta{width:100%;border-collapse:collapse;font-size:6.8px}.meta td{border:0.45pt solid #777;padding:1.2mm 1.8mm;height:4.2mm}.meta td:first-child{font-weight:800;width:48%}.meta .page-no{text-align:center;font-weight:800}
+      .capacity-table{width:100%;border-collapse:collapse;table-layout:fixed;break-inside:auto;page-break-inside:auto}.capacity-table th,.capacity-table td{border:0.35pt solid #9ca3af;text-align:center;vertical-align:middle;padding:0.7mm 0.8mm;height:5.5mm;overflow:hidden}
+      .capacity-table th{background:#00566a;color:#fff;font-weight:900}.month-row th{height:4.8mm}.week-row th,.date-row th{background:#f8fafc;color:#111;font-size:5px;height:3.8mm;padding:0.4mm}
+      .dept-col{width:22mm}.project-col{width:52mm}.metric-col{width:16.5mm}.week-col{width:auto}.summary-label-col{width:69mm}
+      .dept-cell{font-weight:900;text-transform:uppercase;background:#fff}.dept-name{display:flex;align-items:center;justify-content:center;min-height:9mm}
+      .project-cell{text-align:left!important;padding-left:2mm!important;background:#fffdf3}.project-cell strong{display:block;font-size:6.4px}.project-cell small{display:block;color:#4b5563;font-size:4.8px;margin-top:0.5mm}
+      .metric{font-weight:900}.metric.pos{color:#047857!important;background:#ecfdf5!important}.metric.neg{color:#b91c1c!important;background:#fef2f2!important}.week-cell{color:#050505;font-weight:800}.total-row td{font-weight:900;background:#f7f7f7}.empty{text-align:left!important;padding:3mm!important}
+      .summary{margin-top:3mm;break-inside:avoid}.summary h2{margin:0;background:#00566a;color:#fff;font-size:8px;padding:1.5mm 2mm;border:0.35pt solid #00566a}
       .summary-table th:first-child,.summary-table td:first-child{text-align:left}
       .summary-label{font-weight:900}.grand-row td{font-weight:900;background:#f3f4f6}
-      thead{display:table-header-group}tr{page-break-inside:avoid;break-inside:avoid}
+      thead{display:table-header-group}tfoot{display:table-footer-group}tr{page-break-inside:avoid;break-inside:avoid}
+      @media screen{body{background:#666!important;padding:8px!important}.page{background:#fff;box-shadow:0 8px 22px rgba(0,0,0,.35)}}
     </style></head><body data-cws-print-kind="capacity-overview" data-cws-print-marker="${MARKER}"><div class="page">
       <header class="top">
         <div class="logo-box"><img src="${LOGO_SRC}" alt="Tasche Staalbouw"></div>
@@ -448,7 +462,7 @@
     let printWindow = null;
     try {
       const opener = window.top && window.top.open ? window.top : window;
-      const printUrl = `${window.location.origin}/layers/capacity_print_view.html?key=${encodeURIComponent(key)}&v=157`;
+      const printUrl = `${window.location.origin}/layers/capacity_print_view.html?key=${encodeURIComponent(key)}&v=159`;
       printWindow = opener.open(printUrl, PRINT_WINDOW_NAME);
     } catch (_error) {}
     if(!printWindow) {
