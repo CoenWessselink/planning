@@ -1,7 +1,7 @@
 (function(){
   "use strict";
 
-  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V159";
+  const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V160";
   const PRINT_WINDOW_NAME = "cws_capacity_overview_print";
   const PRINT_STORAGE_PREFIX = "cws.capacity.print.html.";
   const ROOT_ID = "cwsCapacityPrintRoot";
@@ -204,7 +204,7 @@
     const st = state();
     const weeks = buildWeeks(options.today ? new Date(`${String(options.today).slice(0, 10)}T00:00:00Z`) : todayDate());
     const departments = selectedDepartments(st, options);
-    const grandTotals = { availableTotal:0, plannedTotal:0, overTekortTotal:0, weeks:{} };
+    const grandTotals = { availableTotal:0, plannedTotal:0, overTekortTotal:0, weeks:{}, availableWeeks:{}, remainingWeeks:{} };
     const selected = departments.map(dept => {
       const projects = projectRows(st).map(project => {
         const weekValues = {};
@@ -226,14 +226,19 @@
           weeks:weekValues
         };
       }).filter(Boolean);
-      const totals = { availableTotal:0, plannedTotal:0, overTekortTotal:0, weeks:{} };
+      const totals = { availableTotal:0, plannedTotal:0, overTekortTotal:0, weeks:{}, availableWeeks:{}, remainingWeeks:{} };
       weeks.forEach(w => {
         const available = availableByDeptWeek(st, dept.name, w);
         const planned = round(projects.reduce((sum, p) => sum + Number(p.weeks[w.key] || 0), 0));
+        const remaining = round(available - planned);
         totals.weeks[w.key] = planned;
+        totals.availableWeeks[w.key] = available;
+        totals.remainingWeeks[w.key] = remaining;
         totals.availableTotal += available;
         totals.plannedTotal += planned;
         grandTotals.weeks[w.key] = round(Number(grandTotals.weeks[w.key] || 0) + planned);
+        grandTotals.availableWeeks[w.key] = round(Number(grandTotals.availableWeeks[w.key] || 0) + available);
+        grandTotals.remainingWeeks[w.key] = round(Number(grandTotals.remainingWeeks[w.key] || 0) + remaining);
         grandTotals.availableTotal += available;
         grandTotals.plannedTotal += planned;
       });
@@ -272,6 +277,13 @@
       const v = Number(values?.[w.key] || 0);
       const style = v > 0 ? ` style="background:${color};"` : "";
       return `<td class="week-cell"${style}>${esc(num(v))}</td>`;
+    }).join("");
+  }
+  function balanceWeekCells(weeks, values){
+    return weeks.map(w => {
+      const v = Number(values?.[w.key] || 0);
+      const cls = v < 0 ? "week-cell neg balance-cell" : (v > 0 ? "week-cell pos balance-cell" : "week-cell");
+      return `<td class="${cls}">${esc(num(v))}</td>`;
     }).join("");
   }
   function calendarHead(weeks){
@@ -318,20 +330,53 @@
   }
   function renderSummaryTable(model){
     const weeks = model.period.weeks;
-    const rows = model.selectedDepartments.map(dept => `<tr>
-      <td class="summary-label">${esc(dept.name.toUpperCase())} TOTAAL (u)</td>
-      ${cell(dept.totals.availableTotal, "metric")}
-      ${cell(dept.totals.plannedTotal, "metric")}
-      ${cell(dept.totals.overTekortTotal, `metric ${metricClass(dept.totals.overTekortTotal)}`)}
-      ${weekCells(weeks, dept.totals.weeks, dept.color)}
-    </tr>`);
-    rows.push(`<tr class="grand-row">
-      <td class="summary-label">TOTAAL (u)</td>
-      ${cell(model.grandTotals.availableTotal, "metric")}
-      ${cell(model.grandTotals.plannedTotal, "metric")}
-      ${cell(model.grandTotals.overTekortTotal, `metric ${metricClass(model.grandTotals.overTekortTotal)}`)}
-      ${weekCells(weeks, model.grandTotals.weeks, "#eef2f7")}
-    </tr>`);
+    const rows = [];
+    model.selectedDepartments.forEach(dept => {
+      rows.push(`<tr>
+        <td class="summary-label">${esc(dept.name.toUpperCase())} - BENODIGD PER WEEK</td>
+        ${cell("", "metric")}
+        ${cell(dept.totals.plannedTotal, "metric")}
+        ${cell("", "metric")}
+        ${weekCells(weeks, dept.totals.weeks, dept.color)}
+      </tr>`);
+      rows.push(`<tr>
+        <td class="summary-label">${esc(dept.name.toUpperCase())} - BESCHIKBAAR PER WEEK</td>
+        ${cell(dept.totals.availableTotal, "metric")}
+        ${cell("", "metric")}
+        ${cell("", "metric")}
+        ${weekCells(weeks, dept.totals.availableWeeks, "#eef2f7")}
+      </tr>`);
+      rows.push(`<tr class="summary-balance-row">
+        <td class="summary-label">${esc(dept.name.toUpperCase())} - RESTANT PER WEEK</td>
+        ${cell("", "metric")}
+        ${cell("", "metric")}
+        ${cell(dept.totals.overTekortTotal, `metric ${metricClass(dept.totals.overTekortTotal)}`)}
+        ${balanceWeekCells(weeks, dept.totals.remainingWeeks)}
+      </tr>`);
+    });
+    if(model.selectedDepartments.length > 1){
+      rows.push(`<tr class="grand-row">
+        <td class="summary-label">TOTAAL - BENODIGD PER WEEK</td>
+        ${cell("", "metric")}
+        ${cell(model.grandTotals.plannedTotal, "metric")}
+        ${cell("", "metric")}
+        ${weekCells(weeks, model.grandTotals.weeks, "#eef2f7")}
+      </tr>`);
+      rows.push(`<tr class="grand-row">
+        <td class="summary-label">TOTAAL - BESCHIKBAAR PER WEEK</td>
+        ${cell(model.grandTotals.availableTotal, "metric")}
+        ${cell("", "metric")}
+        ${cell("", "metric")}
+        ${weekCells(weeks, model.grandTotals.availableWeeks, "#eef2f7")}
+      </tr>`);
+      rows.push(`<tr class="grand-row summary-balance-row">
+        <td class="summary-label">TOTAAL - RESTANT PER WEEK</td>
+        ${cell("", "metric")}
+        ${cell("", "metric")}
+        ${cell(model.grandTotals.overTekortTotal, `metric ${metricClass(model.grandTotals.overTekortTotal)}`)}
+        ${balanceWeekCells(weeks, model.grandTotals.remainingWeeks)}
+      </tr>`);
+    }
     return `<section class="summary"><h2>OVERZICHT PER AFDELING</h2><table class="capacity-table summary-table">
       ${summaryColgroup(weeks)}
       <thead>
@@ -365,7 +410,7 @@
       .dept-col{width:22mm}.project-col{width:52mm}.metric-col{width:16.5mm}.week-col{width:auto}.summary-label-col{width:69mm}
       .dept-cell{font-weight:900;text-transform:uppercase;background:#fff}.dept-name{display:flex;align-items:center;justify-content:center;min-height:9mm}
       .project-cell{text-align:left!important;padding-left:2mm!important;background:#fffdf3}.project-cell strong{display:block;font-size:6.4px}.project-cell small{display:block;color:#4b5563;font-size:4.8px;margin-top:0.5mm}
-      .metric{font-weight:900}.metric.pos{color:#047857!important;background:#ecfdf5!important}.metric.neg{color:#b91c1c!important;background:#fef2f2!important}.week-cell{color:#050505;font-weight:800}.total-row td{font-weight:900;background:#f7f7f7}.empty{text-align:left!important;padding:3mm!important}
+      .metric{font-weight:900}.metric.pos,.week-cell.pos{color:#047857!important;background:#ecfdf5!important}.metric.neg,.week-cell.neg{color:#b91c1c!important;background:#fef2f2!important}.week-cell{color:#050505;font-weight:800}.balance-cell{font-weight:900}.total-row td{font-weight:900;background:#f7f7f7}.empty{text-align:left!important;padding:3mm!important}
       .summary{margin-top:3mm;break-inside:avoid}.summary h2{margin:0;background:#00566a;color:#fff;font-size:8px;padding:1.5mm 2mm;border:0.35pt solid #00566a}
       .summary-table th:first-child,.summary-table td:first-child{text-align:left}
       .summary-label{font-weight:900}.grand-row td{font-weight:900;background:#f3f4f6}
@@ -462,7 +507,7 @@
     let printWindow = null;
     try {
       const opener = window.top && window.top.open ? window.top : window;
-      const printUrl = `${window.location.origin}/layers/capacity_print_view.html?key=${encodeURIComponent(key)}&v=159`;
+      const printUrl = `${window.location.origin}/layers/capacity_print_view.html?key=${encodeURIComponent(key)}&v=160`;
       printWindow = opener.open(printUrl, PRINT_WINDOW_NAME);
     } catch (_error) {}
     if(!printWindow) {
