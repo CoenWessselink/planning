@@ -9,19 +9,34 @@
   <script>
     (function(){
       "use strict";
+      const MARKER = "CWS_CAPACITY_TASCHE_A3_PRINT_V161";
+      function renderPrintHtml(html){
+        if(!html || !html.includes(MARKER) || !html.includes("CAPACITEITSOVERZICHT")){
+          document.body.innerHTML = "<p style=\"font:16px Arial,sans-serif;padding:24px\">Capaciteitsoverzicht kon niet worden geladen. Sluit dit venster en probeer opnieuw.</p>";
+          return false;
+        }
+        document.open();
+        document.write(html.replace("</body>", "<script>(function(){function p(){setTimeout(function(){window.focus();window.print();},180)}if(document.readyState==='complete'){p()}else{window.addEventListener('load',p,{once:true})}}());<\/script></body>"));
+        document.close();
+        return true;
+      }
+      window.addEventListener("message", event => {
+        if(event.origin !== location.origin) return;
+        if(event.data?.type !== "CWS_CAPACITY_PRINT_HTML") return;
+        renderPrintHtml(event.data.html || "");
+      });
       const params = new URLSearchParams(location.search);
       const key = params.get("key") || "";
       const html = key ? localStorage.getItem(key) : "";
       if(key) {
         try { localStorage.removeItem(key); } catch (_error) {}
       }
-      if(!html || !html.includes("CWS_CAPACITY_TASCHE_A3_PRINT_V160") || !html.includes("CAPACITEITSOVERZICHT")){
-        document.body.innerHTML = "<p style=\"font:16px Arial,sans-serif;padding:24px\">Capaciteitsoverzicht kon niet worden geladen. Sluit dit venster en probeer opnieuw.</p>";
+      if(html) {
+        renderPrintHtml(html);
         return;
       }
-      document.open();
-      document.write(html.replace("</body>", "<script>(function(){function p(){setTimeout(function(){window.focus();window.print();},180)}if(document.readyState==='complete'){p()}else{window.addEventListener('load',p,{once:true})}}());<\/script></body>"));
-      document.close();
+      document.body.innerHTML = "<p style=\"font:16px Arial,sans-serif;padding:24px\">Capaciteitsoverzicht wordt voorbereid...</p>";
+      try { window.opener?.postMessage({ type:"CWS_CAPACITY_PRINT_VIEW_READY" }, location.origin); } catch (_error) {}
     })();
   </script>
 </body>
