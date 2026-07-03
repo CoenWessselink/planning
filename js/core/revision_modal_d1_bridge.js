@@ -108,7 +108,7 @@
       clearTimeout(timer);
       timer = setTimeout(() => hydrateRevisionModal("mutation"), 120);
     });
-    observer.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class"] });
+    if(doc.body && doc.body.nodeType === 1) observer.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class"] });
     return true;
   }
 

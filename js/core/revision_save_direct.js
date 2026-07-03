@@ -314,7 +314,7 @@
       installPreviewMaterializeGuard();
       setTimeout(() => hydrateRevisionModal("mutation"), 180);
     });
-    if(doc.body) observer.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class"] });
+    if(doc.body && doc.body.nodeType === 1) observer.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:["class"] });
     installRevisionActionBridge();
     return true;
   }

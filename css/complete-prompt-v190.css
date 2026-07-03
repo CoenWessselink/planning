@@ -34,4 +34,12 @@ button,input,select,textarea{font:inherit}
 .cp-workqueue{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px}.cp-resource-card{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
 @media(max-width:1180px){body{padding:10px}.cp-cols-4,.cp-cols-3{grid-template-columns:repeat(2,minmax(0,1fr))}.cp-month{grid-template-columns:repeat(4,minmax(128px,1fr))}.cp-workqueue{grid-template-columns:repeat(2,minmax(220px,1fr))}}
 @media(max-width:760px){body{padding:0;background:#f3f7fc}.cp-shell{border:0;border-radius:0;box-shadow:none;background:#f3f7fc}.cp-head{display:block;padding:14px;background:#f3f7fc;border-bottom:0}.cp-toolbar,.cp-tabs{padding:9px 12px;overflow-x:auto;flex-wrap:nowrap}.cp-toolbar{display:block}.cp-row{overflow-x:auto;flex-wrap:nowrap;padding-bottom:7px}.cp-content{padding:12px}.cp-cols-4,.cp-cols-3,.cp-cols-2,.cp-workqueue{grid-template-columns:1fr}.cp-card{border-radius:18px}.cp-month{grid-template-columns:repeat(2,minmax(136px,1fr))}.cp-scroll-hint::before{content:"<- "}.cp-scroll-hint::after{content:" ->"}.input,.select,.cp-input,.cp-select,.btn,.cp-btn{min-height:44px}.cws-modal-overlay{align-items:flex-end!important}.cws-modal{width:100vw!important;max-height:92dvh!important;border-radius:22px 22px 0 0!important}.cws-modal-body{overflow:auto}.cp-table{font-size:12px}}
+/* V191 mockup refinement: cleaner calendar/table cards while keeping the existing interactions intact. */
+.cp-shell{border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.08)}
+.cp-head{padding:14px 16px}.cp-content{padding:12px 16px 16px}.cp-card{border-radius:10px;padding:11px 12px}
+.cp-month{gap:0;border-radius:10px;background:#d8e2ef;border:1px solid #d8e2ef;box-shadow:0 6px 18px rgba(15,23,42,.04)}
+.cp-day{min-height:88px;border-right:1px solid #dbe3ef;border-bottom:1px solid #dbe3ef;border-radius:0!important;padding:9px 10px;line-height:1.28;color:#172033}
+.cp-day b{font-size:13px;margin-bottom:5px}.cp-day .cp-muted{font-size:11px;line-height:1.25}.cp-table th,.cp-table td{padding:8px 9px}
+@media(max-width:1180px){.cp-month{grid-template-columns:repeat(4,minmax(116px,1fr))}.cp-day{min-height:82px}}
+@media(max-width:760px){.cp-month{grid-template-columns:repeat(2,minmax(128px,1fr));border-radius:18px}.cp-day{min-height:92px}}
 @media print{body{background:#fff;padding:0}.cp-toolbar,.cp-tabs,.no-print{display:none!important}.cp-shell{border:0;box-shadow:none}.cp-content{padding:0}.cp-card,.cp-scroll{break-inside:avoid}}

@@ -173,7 +173,7 @@ const CWS_Responsive = (() => {
         installMobileInputFocusGuard(doc);
       });
     });
-    observer.observe(doc.body,{childList:true,subtree:true});
+    if(doc.body && doc.body.nodeType === 1) observer.observe(doc.body,{childList:true,subtree:true});
   }
 
   function labelTables(doc){
