@@ -321,6 +321,7 @@ try {
   check("Globale zoekactie vindt afdeling voor Capaciteit", Boolean(globalCapacitySearch.dept) && globalCapacitySearch.clicked, JSON.stringify(globalCapacitySearch));
   await waitFor(() => evaluate(`document.body.dataset.activeApp === "capaciteit"`));
   await waitFor(frameReady);
+  await waitFor(() => frameEval(`(()=> document.querySelector("#deptSel")?.value === ${JSON.stringify(globalCapacitySearch.dept)})()`));
   const capacityFilter = await frameEval(`(()=> document.querySelector("#deptSel")?.value || "")()`);
   check("Capaciteit past globale afdeling-target toe", capacityFilter === globalCapacitySearch.dept, JSON.stringify({ capacityFilter, expected:globalCapacitySearch.dept }));
 

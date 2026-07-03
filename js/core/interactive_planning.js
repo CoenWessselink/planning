@@ -155,6 +155,55 @@
         });
       });
     });
+    if(!out.length && st.ganttV2?.byProject){
+      Object.entries(st.ganttV2.byProject || {}).forEach(([projectId, model]) => {
+        const rows = Array.isArray(model?.rows) ? model.rows : [];
+        rows.forEach((row, rowIndex) => {
+          if(row?.type === "summary") return;
+          const schedule = model?.sched?.[row.id] || {};
+          const start = String(schedule.start || row.start || "").slice(0, 10);
+          const end = String(schedule.end || row.end || start).slice(0, 10);
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(start)) return;
+          const dept = row.department || row.dept || departments(st)[0] || "";
+          const days = [];
+          let cursor = new Date(`${start}T00:00:00Z`);
+          const last = new Date(`${/^\d{4}-\d{2}-\d{2}$/.test(end) ? end : start}T00:00:00Z`);
+          let guard = 0;
+          while(cursor <= last && guard++ < 40){
+            const day = cursor.getUTCDay() || 7;
+            if(day < 6) days.push(iso(cursor));
+            cursor = addDays(cursor, 1);
+          }
+          const workdays = days.length ? days : [start];
+          const totalHours = Number(row.hours || row.manualHours || row.durationHours || 0);
+          const hours = round(totalHours > 0 ? totalHours / workdays.length : Math.min(8, Math.max(1, Number(row.duration || row.workDays || 1) * 2)));
+          const res = row.resourceId || row.resource || resources(st, "employee").find(r => norm(r.dept) === norm(dept))?.id || "";
+          workdays.forEach((date, dayIndex) => {
+            const startHour = 7 + ((rowIndex + dayIndex) % 7);
+            out.push({
+              id:`ganttv2_${projectId}_${row.id || rowIndex}_${date}`,
+              projectId,
+              ganttTaskId:row.id || "",
+              title:row.name || row.title || row.id || "Gantt taak",
+              departmentId:dept,
+              date,
+              startTime:`${pad(startHour)}:00`,
+              endTime:`${pad(Math.min(18, startHour + Math.max(1, Math.ceil(hours))))}:00`,
+              hours,
+              employeeIds:res ? [res] : [],
+              equipmentIds:[],
+              toolIds:[],
+              vehicleIds:[],
+              workspaceIds:[],
+              status:row.status || "gepland",
+              location:row.location || "",
+              notes:"Afgeleid uit Gantt V2 planning",
+              source:"ganttV2"
+            });
+          });
+        });
+      });
+    }
     const manual = Array.isArray(st.planningAssignments) ? st.planningAssignments : [];
     return manual.concat(out).filter(a => a.projectId || a.title);
   }
@@ -339,8 +388,25 @@
     return { email, role, expiresAt:expires.toISOString() };
   }
   function route(app){
-    try{ window.parent?.Router?.loadApp?.(app); }
-    catch(_error){}
+    try{
+      if(window.parent && window.parent !== window && typeof window.parent.Router?.loadApp === "function"){
+        window.parent.Router.loadApp(app);
+        return;
+      }
+    }catch(_error){}
+    try{
+      if(/^afdelingsplanning/.test(String(app || "")) && window.CWS_CompletePromptLayers?.render){
+        const url = new URL(window.location.href);
+        url.searchParams.set("app", app);
+        window.history.replaceState(null, "", url);
+        if(window.frameElement) window.frameElement.dataset.activeApp = app;
+        window.CWS_CompletePromptLayers.render();
+        return;
+      }
+    }catch(_error){}
+    try{
+      if(app) window.location.href = `${window.location.pathname}?app=${encodeURIComponent(app)}`;
+    }catch(_error){}
   }
 
   window.CWS_InteractivePlanning = {
