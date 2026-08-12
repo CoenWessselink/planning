@@ -1,0 +1,7 @@
+/* CWS Planning clean UI rebuild - 10 print. */
+@media print{
+  .mobile-bottom-nav,.mobile-more-sheet,#cwsMobileToolbar{display:none!important}
+  .headerbar{position:static!important;box-shadow:none!important}
+  body{background:#fff!important;overflow:visible!important}
+  #appFrame{height:auto!important;max-height:none!important;overflow:visible!important}
+}

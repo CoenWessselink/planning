@@ -1,0 +1,9 @@
+name = "cws-planning-intern"
+compatibility_date = "2026-08-12"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cws-planning-intern"
+database_id = "731abdc6-5a69-44e8-a35e-12b543367a98"
+migrations_dir = "migrations"

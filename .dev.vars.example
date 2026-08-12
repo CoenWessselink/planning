@@ -1,0 +1,8 @@
+# Alleen voor lokale ontwikkeling. Kopieer naar .dev.vars en commit dat bestand nooit.
+CWS_LOCAL_AUTH_BYPASS=true
+CWS_BOOTSTRAP_ADMIN_EMAIL=local-admin@cws.test
+CWS_MAINTENANCE_TOKEN=replace-with-a-long-random-local-token
+
+# Productie: stel deze waarden als Cloudflare Pages secrets/variables in.
+# ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+# ACCESS_AUD=your-access-application-audience

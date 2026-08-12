@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CWS Planning</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/responsive-v73.css">
+  <link rel="stylesheet" href="css/ui/00-tokens.css">
+  <link rel="stylesheet" href="css/ui/01-reset.css">
+  <link rel="stylesheet" href="css/ui/02-shell-apps.css">
+  <link rel="stylesheet" href="css/ui/03-components.css">
+  <link rel="stylesheet" href="css/ui/04-mobile-nav.css">
+  <link rel="stylesheet" href="css/ui/05-mobile-dashboard-projects.css">
+  <link rel="stylesheet" href="css/ui/06-mobile-gantt-capacity.css">
+  <link rel="stylesheet" href="css/ui/10-print.css">
+  <!-- CWS_VISUAL_SYSTEM_V100_CONSOLIDATED -->
+</head>
+<body data-cws-build="CWS_UI_REBUILD_V161_CAPACITY_PRINT_NO_STORAGE_QUOTA" data-cws-previous-build="CWS_UI_REBUILD_V160_CAPACITY_WEEK_TOTALS" data-cws-legacy-builds="CWS_UI_REBUILD_V101_CLEAN_PRESENTATION V159_CAPACITY_PRINT_FIT_TOTALS V158_GANTT_PRINT_GATED_TO_GANTT V156_CAPACITY_TOP_LEVEL_PRINT V155_CAPACITY_PRINT_NO_LEGACY_A0 V154_CAPACITY_PRINT_CURRENT_DOCUMENT V153_CAPACITY_PRINT_DEGANTT V152_CAPACITY_PRINT_IFRAME_BRIDGE V145_BWS_A3_PRINT_FINAL_SSOT V142_BWS_A3_PRINT_ROBUST_BARS V140_BWS_A3_SVG_PRINT_RENDERER V138_BWS_A3_PRINT_BAR_HYDRATION V137_BWS_A3_PRINT_NO_POPUP V136_BWS_A3_PRINT_RENDERER V135_GANTT_PRINT_STYLE V134_PRINT_GUARD_CHUNK_ORPHAN_RECOVERY V129_STATE_BOOT_INTERCEPTOR_GET_ONLY V128_STABLE_STATE_PUT_SMALL_D1_CHUNKS V127_D1_CHUNK_BOOT_FORCE_NONCHUNK V126_PREVIEW_MATERIALIZE_DURABLE_GANTT V125_DURABLE_GANTT_REVISION_BRIDGE V124_DURABLE_GANTT_REVISION_BRIDGE V122_NO_IMPLICIT_CHUNK_ZERO V121_FULL_JSON_STATE_BOOT V119_PRE_STORE_D1_CHUNK_BOOT V117_INTERCEPT_TRUNCATED_D1_STATE V108_DIRECT_REVISION_SAVE V106_CLIENT_REVISION_CAPACITY_STRIP V91_VISUAL_SYSTEM_MOCKUPS V87_SETTINGS_DEPARTMENT_DELETE_FIX V86_COMPLETE_GANTT_CAPACITY_MOBILE_VISUAL_HARDENING">
+  <div class="headerbar">
+    <div class="left">
+      <div class="cws-brand" aria-label="CWS Planning">
+        <span class="cws-brand-mark">CWS</span>
+        <span class="cws-brand-text">CWS Planning</span>
+      </div>
+      <button class="btn apps-menu-btn" id="openApps" aria-label="Apps menu openen">Apps Menu</button>
+      <span class="pill">Rol: <span id="rolePill">Admin</span></span>
+      <span class="pill">Afdeling: <span id="deptPill">Alle</span></span>
+      <button class="btn" id="deptToggle">Wissel afdeling</button>
+      <button class="btn" id="roleToggle">Wissel rol</button>
+    </div>
+    <div id="moduleTitle" style="font-size:24px">CWS Planning</div>
+    <div class="right">
+      <button class="shell-icon-btn" type="button" aria-label="Zoeken" title="Zoeken">&#128269;</button>
+      <button class="shell-icon-btn" type="button" aria-label="Meldingen" title="Meldingen">!</button>
+      <button class="shell-icon-btn" type="button" aria-label="Help" title="Help">?</button>
+      <span class="pill" id="storagePill">Opslag detecteren...</span>
+      <span class="pill">Gebruiker: <span id="userPill">Identiteit laden...</span></span>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <div class="storage-warning" id="storageWarning" hidden>
+      Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.
+    </div>
+    <div class="panel">
+      <iframe id="appFrame" title="CWS Planning module" style="width:100%;height:calc(100vh - 140px);border:0;display:block"></iframe>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="appsBackdrop" aria-hidden="true">
+    <div class="modal apps-modal" role="dialog" aria-modal="true" aria-labelledby="appsMenuTitle">
+      <div class="modal-head">
+        <div class="apps-modal-titlebar">
+          <span class="cws-brand-mark">CWS</span>
+          <span id="appsMenuTitle">Apps menu</span>
+        </div>
+        <button class="close" id="closeApps" aria-label="Sluiten">X</button>
+      </div>
+      <div class="modal-body apps-modal-body">
+        <section class="apps-hero" aria-label="Welkom">
+          <div class="apps-hero-icon" aria-hidden="true">&#9638;</div>
+          <h1>Welkom bij CWS Planning</h1>
+          <p>Kies een applicatie om aan de slag te gaan</p>
+        </section>
+        <div class="apps-card-shell">
+          <div class="apps-grid" id="appsGrid"></div>
+          <div class="apps-utility-title">Beheer & extra modules</div>
+          <div class="apps-utility" id="appsUtility"></div>
+        </div>
+      </div>
+      <div class="footerbar apps-footer" id="appsFooter">Veilig. Betrouwbaar. Gebouwd voor planning.</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/core/state_chunk_boot_interceptor.js?v=144"></script>
+  <script src="js/core/store.js?v=144"></script>
+  <script src="js/core/print_save_guard.js?v=144"></script>
+  <script src="js/core/gantt_print_bws_a3_final.js?v=146"></script>
+  <script src="js/core/capacity_print_tasche_a3.js?v=161"></script>
+  <script src="js/core/revision_delete_sync.js?v=144"></script>
+  <script src="js/core/revision_save_direct.js?v=190"></script>
+  <script src="js/core/gantt_interaction_hydration_guard.js?v=144"></script>
+  <script src="js/core/permissions.js?v=144"></script>
+  <script src="js/core/ui.js?v=144"></script>
+  <script src="js/core/interactive_planning.js?v=190"></script>
+  <script src="js/core/attention.js?v=144"></script>
+  <script src="js/core/router.js?v=144"></script>
+  <script src="js/core/mobile_adapter.js?v=144"></script>
+  <script src="js/core/responsive.js?v=190"></script>
+  <script src="js/core/default_empty_project_filter.js?v=144"></script>
+  <script src="js/core/apps_menu.js?v=144"></script>
+  <script src="js/core/global_search.js?v=144"></script>
+  <script src="js/core/export.js?v=144"></script>
+  <script src="js/core/import_excel.js?v=144"></script>
+  <script>
+    (async()=>{
+      try{
+        document.body.dataset.cwsBuild = "CWS_UI_REBUILD_V161_CAPACITY_PRINT_NO_STORAGE_QUOTA";
+        AppsMenu.render();
+        AppsMenu.bind();
+        CWS_ExcelImport.bind();
+        CWS_GlobalSearch.bind();
+        CWS_MobileAdapter.bind();
+        Router.boot();
+        CWS_Responsive.bind();
+        CWS_DefaultEmptyProjectFilter.bind();
+        document.body.dataset.cwsShellReady = "true";
+
+        await CWS.init();
+
+        const refreshStatus = () => {
+          const state = CWS.getState();
+          const warning = document.getElementById("storageWarning");
+          document.getElementById("rolePill").textContent = state.ui.role;
+          document.getElementById("deptPill").textContent = state.user?.dept || "Alle";
+          document.getElementById("storagePill").textContent = "Opslag: " + CWS.storageStatus.label + (CWS.getRemoteVersion?.() ? ` v${CWS.getRemoteVersion()}` : "") + (CWS.storageStatus.booting ? " - laden..." : "");
+          document.getElementById("userPill").textContent = CWS.getCurrentUser().email;
+          warning.hidden = CWS.storageStatus.mode === "api" && !CWS.storageStatus.unsynced;
+          warning.className = "storage-warning";
+          if(CWS.storageStatus.unsynced){
+            const runtime = CWS.getRuntimeInfo?.() || {};
+            if(CWS.storageStatus.conflictActionRequired){
+              const msg = document.createElement("span");
+              msg.textContent = "D1 conflict: kies hoe je verder wilt. ";
+              const load = document.createElement("button");
+              load.className = "btn";
+              load.type = "button";
+              load.textContent = "Serverversie laden";
+              load.onclick = () => CWS.loadServerVersion?.();
+              const retry = document.createElement("button");
+              retry.className = "btn primary";
+              retry.type = "button";
+              retry.textContent = "Mijn wijziging opnieuw proberen";
+              retry.onclick = () => CWS.retryRemoteSave?.("conflict-action-retry");
+              const cancel = document.createElement("button");
+              cancel.className = "btn";
+              cancel.type = "button";
+              cancel.textContent = "Annuleren";
+              cancel.onclick = () => UI.toast("Conflict blijft open tot je herlaadt of opnieuw opslaat.");
+              warning.replaceChildren(msg, load, retry, cancel);
+            }else if(CWS.storageStatus.remoteSaveRetryScheduled){
+              warning.classList.add("storage-sync-notice");
+              const when = CWS.storageStatus.remoteSaveRetryAt ? new Date(CWS.storageStatus.remoteSaveRetryAt).toLocaleTimeString("nl-NL") : "zo";
+              warning.textContent = `Wijzigingen zijn lokaal veilig bewaard. Synchronisatie met D1 loopt automatisch opnieuw rond ${when}.`;
+            }else{
+              const prefix = runtime.isPreviewDeployment ? "Previewdeployment: D1/Access kan ontbreken. " : "Let op: wijzigingen zijn nog niet gesynchroniseerd met D1. ";
+              warning.textContent = prefix + (CWS.storageStatus.lastError || "") + (CWS.storageStatus.accessMissing ? " Cloudflare Access-identiteit ontbreekt." : "");
+            }
+          }else{
+            warning.textContent = "Let op: je werkt nu met lokale browserdata. Collega's zien deze wijzigingen niet.";
+          }
+          document.getElementById("roleToggle").hidden = CWS.storageStatus.mode === "api";
+        };
+
+        refreshStatus();
+        CWS.subscribe(refreshStatus);
+        AppsMenu.render();
+        Router.markReady();
+        document.body.dataset.cwsReady = "true";
+
+        const runDemoData = () => {
+          if(!CWS.hasPermission("admin_settings")){
+            CWS.audit("demo_data_attempt_blocked", { reason:"permission", role:CWS.getState().user?.role || "unknown" });
+            return UI.toast("Alleen een beheerder kan demo data laden.");
+          }
+          const metrics = CWS.getStateMetrics?.() || {};
+          CWS.audit("demo_data_attempt", { projectCount:Number(metrics.projectCount || 0) });
+          const typed = prompt(`Demo data vervangt de huidige planning (${metrics.projectCount || 0} projecten). Typ exact DEMO OVERSCHRIJVEN om door te gaan.`);
+          if(typed !== "DEMO OVERSCHRIJVEN") return UI.toast("Demo data geblokkeerd; bestaande planning blijft veilig.");
+          CWS.recovery?.createRecoverySnapshot?.("before_demo_reset");
+          CWS.resetDemo();
+          UI.toast("Demo data geladen.");
+          setTimeout(()=>Router.loadApp("projecten"), 80);
+        };
+
+        const runClearData = () => {
+          if(!CWS.hasPermission("admin_settings")){
+            CWS.audit("clear_data_attempt_blocked", { reason:"permission", role:CWS.getState().user?.role || "unknown" });
+            return UI.toast("Alleen een beheerder kan alle data wissen.");
+          }
+          const metrics = CWS.getStateMetrics?.() || {};
+          CWS.audit("clear_data_attempt", { projectCount:Number(metrics.projectCount || 0) });
+          const typed = prompt(`Data leegmaken verwijdert de huidige planning (${metrics.projectCount || 0} projecten). Typ exact DATA LEEGMAKEN om door te gaan.`);
+          if(typed !== "DATA LEEGMAKEN") return UI.toast("Data leegmaken geblokkeerd; bestaande planning blijft veilig.");
+          if(!confirm("Alle CWS Planning-data verwijderen? Deze actie kan niet ongedaan worden gemaakt.")) return;
+          CWS.recovery?.createRecoverySnapshot?.("before_clear_all");
+          CWS.clearAll();
+          UI.toast("Data geleegd.");
+          Router.loadApp("projecten");
+        };
+
+        window.CWS_AdminDataActions = {
+          importExcel: () => CWS_ExcelImport.open?.(),
+          demoData: runDemoData,
+          clearData: runClearData,
+        };
+
+        window.addEventListener("message", event => {
+          const trustedFrame = document.getElementById("appFrame")?.contentWindow;
+          if(event.origin !== location.origin || !trustedFrame || event.source !== trustedFrame) return;
+          const type = event?.data?.type;
+          if(type === "cws_apps_menu") return AppsMenu.show();
+          if(type === "cws_admin_import_excel") return window.CWS_AdminDataActions.importExcel();
+          if(type === "cws_admin_demo_data") return window.CWS_AdminDataActions.demoData();
+          if(type === "cws_admin_clear_data") return window.CWS_AdminDataActions.clearData();
+        });
+      }catch(error){
+        console.error("Boot failed", error);
+        Router.showBootError?.(String(error.message || error));
+        const warning = document.getElementById("storageWarning");
+        warning.hidden = false;
+        warning.textContent = `CWS Planning kon niet volledig starten: ${String(error.message || error)}`;
+        document.body.dataset.cwsBootError = "true";
+      }
+    })();
+  </script>
+</body>
+</html>

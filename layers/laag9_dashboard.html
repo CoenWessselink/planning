@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    body{padding:14px;background:#f5f7fb}.dash{display:grid;gap:14px}.hero{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.tile{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:14px;box-shadow:0 8px 22px rgba(15,23,42,.06);cursor:pointer}.tile:hover{border-color:#93c5fd;background:#f8fbff}.tile b{display:block;font-size:26px;line-height:1;color:#0f172a}.tile span{display:block;color:#64748b;font-size:12px;font-weight:800;margin-top:6px}.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:14px}.panelx{border:1px solid #e2e8f0;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 8px 22px rgba(15,23,42,.05)}.panelx h2{font-size:16px;margin:0}.panelx-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-bottom:1px solid #e2e8f0;background:linear-gradient(#fff,#f8fafc)}.content{padding:14px}.attention-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}.attention-list li{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff}.att-red{border-color:#fecaca!important;background:#fef2f2!important;color:#991b1b}.att-orange{border-color:#fed7aa!important;background:#fff7ed!important;color:#92400e}.att-green{border-color:#bbf7d0!important;background:#ecfdf5!important;color:#166534}.att-blue{border-color:#bfdbfe!important;background:#eff6ff!important;color:#1d4ed8}.att-gray{border-color:#e2e8f0!important;background:#f8fafc!important;color:#475569}.health-table{width:100%;border-collapse:separate;border-spacing:0}.health-table th,.health-table td{padding:9px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:middle}.health-table th{background:#f8fafc;color:#334155;font-size:12px}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-weight:900;font-size:12px;border:1px solid #e2e8f0}.progress{width:120px;height:10px;border-radius:99px;background:#e5e7eb;overflow:hidden}.progress i{display:block;height:100%;background:#2f6fbd}.small{font-size:12px;color:#64748b}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.input{min-width:220px}.click{cursor:pointer}.click:hover td{background:#f8fbff}@media(max-width:900px){.grid{grid-template-columns:1fr}.hero{display:block}}
+  
+    /* V32 responsive module hardening */
+    .mobile-toolbar{display:none}
+    @media(max-width:1180px){body{padding:10px}.grid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}.panelx-head{align-items:flex-start;flex-wrap:wrap}.health-table{min-width:760px}.panelx .content{overflow:auto}}
+    @media(max-width:760px){body{padding:8px}.mobile-toolbar{display:flex;position:sticky;top:0;z-index:20;gap:6px;padding:6px;background:rgba(245,247,251,.96);backdrop-filter:blur(8px);border-bottom:1px solid #e2e8f0}.mobile-toolbar button{height:38px;border:1px solid #d7dee8;border-radius:10px;background:#fff;font-weight:900;color:#1f2a44}.hero{display:block}.hero h1{font-size:18px;margin:6px 0}.toolbar{overflow:auto;flex-wrap:nowrap}.tiles{grid-template-columns:1fr 1fr;gap:8px}.tile{padding:11px}.tile b{font-size:22px}.grid{grid-template-columns:1fr;gap:10px}.panelx{border-radius:14px}.panelx-head{padding:11px}.content{padding:10px}.health-table{min-width:0}.health-table thead{display:none}.health-table,.health-table tbody,.health-table tr,.health-table td{display:block;width:100%}.health-table tr{border:1px solid #e2e8f0;border-radius:12px;margin:8px 0;overflow:hidden}.health-table td{display:grid;grid-template-columns:118px 1fr;gap:8px;border-bottom:1px solid #eef2f7}.health-table td:before{content:attr(data-label);font-size:11px;font-weight:900;color:#64748b}.progress{width:100%}}
+    .mobile-dashboard{display:none}
+    @media(max-width:760px){
+      body{padding:0;background:#f3f7fc}.dash>.panelx,.dash>.grid{display:none}.dash{display:block}
+      .mobile-dashboard{display:block;padding:18px 14px 28px}
+      .mobile-welcome{margin-bottom:16px}.mobile-welcome span{display:block;color:#64748b;font-size:15px;font-weight:800}.mobile-welcome h1{margin:4px 0 14px;font-size:29px;line-height:1.08;color:#081b35}
+      .mobile-dash-controls{display:flex;justify-content:space-between;gap:10px}.mobile-dash-controls button{height:44px;border:1px solid #dbe3ef;background:#fff;border-radius:18px;padding:0 14px;font-weight:900;color:#172033;box-shadow:0 8px 20px rgba(15,23,42,.05)}
+      .mobile-kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+      .mobile-kpi{border:1px solid #dbe3ef;background:#fff;border-radius:22px;padding:15px;box-shadow:0 14px 34px rgba(15,23,42,.07)}
+      .mobile-kpi i{display:flex;width:38px;height:38px;border-radius:16px;align-items:center;justify-content:center;background:#e8f1ff;color:#0b5cac;font-style:normal;font-weight:950;margin-bottom:12px}.mobile-kpi b{font-size:28px;color:#081b35}.mobile-kpi span{display:block;color:#64748b;font-size:12px;font-weight:850;margin-top:4px}
+      .mobile-section{border:1px solid #dbe3ef;background:#fff;border-radius:24px;padding:16px;margin-top:14px;box-shadow:0 14px 34px rgba(15,23,42,.07)}
+      .mobile-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.mobile-section-head h2{margin:0;font-size:18px;color:#081b35}.mobile-section-head button{border:0;background:transparent;color:#0b5cac;font-weight:900}
+      .mobile-run-list{display:grid;gap:10px}.mobile-run-project{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eef2f7}.mobile-run-project:last-child{border-bottom:0}.mobile-run-icon{width:44px;height:44px;border-radius:16px;background:#e8f1ff;color:#0b5cac;display:flex;align-items:center;justify-content:center;font-weight:950}.mobile-run-project b{display:block;color:#081b35}.mobile-run-project span{display:block;color:#64748b;font-size:12px;font-weight:800}.mobile-run-project strong{color:#0b5cac}.mobile-run-progress{grid-column:2/4;height:7px;background:#e2e8f0;border-radius:99px;overflow:hidden}.mobile-run-progress i{display:block;height:100%;background:#0b5cac}
+      .mobile-cap-bar{height:18px;border-radius:99px;background:#e8eef6;overflow:hidden;margin:10px 0}.mobile-cap-bar i{display:block;height:100%;background:linear-gradient(90deg,#0b5cac,#73a7ff)}
+      .mobile-cap-legend{display:flex;gap:10px;flex-wrap:wrap;color:#64748b;font-size:12px;font-weight:800}
+    }
+
+  </style>
+</head>
+<body>
+  <div class="dash">
+    <section class="mobile-dashboard cws-mobile-page" data-testid="mobile-dashboard">
+      <div class="mobile-welcome"><span id="mobileGreeting">Welkom</span><h1>Hier is je planning overzicht.</h1><div class="mobile-dash-controls"><button id="mobileToday">Vandaag</button><button id="mobileFilter">Filter</button></div></div>
+      <div class="mobile-kpis" id="mobileKpis"></div>
+      <div class="mobile-section"><div class="mobile-section-head"><h2>Projecten in uitvoering</h2><button id="mobileAllProjects">Bekijk alle projecten</button></div><div class="mobile-run-list" id="mobileRunningProjects"></div></div>
+      <div class="mobile-section"><div class="mobile-section-head"><h2>Capaciteit overzicht</h2><button id="mobileCapacityOpen">Deze week</button></div><div id="mobileCapacityPct" style="font-size:30px;font-weight:950;color:#0b5cac">0%</div><div class="mobile-cap-bar"><i id="mobileCapacityFill" style="width:0%"></i></div><div class="mobile-cap-legend"><span>Bezet</span><span>Gereserveerd</span><span>Beschikbaar</span></div></div>
+    </section>
+    <div class="panelx">
+      <div class="panelx-head hero">
+        <div><h2>Dashboard — Vandaag aandacht nodig</h2><div class="small">Automatische signalering uit Projecten, Gantt, Capaciteit, Revisies en terugkoppelingen.</div></div>
+        <div class="toolbar"><input class="input" id="q" placeholder="Zoeken in projecten/aandachtspunten…" aria-label="Dashboard doorzoeken"><button class="btn" id="refresh">Ververs</button><button class="btn" id="report">Aandachtspuntenrapport</button></div>
+      </div>
+      <div class="content"><div class="tiles" id="tiles"></div></div>
+    </div>
+    <div class="grid">
+      <div class="panelx"><div class="panelx-head"><h2>Projectgezondheid</h2><span class="small" id="projectMeta"></span></div><div class="content"><table class="health-table"><thead><tr><th>Gezondheid</th><th>Project</th><th>Voortgang</th><th>Waarom aandacht?</th><th>Laatste terugkoppeling</th></tr></thead><tbody id="projects"></tbody></table></div></div>
+      <div class="panelx"><div class="panelx-head"><h2>Open aandachtspunten</h2><span class="small" id="attentionMeta"></span></div><div class="content"><ul class="attention-list" id="items"></ul></div></div>
+    </div>
+  </div>
+  <script>(function(){
+  var parentCws = null;
+  try{ parentCws = (window.parent && window.parent !== window) ? window.parent.CWS : null; }catch(_e){ parentCws = null; }
+  if(parentCws){ window.CWS = parentCws; window.CWS_PARENT_BRIDGED = true; }
+  else if(!window.CWS){ document.write('<script src="../js/core/store.js"><\/script>'); }
+})();
+var CWS = window.CWS;</script>
+<script src="../js/core/ui.js"></script>
+  <script src="../js/core/attention.js"></script>
+  <script>
+    const $=s=>document.querySelector(s); const AppUI = window.parent?.UI || window.UI; const esc=v=>CWS.attention.esc(v);
+    function openWhy(projectId){
+      const st=CWS.getState(); const h=CWS.attention.healthForProject(st,projectId); const wrap=document.createElement('div');
+      wrap.innerHTML=`<div class="badge ${CWS.attention.severityClass(h.severity)}">${esc(h.label)}</div><p class="small">${esc(h.project.nr||projectId)} - ${esc(h.project.name||'Project')} · ${h.pct}% gereed · ${h.taskCount} Gantt-taken</p>${CWS.attention.reasonHtml(h.reasons)}<div class="toolbar" style="margin-top:12px"><button class="btn" data-open="gantt">Open Gantt</button><button class="btn" data-open="capaciteit">Open Capaciteit</button><button class="btn" data-open="projectoverzicht">Open Projectoverzicht</button><button class="btn" data-open="preflight">Open Preflight</button></div>`;
+      wrap.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>CWS.attention.openModule(b.dataset.open));
+      AppUI.openModal({title:'Waarom aandacht?',subtitle:h.project.name||projectId,contentEl:wrap,actions:[{label:'Sluiten',onClick:({close})=>close()}]});
+    }
+    function projectProgress(p){
+      const status=String(p?.status||'').toLowerCase();
+      if(status.includes('gereed')) return 100;
+      if(status.includes('uitvoering')) return 55;
+      if(status.includes('ingepland')) return 25;
+      return 0;
+    }
+    function allTasks(st){
+      return Object.values(st.tasks?.byProject||{}).flatMap(model=>Array.isArray(model?.rows)?model.rows:[]);
+    }
+    function isoWeekKeyFromDate(input){
+      const d=new Date(Date.UTC(input.getFullYear(),input.getMonth(),input.getDate()));
+      const day=d.getUTCDay()||7;
+      d.setUTCDate(d.getUTCDate()+4-day);
+      const year=d.getUTCFullYear();
+      const yearStart=new Date(Date.UTC(year,0,1));
+      const week=Math.ceil((((d-yearStart)/86400000)+1)/7);
+      return `${year}-W${String(week).padStart(2,'0')}`;
+    }
+    function mobileCapacitySnapshot(st){
+      const weekKey=isoWeekKeyFromDate(new Date());
+      const plannedByDept=(CWS.capacity?.computePlannedWeekByDept?.(weekKey)) || {};
+      let planned=Object.values(plannedByDept).reduce((s,v)=>s+(Number(v)||0),0);
+      if(!planned){
+        planned=Object.entries(st.gantt?.hoursByDay||{}).reduce((sum,[iso,byDept])=>{
+          const d=new Date(`${iso}T00:00:00Z`);
+          if(Number.isNaN(d.getTime()) || isoWeekKeyFromDate(d)!==weekKey) return sum;
+          return sum+Object.values(byDept||{}).reduce((a,v)=>a+(Number(v)||0),0);
+        },0);
+      }
+      const capacityWeek=CWS.capacity?.computeDeptCapacityForWeek?.(weekKey);
+      let available=Number(capacityWeek?.total||0);
+      const overrideAvailable=Object.values(st.capacity?.availabilityOverrides||{}).reduce((deptSum,byDay)=>deptSum+Object.entries(byDay||{}).reduce((daySum,[iso,row])=>{
+        const d=new Date(`${iso}T00:00:00Z`);
+        if(Number.isNaN(d.getTime()) || isoWeekKeyFromDate(d)!==weekKey) return daySum;
+        return daySum+(Number(row?.hours)||0);
+      },0),0);
+      if(overrideAvailable>0) available=Math.max(available,overrideAvailable);
+      const capPct=available?Math.min(100,Math.round((planned/available)*100)):(planned?100:0);
+      return {weekKey,planned,available,capPct};
+    }
+    function renderMobileCockpit(st){
+      const host=$('#mobileKpis'); if(!host) return;
+      const projects=(st.projects?.order||[]).map(id=>st.projects.byId[id]).filter(Boolean);
+      const tasks=allTasks(st).filter(t=>t?.type!=='summary');
+      const overdue=tasks.filter(t=>String(t.status||'').toLowerCase()!=='gereed' && t.end && new Date(String(t.end).split('-').reverse().join('-')) < new Date()).length;
+      const { capPct }=mobileCapacitySnapshot(st);
+      $('#mobileGreeting').textContent='Goedemorgen';
+      host.innerHTML=[
+        ['P',projects.length,'Projecten'],
+        ['T',tasks.length,'Actieve taken'],
+        ['!',overdue,'Taken verlopen'],
+        ['%',`${capPct}%`,'Capaciteit benut']
+      ].map(([icon,n,label])=>`<div class="mobile-kpi"><i>${icon}</i><b>${n}</b><span>${label}</span></div>`).join('');
+      const running=projects.filter(p=>!String(p.status||'').toLowerCase().includes('gereed')).slice(0,5);
+      $('#mobileRunningProjects').innerHTML=running.length?running.map(p=>{ const pct=projectProgress(p); return `<div class="mobile-run-project" data-project-id="${esc(p.id)}"><div class="mobile-run-icon">P</div><div><b>${esc(p.name||p.nr||p.id)}</b><span>Start: ${esc(p.start||'-')} · Status: ${esc(p.status||'-')}</span></div><strong>${pct}%</strong><div class="mobile-run-progress"><i style="width:${pct}%"></i></div></div>`; }).join(''):'<div class="small">Geen lopende projecten gevonden.</div>';
+      $('#mobileRunningProjects').querySelectorAll('[data-project-id]').forEach(el=>el.onclick=()=>{ CWS.setState(s=>{ s.ui.activeProjectId=el.dataset.projectId; return s; }); CWS.attention.openModule('gantt'); });
+      $('#mobileCapacityPct').textContent=`${capPct}%`;
+      $('#mobileCapacityFill').style.width=`${capPct}%`;
+    }
+    function render(){
+      const st=CWS.getState(); const dash=CWS.attention.dashboard(st); const q=($('#q').value||'').toLowerCase().trim();
+      renderMobileCockpit(st);
+      const counters=dash.counters;
+      const tiles=[['Projecten rood',counters.redProjects,'red','projectoverzicht'],['Projecten oranje',counters.orangeProjects,'orange','projectoverzicht'],['Verlopen taken',counters.overdueTasks,'red','gantt'],['Capaciteitstekorten',counters.capacityShortages,'red','capaciteit'],['Zonder planning',counters.noPlanning,'blue','gantt'],['Geblokkeerde taken',counters.blockedTasks,'red','projectoverzicht'],['Oude terugkoppeling',counters.staleFeedback,'orange','projectoverzicht'],['Capaciteitsafwijkingen',counters.overrides,'blue','capaciteit']];
+      $('#tiles').innerHTML=tiles.map(([label,n,sev,mod])=>`<div class="tile ${CWS.attention.severityClass(sev)}" data-open="${mod}"><b>${n}</b><span>${label}</span></div>`).join('');
+      $('#tiles').querySelectorAll('[data-open]').forEach(t=>t.onclick=()=>CWS.attention.openModule(t.dataset.open));
+      const health=dash.health.filter(h=>!q || JSON.stringify(h).toLowerCase().includes(q));
+      $('#projectMeta').textContent=`${health.length} projecten`;
+      $('#projects').innerHTML=health.map(h=>`<tr class="click" data-why="${esc(h.projectId)}"><td><span class="badge ${CWS.attention.severityClass(h.severity)}">${esc(h.label)}</span></td><td><strong>${esc(h.project.nr||h.projectId)}</strong><br><span class="small">${esc(h.project.name||'')}</span></td><td><div class="progress"><i style="width:${h.pct}%"></i></div><span class="small">${h.pct}% · ${esc(h.status)}</span></td><td>${h.reasons.length?esc(h.reasons[0].message):'<span class="small">Geen aandachtspunten</span>'}</td><td>${h.latestFeedback?esc(h.latestFeedback):'<span class="small">Geen terugkoppeling</span>'}</td></tr>`).join('');
+      $('#projects').querySelectorAll('[data-why]').forEach(tr=>tr.onclick=()=>openWhy(tr.dataset.why));
+      const items=dash.items.filter(i=>!q || JSON.stringify(i).toLowerCase().includes(q)).slice(0,40);
+      $('#attentionMeta').textContent=`${items.length} zichtbaar / ${dash.items.length} totaal`;
+      $('#items').innerHTML=items.length?items.map(i=>`<li class="${CWS.attention.severityClass(i.severity)}"><strong>${esc(i.title)}</strong><br><span>${esc(i.message)}</span><br><button class="btn" style="margin-top:8px" data-open="${esc(i.module||'dashboard')}">${esc(i.action||'Open')}</button></li>`).join(''):'<li class="att-green"><strong>Geen open aandachtspunten</strong><br>Alles staat op schema volgens de huidige controles.</li>';
+      $('#items').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>CWS.attention.openModule(b.dataset.open));
+    }
+    $('#refresh').onclick=render; $('#q').oninput=render; $('#report').onclick=()=>CWS.attention.openModule('rapporten'); if(CWS.subscribe) CWS.subscribe(render); render();
+    $('#mobileAllProjects').onclick=()=>CWS.attention.openModule('projecten');
+    $('#mobileCapacityOpen').onclick=()=>CWS.attention.openModule('capaciteit');
+    $('#mobileFilter').onclick=()=>$('#q')?.focus();
+  </script>
+</body>
+</html>

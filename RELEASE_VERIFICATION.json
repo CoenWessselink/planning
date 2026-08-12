@@ -1,0 +1,191 @@
+{
+  "release": {
+    "name": "CWS Planning",
+    "version": "2.0.0",
+    "date": "2026-08-12"
+  },
+  "verdict": "PASSED_LOCAL_RELEASE_GATE",
+  "sourceAuditFindings": {
+    "total": 19,
+    "blocking": 4,
+    "high": 10,
+    "medium": 5,
+    "resolvedInSourceRelease": 19
+  },
+  "automatedChecks": {
+    "syntaxAndSecurityLint": {
+      "status": "passed",
+      "runtimeFilesScanned": 67
+    },
+    "unitTests": {
+      "status": "passed",
+      "passed": 16,
+      "failed": 0
+    },
+    "integrationTests": {
+      "status": "passed",
+      "passed": 16,
+      "failed": 0
+    },
+    "staticReleaseTests": {
+      "status": "passed",
+      "passed": 13,
+      "failed": 0
+    },
+    "allowlistBuild": {
+      "status": "passed",
+      "files": 71,
+      "forbiddenFiles": 0
+    },
+    "browserAcceptance": {
+      "status": "passed",
+      "executedAt": "2026-08-12T16:43:25.013919+00:00",
+      "baseUrl": "http://127.0.0.1:8794",
+      "browser": "system Chromium via Python Playwright",
+      "viewportDesktop": "1440x900",
+      "viewportMobile": "390x844",
+      "checksPassed": 11,
+      "checks": [
+        {
+          "name": "security_headers",
+          "status": "passed",
+          "details": {
+            "csp": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; worker-src 'self' blob:; manifest-src 'self'",
+            "hsts": "max-age=31536000; includeSubDomains"
+          }
+        },
+        {
+          "name": "fresh_empty_d1_is_authoritative",
+          "status": "passed",
+          "details": {
+            "version": 2,
+            "source": "remote-d1"
+          }
+        },
+        {
+          "name": "demo_saved_to_d1",
+          "status": "passed",
+          "details": {
+            "version": 3,
+            "projects": 5
+          }
+        },
+        {
+          "name": "all_production_modules_load",
+          "status": "passed",
+          "details": {
+            "count": 21,
+            "modules": [
+              "projecten",
+              "gantt",
+              "capaciteit",
+              "afdelingsplanning",
+              "werkvoorraad",
+              "resources",
+              "conflicten",
+              "mijnwerk",
+              "rollenrechten",
+              "projectoverzicht",
+              "projectplanning",
+              "planbord",
+              "transport",
+              "rapporten",
+              "dashboard",
+              "instellingen",
+              "nietwerkbaredagen",
+              "werknemerswerkweek",
+              "importexport",
+              "audit",
+              "preflight"
+            ]
+          }
+        },
+        {
+          "name": "project_crud_persists_after_reload",
+          "status": "passed",
+          "details": {
+            "project": "E2E-260812",
+            "version": 8
+          }
+        },
+        {
+          "name": "untrusted_postmessage_ignored",
+          "status": "passed"
+        },
+        {
+          "name": "release_surface_and_unknown_identity_blocked",
+          "status": "passed",
+          "details": {
+            "paths": {
+              "/wrangler.toml": 404,
+              "/package.json": 404,
+              "/d1-backup-before-restore-2026-06-12.sql": 404,
+              "/CLOUDFLARE_INTERNE_TEST.md": 404
+            },
+            "unknown_identity": 403
+          }
+        },
+        {
+          "name": "concurrent_cas_exactly_one_winner",
+          "status": "passed",
+          "details": {
+            "baseVersion": 9,
+            "statuses": [
+              200,
+              409
+            ]
+          }
+        },
+        {
+          "name": "latest_committed_state_hydrates_after_conflict",
+          "status": "passed",
+          "details": {
+            "version": 10
+          }
+        },
+        {
+          "name": "mobile_390x844",
+          "status": "passed",
+          "details": {
+            "cards": 6,
+            "horizontalOverflow": false
+          }
+        },
+        {
+          "name": "runtime_console_clean",
+          "status": "passed",
+          "details": {
+            "desktopPageErrors": 0,
+            "desktopConsoleErrors": 0,
+            "mobilePageErrors": 0,
+            "mobileConsoleErrors": 0
+          }
+        }
+      ],
+      "durationSeconds": 19.214
+    }
+  },
+  "dependencyChain": {
+    "nodeEngine": ">=22.0.0",
+    "playwrightTest": "1.62.1",
+    "wranglerCli": "4.120.0",
+    "lockfileVersion": 3,
+    "xlsxImplementation": "built-in; no external xlsx dependency"
+  },
+  "productionActionsNotPerformed": [
+    "No live Cloudflare Pages deployment was executed.",
+    "No live Cloudflare Access policy was changed or verified.",
+    "No production D1 migration or data import was executed.",
+    "No previous Pages deployments were deleted."
+  ],
+  "documentation": [
+    "README.md",
+    "RELEASE_NOTES.md",
+    "SECURITY.md",
+    "docs/ARCHITECTURE.md",
+    "docs/AUDIT_RESOLUTION.md",
+    "docs/DEPLOYMENT.md",
+    "docs/OPERATIONS.md",
+    "docs/RECOVERY.md"
+  ]
+}

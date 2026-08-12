@@ -1,0 +1,35 @@
+{
+  "name": "cws-planning",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CWS Planning-app voor Cloudflare Pages Functions en D1.",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "lint:syntax": "node scripts/syntax-check.mjs",
+    "lint:security": "node scripts/security-static-check.mjs",
+    "lint": "npm run lint:syntax && npm run lint:security",
+    "build": "node scripts/build-static.mjs && node scripts/verify-dist.mjs",
+    "start": "npm run build && node scripts/serve.mjs --root=dist --port=5173",
+    "dev": "node scripts/local-pages-server.mjs --profile=dev --port=8788 --build",
+    "dev:e2e": "node scripts/local-pages-server.mjs --profile=e2e --port=8788 --reset --build",
+    "dev:cloudflare": "npm run build && npx --yes wrangler@4.120.0 pages dev dist --port=8788 --local",
+    "db:migrate:local": "npx --yes wrangler@4.120.0 d1 migrations apply cws-planning-intern --local --persist-to=.wrangler/state",
+    "db:migrate:remote": "npx --yes wrangler@4.120.0 d1 migrations apply cws-planning-intern --remote",
+    "test:unit": "node --test --test-concurrency=1 tests/release/unit/*.test.mjs",
+    "test:integration": "node --test --test-concurrency=1 tests/release/integration/*.test.mjs",
+    "test:static": "node --test --test-concurrency=1 tests/release/static/*.test.mjs",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test": "npm run lint && npm run test:unit && npm run test:integration && npm run test:static && npm run build",
+    "verify": "npm run test && npm run test:e2e",
+    "deploy": "npm run verify && npx --yes wrangler@4.120.0 pages deploy dist --project-name=cws-planning-intern"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

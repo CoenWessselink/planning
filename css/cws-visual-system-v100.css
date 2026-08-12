@@ -1,0 +1,11 @@
+/* CWS Planning UI rebuild compatibility wrapper.
+   The real clean presentation layer lives in css/ui/*. This wrapper remains because
+   older adapter/preflight paths still inject this filename into iframe modules. */
+@import url("ui/00-tokens.css");
+@import url("ui/01-reset.css");
+@import url("ui/02-shell-apps.css");
+@import url("ui/03-components.css");
+@import url("ui/04-mobile-nav.css");
+@import url("ui/05-mobile-dashboard-projects.css");
+@import url("ui/06-mobile-gantt-capacity.css");
+@import url("ui/10-print.css");

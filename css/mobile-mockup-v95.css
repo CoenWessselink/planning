@@ -1,0 +1,133 @@
+/* CWS Planning V95 - final best-effort mobile viewport fit.
+   CSS-only safety layer: no data/save/drag logic changed. */
+@media(max-width:767px){
+  html,body{overflow:hidden!important;background:#f3f7fc!important}
+  body.cws-v95-final-fit .headerbar{height:66px!important;min-height:66px!important;max-height:66px!important;position:relative!important;z-index:20!important}
+  body.cws-v95-final-fit .app-shell{height:calc(100dvh - 66px)!important;margin:0!important;padding:0!important;overflow:hidden!important}
+  body.cws-v95-final-fit .panel{height:100%!important;overflow:hidden!important;border:0!important;box-shadow:none!important;background:#f3f7fc!important}
+  body.cws-v95-final-fit #appFrame{
+    height:calc(100dvh - 66px)!important;
+    min-height:calc(100dvh - 66px)!important;
+    max-height:calc(100dvh - 66px)!important;
+    overflow:hidden!important;
+    background:#f3f7fc!important;
+  }
+  body.cws-v95-final-fit .mobile-bottom-nav{
+    bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;
+    left:10px!important;
+    right:10px!important;
+    width:auto!important;
+    transform:none!important;
+    z-index:9999!important;
+  }
+}
+
+body.cws-responsive-frame.cws-v95-final-fit{
+  height:100dvh!important;
+  max-height:100dvh!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  background:#f3f7fc!important;
+  padding:0!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+body.cws-responsive-frame.cws-v95-final-fit::after{content:"";display:block;height:132px!important}
+
+@media(max-width:767px){
+  /* Dashboard: fit the first viewport instead of clipping halfway through KPI cards. */
+  body.cws-responsive-frame.cws-v95-final-fit[data-cws-active-module="dashboard"] .dash,
+  body.cws-responsive-frame.cws-v95-final-fit .dash{height:auto!important;min-height:0!important;overflow:visible!important;background:#f3f7fc!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-dashboard{
+    padding:28px 16px 132px!important;
+    min-height:calc(100dvh - 132px)!important;
+    overflow:visible!important;
+  }
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-welcome{margin-bottom:18px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-welcome h1{font-size:30px!important;line-height:1.06!important;margin-bottom:20px!important;max-width:340px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-dash-controls{margin:0 0 18px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-kpis{
+    display:grid!important;
+    grid-auto-flow:column!important;
+    grid-auto-columns:116px!important;
+    grid-template-columns:none!important;
+    gap:12px!important;
+    overflow-x:auto!important;
+    overflow-y:visible!important;
+    min-height:154px!important;
+    margin:0!important;
+    padding:0 0 8px!important;
+  }
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-kpi{min-width:116px!important;min-height:144px!important;padding:14px 12px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-kpi b{font-size:30px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-kpi span{font-size:12px!important;line-height:1.18!important}
+
+  /* Capacity: remove top clipping, compress controls, hide ghost scroll proxies/empty bars, leave real tables scrollable. */
+  body.cws-responsive-frame.cws-v95-final-fit[data-cws-active-module="capaciteit"]{
+    scroll-padding-top:0!important;
+  }
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell{
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding:0 0 132px!important;
+    background:#f3f7fc!important;
+  }
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell .toolbar{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+    padding:10px 16px 12px!important;
+    margin:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+    background:#f3f7fc!important;
+  }
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell .toolbar :where(select,input,button,.btn){height:42px!important;min-height:42px!important;border-radius:18px!important;font-size:13px!important;padding:0 10px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.module-head,.panel-head){padding:16px 16px 10px!important;margin:0!important;background:#fff!important;border-radius:22px 22px 0 0!important;overflow:visible!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.module-head h1,.panel-head h1,.panel-head h2){font-size:22px!important;line-height:1.12!important;margin:0 0 6px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.module-head p,.panel-head p,.sub,.small){font-size:14px!important;line-height:1.28!important;margin:0!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.kpi,.kpi2,.summary-cards){display:flex!important;gap:8px!important;flex-wrap:wrap!important;padding:0 16px 8px!important;margin:0!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.kpi .k,.kpi2 .k,.summary-cards>* ){min-height:34px!important;padding:8px 14px!important;border-radius:999px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.heatmap-wrap,.matrix-wrap,.table-wrap,.tablewrap,.cap-table){
+    display:block!important;
+    margin:8px 16px 14px!important;
+    max-width:calc(100vw - 32px)!important;
+    width:auto!important;
+    max-height:none!important;
+    min-height:0!important;
+    overflow:auto!important;
+    border-radius:20px!important;
+    background:#fff!important;
+    border:1px solid #dbe5f2!important;
+    box-shadow:0 8px 20px rgba(8,27,53,.05)!important;
+  }
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.matrix,table){min-width:720px!important;font-size:12px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(thead th,tbody td){padding:7px 9px!important;line-height:1.15!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.scrollbar-dock,.scrollbar-proxy,.scrollbar-dock *, .scrollbar-proxy *){display:none!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(.empty,.notice.hidden){display:none!important}
+  body.cws-responsive-frame.cws-v95-final-fit .cap-shell :where(input[type="text"]:not([value]),input[type="search"]:not([value])){display:none!important}
+
+  /* Gantt: keep function, make first mobile viewport usable and all content above nav. */
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell{height:auto!important;overflow:visible!important;padding:0 0 132px!important;background:#f3f7fc!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .module-head{padding:18px 16px 8px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .module-head h1{font-size:22px!important;line-height:1.12!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .module-head p{font-size:14px!important;line-height:1.25!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .toolbar{padding:8px 16px!important;gap:8px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .btn,
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell :where(.select,.input,.project-search){height:42px!important;min-height:42px!important;border-radius:18px!important;font-size:14px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .v73-gantt-mobile-hint{font-size:13px!important;padding:10px 12px!important;margin:8px 16px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .meta-line{font-size:12px!important;padding:6px 16px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .gantt-shell .board-wrap{height:calc(100dvh - 300px)!important;min-height:290px!important;max-height:none!important;margin:8px 16px 14px!important}
+
+  /* Projects: keep good state, only guarantee bottom clearance. */
+  body.cws-responsive-frame.cws-v95-final-fit .projects-infinite-panel{padding-bottom:132px!important}
+}
+
+@media(max-width:390px){
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-welcome h1{font-size:28px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-kpis{grid-auto-columns:108px!important}
+  body.cws-responsive-frame.cws-v95-final-fit .mobile-kpi{min-width:108px!important}
+}
