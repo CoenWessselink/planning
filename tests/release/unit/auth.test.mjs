@@ -41,3 +41,12 @@ test("mutaties vereisen exact dezelfde origin", () => {
   const absent = new Request("https://planning.example.test/api/state", { method: "PUT" });
   assert.throws(() => assertSameOrigin(absent), error => error?.code === "ORIGIN_REQUIRED");
 });
+
+test("Access auto-discovery weigert niet-Cloudflare issuers zonder netwerkverificatie", async () => {
+  const token = `${b64url({ alg: "RS256", kid: "x" })}.${b64url({ iss: "https://evil.example", aud: ["aud"], email: "admin@example.test", exp: Math.floor(Date.now()/1000)+300 })}.x`;
+  const request = new Request("https://planning.example.test/api/identity", { headers: { "Cf-Access-Jwt-Assertion": token } });
+  await assert.rejects(
+    () => authenticateRequest(request, { CWS_ACCESS_AUTO_DISCOVERY: "true" }),
+    error => error?.code === "ACCESS_AUTO_DISCOVERY_INVALID"
+  );
+});

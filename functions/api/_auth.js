@@ -89,6 +89,36 @@ async function verifyRs256(signingInput, signature, jwk) {
   );
 }
 
+function isCloudflareAccessIssuer(value) {
+  try {
+    const url = new URL(normalizeIssuer(value));
+    return url.protocol === "https:" && /(^|\.)cloudflareaccess\.com$/i.test(url.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+function resolveAccessConfig(payload, env = {}) {
+  const configuredIssuer = normalizeIssuer(env.ACCESS_TEAM_DOMAIN);
+  const configuredAudiences = parseAudiences(env.ACCESS_AUD || env.POLICY_AUD);
+  if (configuredIssuer && configuredAudiences.length) {
+    return { issuer: configuredIssuer, audiences: configuredAudiences, source: "configured" };
+  }
+
+  // Compatibility mode for Pages projects managed by wrangler.toml.
+  // The token still has to be RS256-signed by a Cloudflare Access team key,
+  // have a cloudflareaccess.com issuer and contain a non-empty audience.
+  if (String(env.CWS_ACCESS_AUTO_DISCOVERY || "").toLowerCase() !== "true") {
+    throw authError("Cloudflare Access-configuratie ontbreekt (ACCESS_TEAM_DOMAIN/ACCESS_AUD).", 500, "ACCESS_CONFIG_MISSING");
+  }
+  const issuer = normalizeIssuer(payload?.iss);
+  const audiences = Array.isArray(payload?.aud) ? payload.aud.map(String).filter(Boolean) : parseAudiences(payload?.aud);
+  if (!issuer || !isCloudflareAccessIssuer(issuer) || !audiences.length) {
+    throw authError("Cloudflare Access JWT bevat geen bruikbare issuer/audience voor automatische configuratie.", 401, "ACCESS_AUTO_DISCOVERY_INVALID");
+  }
+  return { issuer, audiences, source: "token-auto-discovery" };
+}
+
 function validateClaims(payload, issuer, audiences) {
   const now = Math.floor(Date.now() / 1000);
   const skew = 60;
@@ -127,18 +157,14 @@ export async function authenticateRequest(request, env = {}) {
   const token = String(request.headers.get("Cf-Access-Jwt-Assertion") || "").trim();
   if (!token) throw authError("Cloudflare Access JWT ontbreekt.", 401, "ACCESS_JWT_MISSING");
 
-  const issuer = normalizeIssuer(env.ACCESS_TEAM_DOMAIN);
-  const audiences = parseAudiences(env.ACCESS_AUD || env.POLICY_AUD);
-  if (!issuer || !audiences.length) {
-    throw authError("Cloudflare Access-configuratie ontbreekt (ACCESS_TEAM_DOMAIN/ACCESS_AUD).", 500, "ACCESS_CONFIG_MISSING");
-  }
-
   const parts = token.split(".");
   if (parts.length !== 3) throw authError("Cloudflare Access JWT heeft een ongeldig formaat.", 401, "ACCESS_JWT_FORMAT");
   const header = decodeJsonPart(parts[0], "header");
   const payload = decodeJsonPart(parts[1], "payload");
   if (header?.alg !== "RS256" || !header?.kid) throw authError("Cloudflare Access JWT gebruikt geen toegestane sleutel.", 401, "ACCESS_JWT_ALGORITHM");
 
+  const accessConfig = resolveAccessConfig(payload, env);
+  const { issuer, audiences } = accessConfig;
   const keys = await fetchJwks(issuer);
   const candidates = keys.filter(key => key?.kid === header.kid && (!key.alg || key.alg === "RS256"));
   if (!candidates.length) {
@@ -161,5 +187,5 @@ export async function authenticateRequest(request, env = {}) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw authError("Cloudflare Access JWT bevat geen geldig e-mailadres.", 401, "ACCESS_EMAIL_MISSING");
   const headerEmail = String(request.headers.get("CF-Access-Authenticated-User-Email") || "").trim().toLowerCase();
   if (headerEmail && headerEmail !== email) throw authError("Cloudflare Access identiteit komt niet overeen met de JWT.", 401, "ACCESS_IDENTITY_MISMATCH");
-  return { email, source: "cloudflare-access-jwt", claims: payload };
+  return { email, source: accessConfig.source === "configured" ? "cloudflare-access-jwt" : "cloudflare-access-jwt-auto", claims: payload };
 }

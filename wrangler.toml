@@ -2,6 +2,10 @@ name = "cws-planning-intern"
 compatibility_date = "2026-08-12"
 pages_build_output_dir = "dist"
 
+[vars]
+CWS_ACCESS_AUTO_DISCOVERY = "true"
+CWS_BOOTSTRAP_ADMIN_EMAIL = "coenwessselink@hotmail.com"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "cws-planning-intern"

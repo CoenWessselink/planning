@@ -1,6 +1,6 @@
 {
   "name": "cws-planning",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "type": "module",
   "description": "CWS Planning-app voor Cloudflare Pages Functions en D1.",

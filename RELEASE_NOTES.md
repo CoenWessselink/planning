@@ -55,3 +55,11 @@ De meegeleverde releasepoort controleert onder meer:
 - geen verwijdering van eventuele eerdere Pages-deployments.
 
 Volg `docs/DEPLOYMENT.md` en maak vóór productie een D1-herstelpunt.
+
+## 2.0.1 – Access-configuratie vereenvoudigd
+
+- `ACCESS_TEAM_DOMAIN` en `ACCESS_AUD` zijn niet meer verplicht wanneer `CWS_ACCESS_AUTO_DISCOVERY=true` staat.
+- De Access-JWT moet nog steeds RS256 zijn, een `*.cloudflareaccess.com` issuer hebben en wordt cryptografisch gecontroleerd tegen de bijbehorende Cloudflare JWKS.
+- De bestaande D1-gebruikersallowlist blijft verplicht; onbekende gebruikers krijgen geen toegang.
+- De bootstrap-admin is vastgezet op `coenwessselink@hotmail.com` voor deze installatie.
+- Voor maximale tenant-pinning kunnen `ACCESS_TEAM_DOMAIN` en `ACCESS_AUD` later alsnog expliciet worden ingevuld; die waarden krijgen dan voorrang op auto-discovery.

@@ -71,8 +71,8 @@ Configureer deze waarden in de Cloudflare Pages-omgeving:
 
 | Variabele | Vereist | Doel |
 |---|---:|---|
-| `ACCESS_TEAM_DOMAIN` | Ja | Cloudflare Access issuer, bijvoorbeeld `https://teamnaam.cloudflareaccess.com` |
-| `ACCESS_AUD` | Ja | Audience van de Access-applicatie |
+| `ACCESS_TEAM_DOMAIN` | Nee* | Optionele vaste Cloudflare Access issuer; auto-discovery is voor deze installatie ingeschakeld. |
+| `ACCESS_AUD` | Nee* | Optionele vaste Audience; auto-discovery is voor deze installatie ingeschakeld. |
 | `CWS_BOOTSTRAP_ADMIN_EMAIL` | Ja bij eerste installatie | Enige identiteit die als eerste admin mag worden aangemaakt wanneer `app_users` nog leeg is |
 | `CWS_MAINTENANCE_TOKEN` | Ja voor onderhoud | Extra geheim voor het expliciete D1-cleanupendpoint |
 
@@ -105,3 +105,8 @@ npm run deploy
 ```
 
 Controleer vóór deze commando’s dat `wrangler.toml`, de Pages-projectnaam, de D1-database-id, Cloudflare Access en alle productievariabelen bij de bedoelde omgeving horen.
+
+
+### Cloudflare Access zonder handmatige team/AUD-waarden
+
+Deze installatie gebruikt `CWS_ACCESS_AUTO_DISCOVERY=true` in `wrangler.toml`. Daardoor hoeven `ACCESS_TEAM_DOMAIN` en `ACCESS_AUD` niet vooraf handmatig te worden ingevuld. Cloudflare Access zelf moet wel voor het productie-hostname zijn ingeschakeld, zodat `Cf-Access-Jwt-Assertion` aanwezig is. De JWT-handtekening wordt nog steeds gecontroleerd tegen de Cloudflare Access JWKS en de gebruiker moet in D1 geautoriseerd zijn. Voor maximale tenant-pinning kunnen de twee expliciete waarden later alsnog worden toegevoegd; die krijgen automatisch voorrang.
