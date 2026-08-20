@@ -7,7 +7,7 @@ Deze release is ingericht voor **Cloudflare Pages Functions + D1**. De browser g
 ## Releaseprofiel
 
 - Productienaam: `CWS Planning`
-- Packageversie: `2.0.0`
+- Packageversie: `2.0.1`
 - Node.js: `22` of hoger
 - Cloudflare Wrangler: exact `4.120.0` via de npm-scripts
 - Playwright Test: exact `1.62.1`

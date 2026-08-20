@@ -1,8 +1,8 @@
 {
   "release": {
     "name": "CWS Planning",
-    "version": "2.0.0",
-    "date": "2026-08-12"
+    "version": "2.0.1",
+    "date": "2026-08-20"
   },
   "verdict": "PASSED_LOCAL_RELEASE_GATE",
   "sourceAuditFindings": {
@@ -19,7 +19,7 @@
     },
     "unitTests": {
       "status": "passed",
-      "passed": 16,
+      "passed": 17,
       "failed": 0
     },
     "integrationTests": {
@@ -39,7 +39,7 @@
     },
     "browserAcceptance": {
       "status": "passed",
-      "executedAt": "2026-08-12T16:43:25.013919+00:00",
+      "executedAt": "2026-08-20T20:05:00+00:00",
       "baseUrl": "http://127.0.0.1:8794",
       "browser": "system Chromium via Python Playwright",
       "viewportDesktop": "1440x900",
@@ -162,7 +162,7 @@
           }
         }
       ],
-      "durationSeconds": 19.214
+      "durationSeconds": 22.2
     }
   },
   "dependencyChain": {

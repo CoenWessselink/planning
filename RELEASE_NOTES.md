@@ -1,4 +1,4 @@
-# Release notes — CWS Planning 2.0.0
+# Release notes — CWS Planning 2.0.1
 
 Datum: 12 augustus 2026
 
